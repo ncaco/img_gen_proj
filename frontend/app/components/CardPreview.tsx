@@ -2,21 +2,11 @@
 
 import React from 'react';
 
-interface TypeData {
-  kingdom: string;
-  phylum: string;
-  class: string;
-  order: string;
-  family: string;
-  genus: string;
-  species: string;
-}
-
 interface CardData {
   characterImage?: string;
   backgroundImage?: string;
   cardName?: string;
-  type?: TypeData | string;
+  type?: string;
   attribute?: string;
   rarity?: string;
   attack?: string;
@@ -55,22 +45,7 @@ export default function CardPreview({ cardData }: CardPreviewProps) {
     series = '시리즈명',
   } = cardData;
 
-  // 타입 표시값 계산 (가장 상세한 분류 표시)
-  const getTypeDisplay = () => {
-    if (typeof typeData === 'string') {
-      return typeData;
-    }
-    if (typeData.species) return typeData.species;
-    if (typeData.genus) return typeData.genus;
-    if (typeData.family) return typeData.family;
-    if (typeData.order) return typeData.order;
-    if (typeData.class) return typeData.class;
-    if (typeData.phylum) return typeData.phylum;
-    if (typeData.kingdom) return typeData.kingdom;
-    return '타입';
-  };
-
-  const typeDisplay = getTypeDisplay();
+  const typeDisplay = typeData || '타입';
 
   return (
     <div className="relative w-[400px] h-[560px] rounded-lg overflow-hidden shadow-2xl border-2 border-gray-300" data-card-preview="true">
@@ -112,15 +87,19 @@ export default function CardPreview({ cardData }: CardPreviewProps) {
         {/* 구분선 */}
         <div className="h-px bg-white/30 my-2" />
 
-        {/* 이미지 영역 */}
-        <div className="flex-1 relative mb-2 rounded overflow-hidden bg-black/20">
-          {characterImage ? (
-            <img
-              src={characterImage}
-              alt="캐릭터"
-              className="w-full h-full object-contain"
-            />
-          ) : (
+        {/* 이미지 영역 - 고정 높이 + background-image 사용 (html2canvas와 렌더링 일치) */}
+        <div
+          className="relative mb-2 rounded overflow-hidden bg-black h-[260px] bg-center bg-no-repeat"
+          style={
+            characterImage
+              ? {
+                  backgroundImage: `url(${characterImage})`,
+                  backgroundSize: 'contain',
+                }
+              : undefined
+          }
+        >
+          {!characterImage && (
             <div className="w-full h-full flex items-center justify-center text-white/50 text-sm">
               캐릭터 이미지
             </div>
@@ -132,18 +111,24 @@ export default function CardPreview({ cardData }: CardPreviewProps) {
 
         {/* 스킬 영역 (투명 배경 오버레이) */}
         <div className="space-y-2 mb-2">
-          <div className="bg-black/40 backdrop-blur-sm rounded p-2">
-            <div className="text-white font-semibold text-sm mb-1">
+          {/* 스킬 1 */}
+          <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 min-h-[56px] flex flex-col justify-center">
+            <div className="text-white font-semibold text-sm leading-tight">
               [스킬 1] {skill1?.name || '스킬명'}
             </div>
-            <div className="text-white/90 text-xs">• {skill1?.description || '효과 설명'}</div>
+            <div className="text-white/90 text-xs leading-tight mt-0.5">
+              • {skill1?.description || '효과 설명'}
+            </div>
           </div>
 
-          <div className="bg-black/40 backdrop-blur-sm rounded p-2">
-            <div className="text-white font-semibold text-sm mb-1">
+          {/* 스킬 2 */}
+          <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 min-h-[56px] flex flex-col justify-center">
+            <div className="text-white font-semibold text-sm leading-tight">
               [스킬 2] {skill2?.name || '스킬명'}
             </div>
-            <div className="text-white/90 text-xs">• {skill2?.description || '효과 설명'}</div>
+            <div className="text-white/90 text-xs leading-tight mt-0.5">
+              • {skill2?.description || '효과 설명'}
+            </div>
           </div>
         </div>
 
@@ -151,8 +136,8 @@ export default function CardPreview({ cardData }: CardPreviewProps) {
         <div className="h-px bg-white/30 my-2" />
 
         {/* 하단 설명 영역 (투명 배경 오버레이) */}
-        <div className="bg-black/40 backdrop-blur-sm rounded p-2 mb-2">
-          <p className="text-white/90 text-xs italic leading-relaxed">
+        <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 mb-2 flex items-center min-h-[48px]">
+          <p className="text-white/90 text-xs italic leading-tight">
             &ldquo;{flavorText}&rdquo;
           </p>
         </div>

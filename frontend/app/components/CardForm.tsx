@@ -1,21 +1,10 @@
 'use client';
 
 import React from 'react';
-import TypeSelector from './TypeSelector';
-
-interface TypeData {
-  kingdom: string;
-  phylum: string;
-  class: string;
-  order: string;
-  family: string;
-  genus: string;
-  species: string;
-}
 
 interface CardFormData {
   cardName: string;
-  type: TypeData;
+  type: string;
   attribute: string;
   rarity: string;
   attack: string;
@@ -35,7 +24,7 @@ interface CardFormProps {
 }
 
 export default function CardForm({ formData, onChange }: CardFormProps) {
-  const handleChange = (field: keyof CardFormData, value: string | TypeData) => {
+  const handleChange = (field: keyof CardFormData, value: string) => {
     onChange({
       ...formData,
       [field]: value,
@@ -63,20 +52,21 @@ export default function CardForm({ formData, onChange }: CardFormProps) {
           />
         </div>
 
-        {/* 타입 - 생물 분류 체계 */}
+        {/* 타입 - 단일 입력 */}
         <div className="md:col-span-2">
-          <TypeSelector
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            타입
+          </label>
+          <input
+            type="text"
             value={formData.type}
-            onChange={(type) => {
-              onChange({
-                ...formData,
-                type,
-              });
-            }}
+            onChange={(e) => handleChange('type', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="예: 고양이과, 마법사, 전사 등"
           />
         </div>
 
-        {/* 속성 */}
+        {/* 속성 - 아이콘이 아닌 한글 텍스트 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             속성
@@ -86,13 +76,13 @@ export default function CardForm({ formData, onChange }: CardFormProps) {
             onChange={(e) => handleChange('attribute', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="속성">속성 선택</option>
-            <option value="🔥">🔥 불</option>
-            <option value="💧">💧 물</option>
-            <option value="🌍">🌍 땅</option>
-            <option value="💨">💨 바람</option>
-            <option value="✨">✨ 빛</option>
-            <option value="🌑">🌑 어둠</option>
+            <option value="">속성 선택</option>
+            <option value="불">불</option>
+            <option value="물">물</option>
+            <option value="땅">땅</option>
+            <option value="바람">바람</option>
+            <option value="빛">빛</option>
+            <option value="어둠">어둠</option>
           </select>
         </div>
 
@@ -106,7 +96,7 @@ export default function CardForm({ formData, onChange }: CardFormProps) {
             onChange={(e) => handleChange('rarity', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="[등급 아이콘]">등급 선택</option>
+            <option value="">등급 선택</option>
             <option value="⭐">⭐ 일반</option>
             <option value="⭐⭐">⭐⭐ 레어</option>
             <option value="⭐⭐⭐">⭐⭐⭐ 슈퍼레어</option>

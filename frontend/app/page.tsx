@@ -1,26 +1,16 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import DropZone from './components/DropZone';
 import CardPreview from './components/CardPreview';
 import CardForm from './components/CardForm';
 import StepTabs, { Step } from './components/StepTabs';
 import ResultPanel from './components/ResultPanel';
 
-interface TypeData {
-  kingdom: string;
-  phylum: string;
-  class: string;
-  order: string;
-  family: string;
-  genus: string;
-  species: string;
-}
-
 interface CardFormData {
   cardName: string;
-  type: TypeData;
+  type: string;
   attribute: string;
   rarity: string;
   attack: string;
@@ -40,38 +30,30 @@ export default function Home() {
   const [backgroundImage, setBackgroundImage] = useState<string | undefined>();
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>();
-  const cardPreviewRef = useRef<HTMLDivElement>(null);
+  const cardPreviewRef = useRef<HTMLDivElement>(null); // 화면 오른쪽 실시간 미리보기
   const [formData, setFormData] = useState<CardFormData>({
-    cardName: '카드명',
-    type: {
-      kingdom: '',
-      phylum: '',
-      class: '',
-      order: '',
-      family: '',
-      genus: '',
-      species: '',
-    },
-    attribute: '속성',
-    rarity: '[등급 아이콘]',
-    attack: '0',
-    health: '0',
-    skill1Name: '스킬명',
-    skill1Description: '효과 설명',
-    skill2Name: '스킬명',
-    skill2Description: '효과 설명',
-    flavorText: '설명/플레이버 텍스트',
-    cardNumber: '[카드 번호]',
-    series: '[제작자/시리즈 정보]',
+    cardName: '',
+    type: '',
+    attribute: '',
+    rarity: '',
+    attack: '',
+    health: '',
+    skill1Name: '',
+    skill1Description: '',
+    skill2Name: '',
+    skill2Description: '',
+    flavorText: '',
+    cardNumber: '',
+    series: '',
   });
 
   // 단계별 완료 및 활성화 상태 계산
   const imageStepCompleted = !!(characterImage && backgroundImage);
   const infoStepCompleted = 
-    formData.cardName !== '카드명' &&
-    (formData.type.kingdom || formData.type.species) &&
-    formData.attribute !== '속성' &&
-    formData.rarity !== '[등급 아이콘]';
+    formData.cardName.trim() !== '' &&
+    formData.type.trim() !== '' &&
+    formData.attribute.trim() !== '' &&
+    formData.rarity.trim() !== '';
 
   const steps = {
     image: {
@@ -120,34 +102,14 @@ export default function Home() {
 
   // 프롬프트 생성 함수 (README.md 카드 구조 기반)
   const generatePrompt = (): string => {
-    const getTypeString = () => {
-      const type = formData.type;
-      if (type.order) return type.order;
-      if (type.class) return type.class;
-      if (type.phylum) return type.phylum;
-      if (type.kingdom) return type.kingdom;
-      return '';
-    };
-
-    const getFullTypePath = () => {
-      const type = formData.type;
-      const parts = [];
-      if (type.kingdom) parts.push(`계: ${type.kingdom}`);
-      if (type.phylum) parts.push(`문: ${type.phylum}`);
-      if (type.class) parts.push(`강: ${type.class}`);
-      if (type.order) parts.push(`목: ${type.order}`);
-      return parts.length > 0 ? parts.join(' → ') : '';
-    };
-
-    const typeStr = getTypeString();
-    const fullTypePath = getFullTypePath();
-    const attributeStr = formData.attribute !== '속성' ? formData.attribute : '';
-    const rarityStr = formData.rarity !== '[등급 아이콘]' ? formData.rarity : '';
-    const cardNameStr = formData.cardName !== '카드명' ? formData.cardName : '';
-    const attackStr = formData.attack !== '0' ? formData.attack : '';
-    const healthStr = formData.health !== '0' ? formData.health : '';
-    const cardNumberStr = formData.cardNumber !== '[카드 번호]' ? formData.cardNumber : '';
-    const seriesStr = formData.series !== '[제작자/시리즈 정보]' ? formData.series : '';
+    const typeStr = formData.type.trim() !== '' ? formData.type : '';
+    const attributeStr = formData.attribute.trim() !== '' ? formData.attribute : '';
+    const rarityStr = formData.rarity.trim() !== '' ? formData.rarity : '';
+    const cardNameStr = formData.cardName.trim() !== '' ? formData.cardName : '';
+    const attackStr = formData.attack.trim() !== '' ? formData.attack : '';
+    const healthStr = formData.health.trim() !== '' ? formData.health : '';
+    const cardNumberStr = formData.cardNumber.trim() !== '' ? formData.cardNumber : '';
+    const seriesStr = formData.series.trim() !== '' ? formData.series : '';
     
     // 시각적 레이아웃 프롬프트 (ASCII 아트 형태)
     let visualPrompt = `트레이딩 카드 게임 스타일의 카드 일러스트를 생성하세요.\n\n`;
@@ -171,14 +133,14 @@ export default function Home() {
     visualPrompt += `│  │  ─────────────────────────────  │\n`;
     
     // 스킬 영역
-    if (formData.skill1Name !== '스킬명') {
+    if (formData.skill1Name.trim() !== '') {
       const skill1Name = formData.skill1Name.length > 12 ? formData.skill1Name.substring(0, 12) + '...' : formData.skill1Name;
       visualPrompt += `│  │  [스킬 1] ${skill1Name}              │\n`;
       const skill1Desc = formData.skill1Description.length > 30 ? formData.skill1Description.substring(0, 30) + '...' : formData.skill1Description;
       visualPrompt += `│  │  • ${skill1Desc}              │\n`;
       visualPrompt += `│  │                                 │\n`;
     }
-    if (formData.skill2Name !== '스킬명') {
+    if (formData.skill2Name.trim() !== '') {
       const skill2Name = formData.skill2Name.length > 12 ? formData.skill2Name.substring(0, 12) + '...' : formData.skill2Name;
       visualPrompt += `│  │  [스킬 2] ${skill2Name}              │\n`;
       const skill2Desc = formData.skill2Description.length > 30 ? formData.skill2Description.substring(0, 30) + '...' : formData.skill2Description;
@@ -189,7 +151,7 @@ export default function Home() {
     visualPrompt += `│  │  ─────────────────────────────  │\n`;
     
     // 플레이버 텍스트
-    if (formData.flavorText !== '설명/플레이버 텍스트') {
+    if (formData.flavorText.trim() !== '') {
       const flavorText = formData.flavorText.length > 35 ? formData.flavorText.substring(0, 35) + '...' : formData.flavorText;
       visualPrompt += `│  │  "${flavorText}"            │\n`;
       visualPrompt += `│  │                                 │\n`;
@@ -258,8 +220,8 @@ export default function Home() {
       },
       header: {
         type: typeStr || null,
-        typePath: fullTypePath || null,
-        typeDescription: typeStr ? `${typeStr} - 생물 분류 체계에 따른 타입` : null,
+        typePath: null,
+        typeDescription: typeStr ? `${typeStr} - 카드의 타입/분류를 나타냄` : null,
         rarity: rarityStr || null,
         rarityDescription: rarityStr ? getRarityDescription(rarityStr) : null,
         cardName: cardNameStr || null,
@@ -271,7 +233,7 @@ export default function Home() {
         attack: attackStr || null,
         health: healthStr || null
       },
-      description: formData.flavorText !== '설명/플레이버 텍스트' ? formData.flavorText : null,
+      description: formData.flavorText.trim() !== '' ? formData.flavorText : null,
       meta: {
         cardNumber: cardNumberStr || null,
         series: seriesStr || null
@@ -358,55 +320,31 @@ export default function Home() {
     });
   };
 
-  // 카드 미리보기 이미지 생성 (html2canvas 사용)
+  // 카드 미리보기 이미지 생성 (html-to-image 사용)
+  // 화면 오른쪽 "실시간 미리보기" 영역에 렌더링된 카드 그대로를 캡처
   const generatePreviewImage = async (): Promise<string> => {
     if (!cardPreviewRef.current) return '';
-    
+
     try {
       // CardPreview 컴포넌트의 최상위 div 요소 찾기 (data-card-preview 속성 사용)
-      const cardElement = cardPreviewRef.current.querySelector('div[data-card-preview="true"]') as HTMLElement;
-      if (!cardElement) {
-        // 대체 방법: 첫 번째 div 요소 사용
-        const firstDiv = cardPreviewRef.current.querySelector('div') as HTMLElement;
-        if (!firstDiv) return '';
-        
-        // 이미지 로드 대기
-        await waitForImages(firstDiv);
-        
-        const canvas = await html2canvas(firstDiv, {
-          backgroundColor: null,
-          scale: 2,
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-          removeContainer: false,
-        });
-        return canvas.toDataURL('image/png');
-      }
-      
+      const cardElement =
+        (cardPreviewRef.current.querySelector(
+          'div[data-card-preview="true"]',
+        ) as HTMLElement | null) || cardPreviewRef.current;
+
       // 이미지 로드 대기
       await waitForImages(cardElement);
-      
-      // 추가 렌더링 대기
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // 카드의 실제 크기 가져오기
-      const rect = cardElement.getBoundingClientRect();
-      const cardWidth = rect.width || 400;
-      const cardHeight = rect.height || 560;
-      
-      const canvas = await html2canvas(cardElement, {
-        backgroundColor: null,
-        scale: 2, // 고해상도 (2배)
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        removeContainer: false,
-        imageTimeout: 15000,
-        foreignObjectRendering: false,
+
+      // 추가 렌더링 대기 (폰트/그라데이션 등 마무리용)
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const dataUrl = await toPng(cardElement, {
+        cacheBust: true,
+        pixelRatio: 2, // 고해상도 (2배)
+        backgroundColor: 'transparent',
       });
-      
-      return canvas.toDataURL('image/png');
+
+      return dataUrl;
     } catch (error) {
       console.error('이미지 생성 실패:', error);
       return '';
@@ -431,7 +369,7 @@ export default function Home() {
     characterImage,
     backgroundImage,
     cardName: formData.cardName,
-    type: formData.type, // TypeData 객체 전달
+    type: formData.type,
     attribute: formData.attribute,
     rarity: formData.rarity,
     attack: formData.attack,
@@ -563,7 +501,11 @@ export default function Home() {
 
             {/* 3단계: 결과 */}
             {currentStep === 'result' && (
-              <ResultPanel prompt={generatedPrompt} />
+              <ResultPanel
+                prompt={generatedPrompt}
+                previewImageUrl={previewImageUrl}
+                cardData={cardData}
+              />
             )}
           </div>
 
@@ -595,27 +537,19 @@ export default function Home() {
                       setCharacterImage(undefined);
                       setBackgroundImage(undefined);
                       setFormData({
-                        cardName: '카드명',
-                        type: {
-                          kingdom: '',
-                          phylum: '',
-                          class: '',
-                          order: '',
-                          family: '',
-                          genus: '',
-                          species: '',
-                        },
-                        attribute: '속성',
-                        rarity: '[등급 아이콘]',
-                        attack: '0',
-                        health: '0',
-                        skill1Name: '스킬명',
-                        skill1Description: '효과 설명',
-                        skill2Name: '스킬명',
-                        skill2Description: '효과 설명',
-                        flavorText: '설명/플레이버 텍스트',
-                        cardNumber: '[카드 번호]',
-                        series: '[제작자/시리즈 정보]',
+                        cardName: '',
+                        type: '',
+                        attribute: '',
+                        rarity: '',
+                        attack: '',
+                        health: '',
+                        skill1Name: '',
+                        skill1Description: '',
+                        skill2Name: '',
+                        skill2Description: '',
+                        flavorText: '',
+                        cardNumber: '',
+                        series: '',
                       });
                       setGeneratedPrompt('');
                       setPreviewImageUrl(undefined);
