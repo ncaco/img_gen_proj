@@ -563,7 +563,7 @@ export default function Home() {
 
             {/* 3단계: 결과 */}
             {currentStep === 'result' && (
-              <ResultPanel prompt={generatedPrompt} previewImageUrl={previewImageUrl} />
+              <ResultPanel prompt={generatedPrompt} />
             )}
           </div>
 

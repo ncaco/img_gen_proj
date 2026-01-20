@@ -1,51 +1,37 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 
 interface ResultPanelProps {
   prompt: string;
-  previewImageUrl?: string;
 }
 
-export default function ResultPanel({ prompt, previewImageUrl }: ResultPanelProps) {
-  const downloadPrompt = () => {
-    const blob = new Blob([prompt], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'card-prompt.txt';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+export default function ResultPanel({ prompt }: ResultPanelProps) {
+  const [copied, setCopied] = useState(false);
 
-  const downloadImage = () => {
-    if (!previewImageUrl) return;
-    
-    // data URL을 blob으로 변환
-    fetch(previewImageUrl)
-      .then(res => res.blob())
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'card-preview.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      })
-      .catch(err => {
-        console.error('이미지 다운로드 실패:', err);
-        // data URL이면 직접 다운로드
-        const link = document.createElement('a');
-        link.href = previewImageUrl;
-        link.download = 'card-preview.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      });
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('클립보드 복사 실패:', err);
+      // 대체 방법: 텍스트 영역을 생성하여 복사
+      const textArea = document.createElement('textarea');
+      textArea.value = prompt;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (fallbackErr) {
+        console.error('대체 복사 방법도 실패:', fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   return (
@@ -66,13 +52,28 @@ export default function ResultPanel({ prompt, previewImageUrl }: ResultPanelProp
             이미지 생성 프롬프트
           </h3>
           <button
-            onClick={downloadPrompt}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+            onClick={copyToClipboard}
+            className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+              copied
+                ? 'bg-green-500 text-white hover:bg-green-600'
+                : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            다운로드
+            {copied ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                복사됨!
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                클립보드 복사
+              </>
+            )}
           </button>
         </div>
         <div className="bg-gray-50 dark:bg-gray-900 rounded p-4 border border-gray-200 dark:border-gray-700">
@@ -81,36 +82,6 @@ export default function ResultPanel({ prompt, previewImageUrl }: ResultPanelProp
           </pre>
         </div>
       </div>
-
-      {/* 미리보기 이미지 영역 */}
-      {previewImageUrl && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-              카드 미리보기 이미지
-            </h3>
-            <button
-              onClick={downloadImage}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              다운로드
-            </button>
-          </div>
-          <div className="bg-gray-50 dark:bg-gray-900 rounded p-4 border border-gray-200 dark:border-gray-700 flex justify-center">
-            <div className="relative" style={{ width: '400px', height: '560px' }}>
-              <img
-                src={previewImageUrl}
-                alt="카드 미리보기"
-                className="w-full h-full object-contain rounded-lg shadow-2xl border-2 border-gray-300"
-                style={{ width: '400px', height: '560px', objectFit: 'contain' }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
