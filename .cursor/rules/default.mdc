@@ -1,0 +1,7 @@
+---
+name: default
+description: This is a new rule
+---
+
+명령어 처리는 기본적으로 cmd, power shell 명령어를 사용해줍시다.
+cd frontend; npm install; npm run dev; 
