@@ -46,3 +46,13 @@ Thumbs.db
 
 # uv
 .uv/
+
+# Database
+data/database/*.db
+data/database/*.db-journal
+data/database/*.db-shm
+data/database/*.db-wal
+
+# Upload files
+data/upload/*
+!data/upload/.gitkeep
