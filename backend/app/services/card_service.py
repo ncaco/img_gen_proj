@@ -205,6 +205,7 @@ class CardService:
         
         # 데이터베이스에 저장
         db.add(card)
+        db.flush()  # flush를 먼저 호출하여 ID 생성
         db.commit()
         db.refresh(card)
         

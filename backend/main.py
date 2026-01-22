@@ -20,7 +20,8 @@ async def lifespan(app: FastAPI):
     """
     # 서버 시작 시 실행
     print("🚀 서버 시작 중...")
-    init_db()
+    # DEBUG 모드일 때는 테이블 구조 변경 시 자동 재생성
+    init_db(force_recreate=False)
     ensure_upload_dir()
     print(f"📁 업로드 디렉토리 준비 완료: {settings.upload_path}")
     yield
