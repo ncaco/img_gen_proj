@@ -24,8 +24,8 @@ class CardDataSchema(BaseModel):
     skill2Name: Optional[str] = Field(default="", description="스킬 2 이름")
     skill2Description: Optional[str] = Field(default="", description="스킬 2 설명")
     flavorText: Optional[str] = Field(default="", description="플레이버 텍스트")
-    cardNumber: Optional[str] = Field(default="", description="카드 번호")
     series: Optional[str] = Field(default="", description="시리즈/제작자 정보")
+    # cardNumber는 제거: 모델의 card_number는 PK로 자동 생성되므로 사용자 입력 불필요
 
 
 class CardGenerationRequestSchema(BaseModel):
@@ -46,6 +46,22 @@ class CardGenerationResponseSchema(BaseModel):
 class HealthCheckSchema(BaseModel):
     """헬스 체크 응답 스키마"""
     status: str = Field(default="healthy", description="서버 상태")
+
+
+class CardSaveRequestSchema(BaseModel):
+    """카드 저장 요청 스키마"""
+    cardData: CardDataSchema = Field(..., description="카드 데이터")
+    characterImageUrl: Optional[str] = Field(None, description="캐릭터 이미지 URL")
+    backgroundImageUrl: Optional[str] = Field(None, description="배경 이미지 URL")
+    generatedPrompt: Optional[str] = Field(None, description="생성된 프롬프트")
+    generatedImageUrl: Optional[str] = Field(None, description="생성된 이미지 URL")
+
+
+class CardSaveResponseSchema(BaseModel):
+    """카드 저장 응답 스키마"""
+    success: bool = Field(..., description="성공 여부")
+    message: str = Field(..., description="응답 메시지")
+    cardNumber: Optional[int] = Field(None, description="저장된 카드 일련번호")
 
 
 class RootResponseSchema(BaseModel):

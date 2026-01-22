@@ -1,7 +1,9 @@
 """
 카드 생성 관련 비즈니스 로직
 """
-from app.schemas.card import CardDataSchema, CardGenerationRequestSchema
+from app.schemas.card import CardDataSchema, CardGenerationRequestSchema, CardSaveRequestSchema
+from app.database.models import Card
+from sqlalchemy.orm import Session
 from typing import Dict
 
 
@@ -99,10 +101,9 @@ class CardService:
         prompt += f"│  │  {stats.ljust(35)}│\n"
         prompt += "│  │                                 │\n"
         
-        # 메타 정보
-        card_number_str = card_data.cardNumber if card_data.cardNumber else "[카드번호]"
+        # 메타 정보 (card_number는 DB에서 자동 생성되므로 프롬프트에서는 제외)
         series_str = card_data.series if card_data.series else "[시리즈]"
-        meta_info = f"{card_number_str}  {series_str}"
+        meta_info = series_str
         prompt += f"│  │  {meta_info.ljust(35)}│\n"
         prompt += "│  └─────────────────────────────────┘   │\n"
         prompt += "└─────────────────────────────────────────┘\n"
@@ -137,7 +138,6 @@ class CardService:
             },
             "description": card_data.flavorText if card_data.flavorText else None,
             "meta": {
-                "cardNumber": card_number_str,
                 "series": series_str
             }
         }
@@ -168,3 +168,44 @@ class CardService:
         prompt += "- 카드 비율: 5:7 (세로형, 400x560px 기준)\n"
         
         return prompt
+    
+    @staticmethod
+    def save_card(db: Session, request: CardSaveRequestSchema) -> Card:
+        """
+        카드 정보를 데이터베이스에 저장
+        
+        Args:
+            db: 데이터베이스 세션
+            request: 카드 저장 요청 데이터
+            
+        Returns:
+            Card: 저장된 카드 객체
+        """
+        card_data = request.cardData
+        
+        # 카드 모델 생성 (card_number는 DB에서 자동 생성되므로 설정하지 않음)
+        card = Card(
+            card_name=card_data.cardName,
+            type=card_data.type,
+            attribute=card_data.attribute,
+            rarity=card_data.rarity,
+            attack=card_data.attack or "0",
+            health=card_data.health or "0",
+            skill1_name=card_data.skill1Name or None,
+            skill1_description=card_data.skill1Description or None,
+            skill2_name=card_data.skill2Name or None,
+            skill2_description=card_data.skill2Description or None,
+            flavor_text=card_data.flavorText or None,
+            series=card_data.series or None,
+            character_image_url=request.characterImageUrl or None,
+            background_image_url=request.backgroundImageUrl or None,
+            generated_prompt=request.generatedPrompt or None,
+            generated_image_url=request.generatedImageUrl or None,
+        )
+        
+        # 데이터베이스에 저장
+        db.add(card)
+        db.commit()
+        db.refresh(card)
+        
+        return card

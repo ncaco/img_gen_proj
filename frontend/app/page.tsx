@@ -351,17 +351,117 @@ export default function Home() {
     }
   };
 
+  // base64 이미지를 Blob으로 변환
+  const base64ToBlob = (base64: string, mimeType: string = 'image/png'): Blob => {
+    const base64Data = base64.split(',')[1] || base64;
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+  };
+
+  // 이미지 업로드 함수
+  const uploadImage = async (imageData: string, imageType: 'character' | 'background'): Promise<string | null> => {
+    if (!imageData) return null;
+    
+    try {
+      // base64를 Blob으로 변환
+      const blob = base64ToBlob(imageData);
+      const file = new File([blob], `${imageType}_${Date.now()}.png`, { type: 'image/png' });
+      
+      // FormData 생성
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('subdirectory', 'cards');
+      
+      // 서버에 업로드
+      const response = await fetch('http://localhost:8000/api/v1/upload/single', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('이미지 업로드 실패');
+      }
+      
+      const result = await response.json();
+      return result.file_url || null;
+    } catch (error) {
+      console.error('이미지 업로드 오류:', error);
+      return null;
+    }
+  };
+
   // 생성 버튼 클릭 핸들러
   const handleGenerate = async () => {
-    const prompt = generatePrompt();
-    setGeneratedPrompt(prompt);
-    
-    // 미리보기 이미지 생성
-    const imageUrl = await generatePreviewImage();
-    setPreviewImageUrl(imageUrl);
-    
-    // 결과 탭으로 이동
-    setCurrentStep('result');
+    try {
+      const prompt = generatePrompt();
+      setGeneratedPrompt(prompt);
+      
+      // 미리보기 이미지 생성
+      const imageUrl = await generatePreviewImage();
+      setPreviewImageUrl(imageUrl);
+      
+      // 이미지 업로드
+      const characterImageUrl = characterImage 
+        ? await uploadImage(characterImage, 'character')
+        : null;
+      const backgroundImageUrl = backgroundImage
+        ? await uploadImage(backgroundImage, 'background')
+        : null;
+      
+      // 생성된 이미지도 업로드 (있는 경우)
+      let generatedImageUrl = null;
+      if (imageUrl) {
+        generatedImageUrl = await uploadImage(imageUrl, 'generated');
+      }
+      
+      // 카드 정보를 서버에 저장
+      const saveResponse = await fetch('http://localhost:8000/api/v1/cards/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cardData: {
+            cardName: formData.cardName,
+            type: formData.type,
+            attribute: formData.attribute,
+            rarity: formData.rarity,
+            attack: formData.attack || '0',
+            health: formData.health || '0',
+            skill1Name: formData.skill1Name || '',
+            skill1Description: formData.skill1Description || '',
+            skill2Name: formData.skill2Name || '',
+            skill2Description: formData.skill2Description || '',
+            flavorText: formData.flavorText || '',
+            cardNumber: formData.cardNumber || '',
+            series: formData.series || '',
+          },
+          characterImageUrl: characterImageUrl,
+          backgroundImageUrl: backgroundImageUrl,
+          generatedPrompt: prompt,
+          generatedImageUrl: generatedImageUrl,
+        }),
+      });
+      
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json();
+        throw new Error(errorData.detail || '카드 저장 실패');
+      }
+      
+      const saveResult = await saveResponse.json();
+      console.log('카드 저장 성공:', saveResult);
+      
+      // 결과 탭으로 이동
+      setCurrentStep('result');
+    } catch (error) {
+      console.error('카드 생성/저장 오류:', error);
+      alert(`오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    }
   };
 
   // 폼 데이터를 카드 데이터로 변환

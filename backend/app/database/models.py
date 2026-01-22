@@ -12,8 +12,8 @@ class Card(Base):
     """
     __tablename__ = "cards"
     
-    # 기본 필드
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    # 기본 필드 (PK)
+    card_number = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="카드 일련번호 (PK)")
     
     # 카드 기본 정보
     card_name = Column(String(100), nullable=False, index=True, comment="카드명")
@@ -33,7 +33,6 @@ class Card(Base):
     
     # 추가 정보
     flavor_text = Column(Text, nullable=True, comment="플레이버 텍스트")
-    card_number = Column(String(50), nullable=True, comment="카드 번호")
     series = Column(String(100), nullable=True, comment="시리즈/제작자 정보")
     
     # 이미지 URL
@@ -60,7 +59,7 @@ class Card(Base):
     )
     
     def __repr__(self):
-        return f"<Card(id={self.id}, card_name='{self.card_name}', type='{self.type}')>"
+        return f"<Card(card_number={self.card_number}, card_name='{self.card_name}', type='{self.type}')>"
 
 
 class CardGenerationHistory(Base):
@@ -70,7 +69,7 @@ class CardGenerationHistory(Base):
     __tablename__ = "card_generation_history"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    card_id = Column(Integer, nullable=False, index=True, comment="카드 ID")
+    card_id = Column(Integer, nullable=False, index=True, comment="카드 일련번호 (FK)")
     
     # 생성 요청 정보 (JSON 형태로 저장)
     request_data = Column(JSON, nullable=True, comment="요청 데이터")

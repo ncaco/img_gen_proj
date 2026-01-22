@@ -64,8 +64,9 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    # reload를 사용하려면 import string을 사용해야 하므로, 직접 실행 시에는 reload=False
     uvicorn.run(
-        app,
+        "main:app",  # import string 사용
         host=settings.HOST,
         port=settings.PORT,
         reload=settings.DEBUG
