@@ -210,3 +210,26 @@ class CardService:
         db.refresh(card)
         
         return card
+    
+    @staticmethod
+    def get_all_cards(db: Session, skip: int = 0, limit: int = 100):
+        """
+        모든 카드 목록 조회
+        
+        Args:
+            db: 데이터베이스 세션
+            skip: 건너뛸 개수 (페이지네이션)
+            limit: 가져올 최대 개수
+            
+        Returns:
+            tuple: (카드 목록, 전체 개수)
+        """
+        from app.database.models import Card
+        
+        # 전체 개수 조회
+        total = db.query(Card).count()
+        
+        # 카드 목록 조회 (최신순)
+        cards = db.query(Card).order_by(Card.card_number.desc()).offset(skip).limit(limit).all()
+        
+        return cards, total

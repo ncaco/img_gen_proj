@@ -1,0 +1,6 @@
+/* 관리자 페이지 전용 스타일 */
+.admin-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}

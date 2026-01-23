@@ -64,6 +64,35 @@ class CardSaveResponseSchema(BaseModel):
     cardNumber: Optional[int] = Field(None, description="저장된 카드 일련번호")
 
 
+class CardResponseSchema(BaseModel):
+    """카드 응답 스키마"""
+    cardNumber: int = Field(..., description="카드 일련번호")
+    cardName: str = Field(..., description="카드명")
+    type: str = Field(..., description="카드 타입")
+    attribute: str = Field(..., description="카드 속성")
+    rarity: str = Field(..., description="카드 등급")
+    attack: str = Field(..., description="공격력")
+    health: str = Field(..., description="체력")
+    skill1Name: Optional[str] = Field(None, description="스킬 1 이름")
+    skill1Description: Optional[str] = Field(None, description="스킬 1 설명")
+    skill2Name: Optional[str] = Field(None, description="스킬 2 이름")
+    skill2Description: Optional[str] = Field(None, description="스킬 2 설명")
+    flavorText: Optional[str] = Field(None, description="플레이버 텍스트")
+    series: Optional[str] = Field(None, description="시리즈/제작자 정보")
+    characterImageUrl: Optional[str] = Field(None, description="캐릭터 이미지 URL")
+    backgroundImageUrl: Optional[str] = Field(None, description="배경 이미지 URL")
+    generatedImageUrl: Optional[str] = Field(None, description="생성된 이미지 URL")
+    createdAt: str = Field(..., description="생성일시")
+    updatedAt: str = Field(..., description="수정일시")
+
+
+class CardListResponseSchema(BaseModel):
+    """카드 목록 응답 스키마"""
+    success: bool = Field(..., description="성공 여부")
+    total: int = Field(..., description="전체 카드 개수")
+    cards: list[CardResponseSchema] = Field(..., description="카드 목록")
+
+
 class RootResponseSchema(BaseModel):
     """루트 엔드포인트 응답 스키마"""
     message: str = Field(..., description="서버 메시지")

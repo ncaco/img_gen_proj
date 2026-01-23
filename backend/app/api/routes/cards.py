@@ -8,6 +8,8 @@ from app.schemas.card import (
     CardGenerationResponseSchema,
     CardSaveRequestSchema,
     CardSaveResponseSchema,
+    CardListResponseSchema,
+    CardResponseSchema,
 )
 from app.services.card_service import CardService
 from app.database.database import get_db
@@ -84,4 +86,56 @@ async def save_card(request: CardSaveRequestSchema, db: Session = Depends(get_db
         raise HTTPException(
             status_code=500,
             detail=f"카드 저장 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.get("/list", response_model=CardListResponseSchema)
+async def get_cards(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    카드 목록을 조회합니다.
+    
+    - **skip**: 건너뛸 개수 (페이지네이션)
+    - **limit**: 가져올 최대 개수 (기본값: 100)
+    """
+    try:
+        cards, total = card_service.get_all_cards(db, skip=skip, limit=limit)
+        
+        # 카드 모델을 응답 스키마로 변환
+        card_list = []
+        for card in cards:
+            card_list.append(CardResponseSchema(
+                cardNumber=card.card_number,
+                cardName=card.card_name,
+                type=card.type,
+                attribute=card.attribute,
+                rarity=card.rarity,
+                attack=card.attack or "0",
+                health=card.health or "0",
+                skill1Name=card.skill1_name,
+                skill1Description=card.skill1_description,
+                skill2Name=card.skill2_name,
+                skill2Description=card.skill2_description,
+                flavorText=card.flavor_text,
+                series=card.series,
+                characterImageUrl=card.character_image_url,
+                backgroundImageUrl=card.background_image_url,
+                generatedImageUrl=card.generated_image_url,
+                createdAt=card.created_at.isoformat() if card.created_at else "",
+                updatedAt=card.updated_at.isoformat() if card.updated_at else "",
+            ))
+        
+        return CardListResponseSchema(
+            success=True,
+            total=total,
+            cards=card_list
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"카드 목록 조회 중 오류가 발생했습니다: {str(e)}"
         )

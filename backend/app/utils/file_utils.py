@@ -112,8 +112,9 @@ async def save_uploaded_file(
         f.write(content)
     
     # 상대 경로 반환 (API에서 사용할 URL 경로)
+    # /data/upload/... 형식으로 반환
     relative_path = file_path.relative_to(settings.upload_path.parent)
-    file_url = f"/{relative_path.as_posix()}"
+    file_url = f"/data/{relative_path.as_posix()}"
     
     return file_url, file_path
 
