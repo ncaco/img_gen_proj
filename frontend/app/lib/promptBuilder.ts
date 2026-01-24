@@ -31,8 +31,14 @@ export const buildPrompt = (input: PromptInput) => {
   const attributeStr = input.attribute?.trim() ? input.attribute : '[속성]';
   const attackStr = input.attack?.trim() ? input.attack : '0';
   const healthStr = input.health?.trim() ? input.health : '0';
+  // 카드번호 처리: #을 제거하고 숫자만 추출한 후 다시 #을 추가 (중복 방지)
   const cardNumberStr = input.cardNumber?.trim()
-    ? `#${input.cardNumber.trim().padStart(3, '0')}`
+    ? (() => {
+        // 앞의 # 제거, 숫자가 아닌 문자 제거, 숫자만 추출
+        const numbersOnly = input.cardNumber.trim().replace(/^#+/, '').replace(/[^0-9]/g, '');
+        // 숫자가 있으면 #을 추가하고 3자리로 패딩, 없으면 [카드번호]
+        return numbersOnly ? `#${numbersOnly.padStart(3, '0')}` : '[카드번호]';
+      })()
     : '[카드번호]';
   const seriesStr = input.series?.trim() ? input.series : '[시리즈]';
 

@@ -139,13 +139,22 @@ export default function CardForm({ formData, onChange }: CardFormProps) {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             카드 번호
           </label>
-          <input
-            type="text"
-            value={formData.cardNumber}
-            onChange={(e) => handleChange('cardNumber', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="#001"
-          />
+          <div className="relative">
+            <span className="absolute left-3 top-2 text-gray-500 dark:text-gray-400 pointer-events-none">
+              #
+            </span>
+            <input
+              type="text"
+              value={formData.cardNumber.replace(/^#/, '')}
+              onChange={(e) => {
+                // #을 제거하고 숫자만 저장 (사용자가 #을 입력해도 자동으로 제거)
+                const value = e.target.value.replace(/^#+/, '').replace(/[^0-9]/g, '');
+                handleChange('cardNumber', value ? `#${value}` : '');
+              }}
+              className="w-full pl-6 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="001"
+            />
+          </div>
         </div>
 
         {/* 시리즈 */}
