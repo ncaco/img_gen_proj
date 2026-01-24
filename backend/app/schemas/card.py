@@ -81,6 +81,7 @@ class CardResponseSchema(BaseModel):
     series: Optional[str] = Field(None, description="시리즈/제작자 정보")
     characterImageUrl: Optional[str] = Field(None, description="캐릭터 이미지 URL")
     backgroundImageUrl: Optional[str] = Field(None, description="배경 이미지 URL")
+    generatedPrompt: Optional[str] = Field(None, description="생성된 프롬프트")
     generatedImageUrl: Optional[str] = Field(None, description="생성된 이미지 URL")
     createdAt: str = Field(..., description="생성일시")
     updatedAt: str = Field(..., description="수정일시")

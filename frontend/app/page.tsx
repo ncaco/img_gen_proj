@@ -7,6 +7,7 @@ import CardPreview from './components/CardPreview';
 import CardForm from './components/CardForm';
 import StepTabs, { Step } from './components/StepTabs';
 import ResultPanel from './components/ResultPanel';
+import { buildPrompt } from './lib/promptBuilder';
 
 interface CardFormData {
   cardName: string;
@@ -100,172 +101,25 @@ export default function Home() {
     setBackgroundImage(undefined);
   };
 
-  // 프롬프트 생성 함수 (README.md 카드 구조 기반)
-  const generatePrompt = (): string => {
-    const typeStr = formData.type.trim() !== '' ? formData.type : '';
-    const attributeStr = formData.attribute.trim() !== '' ? formData.attribute : '';
-    const rarityStr = formData.rarity.trim() !== '' ? formData.rarity : '';
-    const cardNameStr = formData.cardName.trim() !== '' ? formData.cardName : '';
-    const attackStr = formData.attack.trim() !== '' ? formData.attack : '';
-    const healthStr = formData.health.trim() !== '' ? formData.health : '';
-    const cardNumberStr = formData.cardNumber.trim() !== '' ? formData.cardNumber : '';
-    const seriesStr = formData.series.trim() !== '' ? formData.series : '';
-    
-    // 시각적 레이아웃 프롬프트 (ASCII 아트 형태)
-    let visualPrompt = `트레이딩 카드 게임 스타일의 카드 일러스트를 생성하세요.\n\n`;
-    visualPrompt += `=== 카드 레이아웃 (시각적 구조) ===\n\n`;
-    visualPrompt += `┌─────────────────────────────────────────┐\n`;
-    visualPrompt += `│  [배경 이미지 - Layer 2 (전체 영역)]     │\n`;
-    visualPrompt += `│  ┌─────────────────────────────────┐   │\n`;
-    visualPrompt += `│  │                                 │   │\n`;
-    
-    // 상단 헤더
-    const headerLeft = typeStr ? `⭕${typeStr}` : '⭕[타입]';
-    const headerCenter = `${rarityStr || '[등급]'}  ${cardNameStr || '카드명'}`;
-    const headerRight = attributeStr ? `${attributeStr}⭕` : '[속성]⭕';
-    visualPrompt += `│  │  ${headerLeft}  ${headerCenter}  ${headerRight} │\n`;
-    visualPrompt += `│  │  ─────────────────────────────  │\n`;
-    visualPrompt += `│  │                                 │\n`;
-    
-    // 메인 캐릭터 이미지
-    visualPrompt += `│  │    [메인 캐릭터 이미지 - Layer 1]  │\n`;
-    visualPrompt += `│  │                                 │\n`;
-    visualPrompt += `│  │  ─────────────────────────────  │\n`;
-    
-    // 스킬 영역
-    if (formData.skill1Name.trim() !== '') {
-      const skill1Name = formData.skill1Name.length > 12 ? formData.skill1Name.substring(0, 12) + '...' : formData.skill1Name;
-      visualPrompt += `│  │  [스킬 1] ${skill1Name}              │\n`;
-      const skill1Desc = formData.skill1Description.length > 30 ? formData.skill1Description.substring(0, 30) + '...' : formData.skill1Description;
-      visualPrompt += `│  │  • ${skill1Desc}              │\n`;
-      visualPrompt += `│  │                                 │\n`;
-    }
-    if (formData.skill2Name.trim() !== '') {
-      const skill2Name = formData.skill2Name.length > 12 ? formData.skill2Name.substring(0, 12) + '...' : formData.skill2Name;
-      visualPrompt += `│  │  [스킬 2] ${skill2Name}              │\n`;
-      const skill2Desc = formData.skill2Description.length > 30 ? formData.skill2Description.substring(0, 30) + '...' : formData.skill2Description;
-      visualPrompt += `│  │  • ${skill2Desc}              │\n`;
-      visualPrompt += `│  │                                 │\n`;
-    }
-    
-    visualPrompt += `│  │  ─────────────────────────────  │\n`;
-    
-    // 플레이버 텍스트
-    if (formData.flavorText.trim() !== '') {
-      const flavorText = formData.flavorText.length > 35 ? formData.flavorText.substring(0, 35) + '...' : formData.flavorText;
-      visualPrompt += `│  │  "${flavorText}"            │\n`;
-      visualPrompt += `│  │                                 │\n`;
-    }
-    
-    // 공격력/체력
-    if (attackStr || healthStr) {
-      const stats = `⚔️ ${attackStr || '0'}  ❤️ ${healthStr || '0'}`;
-      visualPrompt += `│  │  ${stats}                    │\n`;
-      visualPrompt += `│  │                                 │\n`;
-    }
-    
-    // 메타 정보
-    const metaInfo = `${cardNumberStr || '[카드번호]'}  ${seriesStr || '[시리즈]'}`;
-    visualPrompt += `│  │  ${metaInfo}                    │\n`;
-    visualPrompt += `│  └─────────────────────────────────┘   │\n`;
-    visualPrompt += `└─────────────────────────────────────────┘\n`;
-    visualPrompt += `(모든 텍스트는 투명 배경 오버레이로 배경 위에 표시)\n\n`;
-    
-    // 속성 한글 설명 매핑
-    const getAttributeDescription = (attr: string): string => {
-      const attrMap: { [key: string]: string } = {
-        '불': '화염 속성 - 강력한 공격력과 파괴력을 상징',
-        '물': '물 속성 - 치유와 방어, 유연성을 상징',
-        '땅': '대지 속성 - 방어력과 안정성을 상징',
-        '바람': '바람 속성 - 속도와 기동성을 상징',
-        '빛': '빛 속성 - 치유와 보호, 순수함을 상징',
-        '어둠': '어둠 속성 - 신비와 강력한 힘을 상징',
-        '번개': '번개 속성 - 빠른 공격과 전기 속성을 상징',
-        '얼음': '얼음 속성 - 냉기와 둔화 효과를 상징',
-      };
-      return attrMap[attr] || `${attr} 속성 - 카드의 특성을 나타냄`;
-    };
-
-    // 등급 한글 설명 매핑
-    const getRarityDescription = (rarity: string): string => {
-      if (rarity.includes('⭐')) {
-        const starCount = (rarity.match(/⭐/g) || []).length;
-        if (starCount === 1) return '일반 등급 - 기본 카드';
-        if (starCount === 2) return '레어 등급 - 희귀한 카드';
-        if (starCount === 3) return '슈퍼레어 등급 - 매우 희귀한 카드';
-        if (starCount >= 4) return '울트라레어 등급 - 최고 희귀도 카드';
-      }
-      if (rarity.includes('일반')) return '일반 등급 - 기본 카드';
-      if (rarity.includes('레어')) return '레어 등급 - 희귀한 카드';
-      if (rarity.includes('슈퍼레어') || rarity.includes('SR')) return '슈퍼레어 등급 - 매우 희귀한 카드';
-      if (rarity.includes('울트라레어') || rarity.includes('UR')) return '울트라레어 등급 - 최고 희귀도 카드';
-      return `${rarity} - 카드의 희귀도를 나타냄`;
-    };
-    
-    // 구조화된 데이터 프롬프트
-    let dataPrompt = `=== 카드 데이터 (구조화된 정보) ===\n\n`;
-    
-    const cardData = {
-      layout: {
-        layer2: {
-          type: '배경 이미지',
-          description: '카드 전체를 덮는 배경 이미지',
-          reference: backgroundImage ? '업로드된 배경 이미지 스타일 참고' : '없음'
-        },
-        layer1: {
-          type: '메인 캐릭터 이미지',
-          description: '배경 위 중앙에 배치되는 메인 캐릭터',
-          reference: characterImage ? '업로드된 캐릭터 이미지 스타일 참고' : '없음'
-        }
-      },
-      header: {
-        type: typeStr || null,
-        typePath: null,
-        typeDescription: typeStr ? `${typeStr} - 카드의 타입/분류를 나타냄` : null,
-        rarity: rarityStr || null,
-        rarityDescription: rarityStr ? getRarityDescription(rarityStr) : null,
-        cardName: cardNameStr || null,
-        attribute: attributeStr || null,
-        attributeDescription: attributeStr ? getAttributeDescription(attributeStr) : null
-      },
-      skills: [] as Array<{ name: string; description: string }>,
-      stats: {
-        attack: attackStr || null,
-        health: healthStr || null
-      },
-      description: formData.flavorText.trim() !== '' ? formData.flavorText : null,
-      meta: {
-        cardNumber: cardNumberStr || null,
-        series: seriesStr || null
-      }
-    };
-    
-    if (formData.skill1Name !== '스킬명') {
-      cardData.skills.push({
-        name: formData.skill1Name,
-        description: formData.skill1Description
-      });
-    }
-    if (formData.skill2Name !== '스킬명') {
-      cardData.skills.push({
-        name: formData.skill2Name,
-        description: formData.skill2Description
-      });
-    }
-    
-    dataPrompt += JSON.stringify(cardData, null, 2);
-    dataPrompt += `\n\n`;
-    
-    // 스타일 가이드
-    dataPrompt += `=== 스타일 가이드 ===\n`;
-    dataPrompt += `- 트레이딩 카드 게임 스타일 (포켓몬카드, 원피스카드 등 참고)\n`;
-    dataPrompt += `- 모든 텍스트는 투명도가 높은 배경 위에 오버레이로 표시\n`;
-    dataPrompt += `- 배경 이미지가 카드 전체를 덮고, 그 위에 캐릭터와 텍스트가 배치됨\n`;
-    dataPrompt += `- 상세하고 전문적인 일러스트 품질\n`;
-    dataPrompt += `- 카드 비율: 5:7 (세로형, 400x560px 기준)\n`;
-    
-    return visualPrompt + dataPrompt;
-  };
+  // 프롬프트 생성 함수 (공통 템플릿 사용)
+  const generatePrompt = (): string =>
+    buildPrompt({
+      type: formData.type,
+      rarity: formData.rarity,
+      cardName: formData.cardName,
+      attribute: formData.attribute,
+      attack: formData.attack,
+      health: formData.health,
+      cardNumber: formData.cardNumber,
+      skill1Name: formData.skill1Name,
+      skill1Description: formData.skill1Description,
+      skill2Name: formData.skill2Name,
+      skill2Description: formData.skill2Description,
+      flavorText: formData.flavorText,
+      series: formData.series,
+      characterImageRef: characterImage ? '업로드된 캐릭터 이미지 스타일 참고' : '없음',
+      backgroundImageRef: backgroundImage ? '업로드된 배경 이미지 스타일 참고' : '없음',
+    });
 
   // 이미지 로드 대기 함수 (img 태그와 배경 이미지 모두)
   const waitForImages = (element: HTMLElement): Promise<void> => {

@@ -123,6 +123,7 @@ async def get_cards(
                 series=card.series,
                 characterImageUrl=card.character_image_url,
                 backgroundImageUrl=card.background_image_url,
+                generatedPrompt=card.generated_prompt,
                 generatedImageUrl=card.generated_image_url,
                 createdAt=card.created_at.isoformat() if card.created_at else "",
                 updatedAt=card.updated_at.isoformat() if card.updated_at else "",
