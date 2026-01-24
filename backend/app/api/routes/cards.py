@@ -77,7 +77,7 @@ async def save_card(request: CardSaveRequestSchema, db: Session = Depends(get_db
         return CardSaveResponseSchema(
             success=True,
             message="카드가 성공적으로 저장되었습니다.",
-            cardNumber=card.card_number
+            cardSn=card.card_sn
         )
     
     except HTTPException:
@@ -108,6 +108,7 @@ async def get_cards(
         card_list = []
         for card in cards:
             card_list.append(CardResponseSchema(
+                cardSn=card.card_sn,
                 cardNumber=card.card_number,
                 cardName=card.card_name,
                 type=card.type,

@@ -57,8 +57,8 @@ def init_db(force_recreate: bool = False):
     should_recreate = force_recreate
     if 'cards' in existing_tables and not should_recreate:
         columns = [col['name'] for col in inspector.get_columns('cards')]
-        # 기존 테이블에 'id' 컬럼이 있으면 (구 스키마) 재생성 필요
-        if 'id' in columns and 'card_number' not in columns:
+        # 기존 테이블에 'card_sn' 컬럼이 없으면 (구 스키마) 재생성 필요
+        if 'card_sn' not in columns:
             print("⚠️  기존 테이블 구조가 변경되었습니다. 테이블을 재생성합니다...")
             should_recreate = True
     

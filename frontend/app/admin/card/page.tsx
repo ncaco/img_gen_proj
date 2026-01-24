@@ -6,7 +6,8 @@ import { FiClipboard, FiPlus } from 'react-icons/fi';
 import { buildPrompt } from '../../lib/promptBuilder';
 
 interface Card {
-  cardNumber: number;
+  cardSn: number;
+  cardNumber?: string;
   cardName: string;
   type: string;
   attribute: string;
@@ -107,7 +108,7 @@ export default function CardPage() {
       attribute: card.attribute,
       attack: card.attack,
       health: card.health,
-      cardNumber: String(card.cardNumber),
+      cardNumber: card.cardNumber || String(card.cardSn),
       skill1Name: card.skill1Name,
       skill1Description: card.skill1Description,
       skill2Name: card.skill2Name,
@@ -173,7 +174,7 @@ export default function CardPage() {
 
           return (
             <div
-              key={card.cardNumber}
+              key={card.cardSn}
               onClick={() => handleCardClick(card)}
               className="relative bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-105 cursor-pointer"
               style={{ aspectRatio: '5/7' }}
@@ -304,12 +305,22 @@ export default function CardPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        카드 번호
+                        카드 일련번호
                       </label>
                       <p className="text-base font-bold text-gray-900 dark:text-white">
-                        #{selectedCard.cardNumber}
+                        #{selectedCard.cardSn}
                       </p>
                     </div>
+                    {selectedCard.cardNumber && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          카드번호
+                        </label>
+                        <p className="text-base font-semibold text-gray-900 dark:text-white">
+                          {selectedCard.cardNumber}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                         카드명

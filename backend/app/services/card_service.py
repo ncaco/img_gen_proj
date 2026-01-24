@@ -183,9 +183,10 @@ class CardService:
         """
         card_data = request.cardData
         
-        # 카드 모델 생성 (card_number는 DB에서 자동 생성되므로 설정하지 않음)
+        # 카드 모델 생성 (card_sn는 DB에서 자동 생성되므로 설정하지 않음)
         card = Card(
             card_name=card_data.cardName,
+            card_number=card_data.cardNumber or None,
             type=card_data.type,
             attribute=card_data.attribute,
             rarity=card_data.rarity,
@@ -230,6 +231,6 @@ class CardService:
         total = db.query(Card).count()
         
         # 카드 목록 조회 (최신순)
-        cards = db.query(Card).order_by(Card.card_number.desc()).offset(skip).limit(limit).all()
+        cards = db.query(Card).order_by(Card.card_sn.desc()).offset(skip).limit(limit).all()
         
         return cards, total
