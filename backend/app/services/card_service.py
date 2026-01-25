@@ -181,6 +181,11 @@ class CardService:
         Returns:
             Card: 저장된 카드 객체
         """
+        from pathlib import Path
+        from app.core.config import settings
+        from app.utils.file_utils import get_file_path_from_url
+        import shutil
+        
         card_data = request.cardData
         
         # 카드 모델 생성 (card_sn는 DB에서 자동 생성되므로 설정하지 않음)
@@ -204,9 +209,98 @@ class CardService:
             generated_image_url=request.generatedImageUrl or None,
         )
         
-        # 데이터베이스에 저장
+        # 데이터베이스에 저장 (card_sn를 얻기 위해)
         db.add(card)
         db.flush()  # flush를 먼저 호출하여 ID 생성
+        
+        # 파일 재배치: upload/시리즈/번호/원본파일명.png 형식으로 이동
+        series_name = card_data.series or "default"
+        card_number = card.card_number or str(card.card_sn)
+        
+        # card_number에서 # 제거 및 특수문자 처리
+        clean_number = card_number.replace('#', '').strip()
+        
+        # 시리즈명과 번호로 디렉토리 경로 생성 (특수문자 제거)
+        safe_series = "".join(c for c in series_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_series = safe_series.replace(' ', '_') if safe_series else "default"
+        safe_number = "".join(c for c in clean_number if c.isalnum() or c in ('-', '_')).strip() or str(card.card_sn)
+        
+        target_dir = settings.upload_path / safe_series / safe_number
+        target_dir.mkdir(parents=True, exist_ok=True)
+        print(f"타겟 디렉토리 생성: {target_dir}")
+        
+        # 이미지 파일들을 새 경로로 이동
+        image_urls = [
+            (request.characterImageUrl, 'character_image_url'),
+            (request.backgroundImageUrl, 'background_image_url'),
+            (request.generatedImageUrl, 'generated_image_url'),
+        ]
+        
+        for image_url, field_name in image_urls:
+            if not image_url:
+                continue
+                
+            try:
+                # 기존 파일 경로 찾기
+                old_path = get_file_path_from_url(image_url)
+                if not old_path:
+                    print(f"파일 경로를 찾을 수 없음 ({field_name}): {image_url}")
+                    continue
+                if not old_path.exists():
+                    print(f"파일이 존재하지 않음 ({field_name}): {old_path}")
+                    continue
+                
+                print(f"파일 이동 시작 ({field_name}): {old_path} -> {target_dir}")
+                
+                # 원본 파일명 추출 (확장자 포함)
+                original_filename = old_path.name
+                
+                # 새 경로 생성
+                new_path = target_dir / original_filename
+                
+                # 파일이 이미 새 경로에 있으면 스킵 (같은 파일인지 확인)
+                try:
+                    if new_path.exists() and old_path.samefile(new_path):
+                        continue
+                except (OSError, ValueError):
+                    # samefile이 실패하면 다른 파일로 간주하고 계속 진행
+                    pass
+                
+                # 같은 파일명이 이미 존재하면 번호 추가
+                counter = 1
+                base_name = original_filename.rsplit('.', 1)[0] if '.' in original_filename else original_filename
+                extension = original_filename.rsplit('.', 1)[1] if '.' in original_filename else ''
+                
+                while new_path.exists():
+                    if extension:
+                        new_filename = f"{base_name}_{counter}.{extension}"
+                    else:
+                        new_filename = f"{base_name}_{counter}"
+                    new_path = target_dir / new_filename
+                    counter += 1
+                
+                # 파일 이동
+                if old_path != new_path:
+                    shutil.move(str(old_path), str(new_path))
+                    print(f"파일 이동 완료: {new_path}")
+                else:
+                    print(f"파일이 이미 올바른 위치에 있음: {new_path}")
+                
+                # 새 URL 경로 생성
+                relative_path = new_path.relative_to(settings.upload_path.parent)
+                new_url = f"/data/{relative_path.as_posix()}"
+                
+                # 카드 모델의 URL 업데이트
+                setattr(card, field_name, new_url)
+                print(f"URL 업데이트 완료 ({field_name}): {new_url}")
+                
+            except Exception as e:
+                # 파일 이동 실패해도 계속 진행
+                import traceback
+                print(f"파일 이동 실패 ({field_name}): {str(e)}")
+                print(traceback.format_exc())
+                continue
+        
         db.commit()
         db.refresh(card)
         
@@ -238,7 +332,7 @@ class CardService:
     @staticmethod
     def delete_card(db: Session, card_sn: int) -> bool:
         """
-        카드 삭제
+        카드 삭제 (연결된 이미지 파일도 함께 삭제)
         
         Args:
             db: 데이터베이스 세션
@@ -248,12 +342,38 @@ class CardService:
             bool: 삭제 성공 여부
         """
         from app.database.models import Card
+        from app.utils.file_utils import get_file_path_from_url, delete_file
+        from app.core.config import settings
         
         # 카드 조회
         card = db.query(Card).filter(Card.card_sn == card_sn).first()
         
         if not card:
             return False
+        
+        # 연결된 이미지 파일들 삭제
+        image_urls = [
+            card.character_image_url,
+            card.background_image_url,
+            card.generated_image_url,
+        ]
+        
+        for image_url in image_urls:
+            if not image_url:
+                continue
+                
+            try:
+                file_path = get_file_path_from_url(image_url)
+                if file_path and file_path.exists():
+                    if delete_file(file_path):
+                        print(f"파일 삭제 성공: {file_path}")
+                    else:
+                        print(f"파일 삭제 실패: {file_path}")
+                else:
+                    print(f"파일을 찾을 수 없음: {image_url}")
+            except Exception as e:
+                print(f"파일 삭제 중 오류 발생 ({image_url}): {str(e)}")
+                # 파일 삭제 실패해도 카드 삭제는 계속 진행
         
         # 카드 삭제
         db.delete(card)

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { FiClipboard, FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiClipboard, FiPlus, FiEdit2, FiTrash2, FiDownload } from 'react-icons/fi';
 import { buildPrompt } from '../../lib/promptBuilder';
 import ConfirmModal from '../../components/ConfirmModal';
 import LoadingMask from '../../components/LoadingMask';
@@ -136,6 +136,38 @@ export default function CardPage() {
     setTimeout(() => {
       setSelectedCard(null);
     }, 300);
+  };
+
+  const handleDownloadCard = async () => {
+    if (!selectedCard) return;
+
+    try {
+      const imageUrl = getImageUrl(
+        selectedCard.generatedImageUrl ||
+          selectedCard.characterImageUrl ||
+          selectedCard.backgroundImageUrl,
+      );
+
+      if (!imageUrl) {
+        alert('다운로드할 이미지가 없습니다.');
+        return;
+      }
+
+      // 이미지 다운로드
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${selectedCard.cardName || 'card'}_${selectedCard.cardSn}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('이미지 다운로드 중 오류가 발생했습니다.');
+      console.error('다운로드 오류:', err);
+    }
   };
 
   const handleEditCard = (e: React.MouseEvent, card: Card) => {
@@ -307,25 +339,35 @@ export default function CardPage() {
                 <h2 className="text-xl font-medium text-gray-900 dark:text-white">
                   카드 상세 정보
                 </h2>
-                <button
-                  onClick={handleCloseSlide}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                  aria-label="닫기"
-                >
-                  <svg
-                    className="w-5 h-5 text-gray-600 dark:text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDownloadCard}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    aria-label="카드 다운로드"
+                    title="카드 다운로드"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                    <FiDownload className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  </button>
+                  <button
+                    onClick={handleCloseSlide}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    aria-label="닫기"
+                  >
+                    <svg
+                      className="w-5 h-5 text-gray-600 dark:text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 p-4 space-y-4">

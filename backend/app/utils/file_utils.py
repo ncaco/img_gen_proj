@@ -143,22 +143,57 @@ def get_file_path_from_url(url: str) -> Optional[Path]:
     URL에서 파일 경로 추출
     
     Args:
-        url: 파일 URL (예: /data/upload/image.jpg)
+        url: 파일 URL (예: /data/upload/image.jpg 또는 http://localhost:8000/data/upload/image.jpg)
         
     Returns:
         Optional[Path]: 파일 경로, 없으면 None
     """
     try:
-        # URL에서 /data/upload 부분 제거하고 절대 경로로 변환
-        if url.startswith("/"):
+        if not url:
+            return None
+            
+        # 전체 URL에서 경로 부분만 추출
+        if url.startswith("http://") or url.startswith("https://"):
+            # http://localhost:8000/data/upload/image.jpg 형식
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            url = parsed.path
+        
+        # URL에서 /data/upload/ 또는 /data/upload 부분 제거
+        if url.startswith("/data/upload/"):
+            url = url[13:]  # "/data/upload/" 제거
+        elif url.startswith("/data/upload"):
+            url = url[13:]  # "/data/upload" 제거
+        elif url.startswith("/data/"):
+            url = url[6:]  # "/data/" 제거
+        elif url.startswith("/"):
             url = url[1:]
         
-        file_path = settings.upload_path.parent / url
+        # upload/... 형식으로 시작하면 제거
+        if url.startswith("upload/"):
+            url = url[7:]  # "upload/" 제거
         
-        # 보안: 업로드 디렉토리 밖의 파일 접근 방지
-        if not str(file_path).startswith(str(settings.upload_path.parent)):
+        # 빈 문자열이면 None 반환
+        if not url:
             return None
         
-        return file_path if file_path.exists() else None
-    except Exception:
+        file_path = settings.upload_path / url
+        
+        # 보안: 업로드 디렉토리 밖의 파일 접근 방지
+        resolved_path = file_path.resolve()
+        resolved_upload_path = settings.upload_path.resolve()
+        
+        if not str(resolved_path).startswith(str(resolved_upload_path)):
+            print(f"보안 검사 실패: {resolved_path}가 {resolved_upload_path} 밖에 있음")
+            return None
+        
+        if file_path.exists():
+            return file_path
+        else:
+            print(f"파일이 존재하지 않음: {file_path}")
+            return None
+    except Exception as e:
+        print(f"get_file_path_from_url 오류: {url} - {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return None
