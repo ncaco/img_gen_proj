@@ -234,3 +234,29 @@ class CardService:
         cards = db.query(Card).order_by(Card.card_sn.desc()).offset(skip).limit(limit).all()
         
         return cards, total
+    
+    @staticmethod
+    def delete_card(db: Session, card_sn: int) -> bool:
+        """
+        카드 삭제
+        
+        Args:
+            db: 데이터베이스 세션
+            card_sn: 카드 일련번호
+            
+        Returns:
+            bool: 삭제 성공 여부
+        """
+        from app.database.models import Card
+        
+        # 카드 조회
+        card = db.query(Card).filter(Card.card_sn == card_sn).first()
+        
+        if not card:
+            return False
+        
+        # 카드 삭제
+        db.delete(card)
+        db.commit()
+        
+        return True

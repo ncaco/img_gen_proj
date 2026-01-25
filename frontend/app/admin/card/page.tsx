@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { FiClipboard, FiPlus } from 'react-icons/fi';
+import { FiClipboard, FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { buildPrompt } from '../../lib/promptBuilder';
+import ConfirmModal from '../../components/ConfirmModal';
+import LoadingMask from '../../components/LoadingMask';
 
 interface Card {
   cardSn: number;
@@ -40,6 +42,11 @@ export default function CardPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [isSlideOpen, setIsSlideOpen] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; card: Card | null }>({
+    isOpen: false,
+    card: null,
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -131,6 +138,48 @@ export default function CardPage() {
     }, 300);
   };
 
+  const handleEditCard = (e: React.MouseEvent, card: Card) => {
+    e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+    // TODO: 수정 기능 구현
+    console.log('수정:', card);
+  };
+
+  const handleDeleteCard = (e: React.MouseEvent, card: Card) => {
+    e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+    setDeleteModal({ isOpen: true, card });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModal.card) return;
+
+    const card = deleteModal.card;
+
+    try {
+      setIsDeleting(true);
+      const response = await fetch(`http://localhost:8000/api/v1/cards/${card.cardSn}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: '삭제에 실패했습니다.' }));
+        throw new Error(errorData.detail || '카드 삭제에 실패했습니다.');
+      }
+
+      // 삭제 성공 시 목록에서 제거
+      setCards((prevCards) => prevCards.filter((c) => c.cardSn !== card.cardSn));
+
+      // 삭제된 카드가 현재 선택된 카드라면 슬라이드 닫기
+      if (selectedCard?.cardSn === card.cardSn) {
+        handleCloseSlide();
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '카드 삭제 중 오류가 발생했습니다.');
+      // 에러 발생 시 모달은 유지
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const actionBar = (
     <div className="flex justify-end gap-2">
       <Link
@@ -173,35 +222,56 @@ export default function CardPage() {
           );
 
           return (
-            <div
-              key={card.cardSn}
-              onClick={() => handleCardClick(card)}
-              className="relative bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-105 cursor-pointer"
-              style={{ aspectRatio: '5/7' }}
-            >
-              {imageUrl ? (
-                <img
-                  src={imageUrl}
-                  alt={card.cardName}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent && !parent.querySelector('.image-fallback')) {
-                      const fallback = document.createElement('div');
-                      fallback.className =
-                        'image-fallback w-full h-full flex items-center justify-center text-gray-400 bg-gray-300 dark:bg-gray-600';
-                      fallback.innerHTML = '<span class="text-4xl">🎴</span>';
-                      parent.appendChild(fallback);
-                    }
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-300 dark:bg-gray-600">
-                  <span className="text-4xl">🎴</span>
-                </div>
-              )}
+            <div key={card.cardSn} className="group relative">
+              <div
+                onClick={() => handleCardClick(card)}
+                className="bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-105 cursor-pointer"
+                style={{ aspectRatio: '5/7' }}
+              >
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt={card.cardName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent && !parent.querySelector('.image-fallback')) {
+                        const fallback = document.createElement('div');
+                        fallback.className =
+                          'image-fallback w-full h-full flex items-center justify-center text-gray-400 bg-gray-300 dark:bg-gray-600';
+                        fallback.innerHTML = '<span class="text-4xl">🎴</span>';
+                        parent.appendChild(fallback);
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-300 dark:bg-gray-600">
+                    <span className="text-4xl">🎴</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Hover 시 카드 외부 하단에 나타나는 조작 버튼 */}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 flex justify-center gap-2 pt-2 opacity-0 group-hover:opacity-100 translate-y-0 group-hover:translate-y-2 transition-all duration-300 ease-out">
+                <button
+                  onClick={(e) => handleEditCard(e, card)}
+                  className="h-8 w-8 rounded-full bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center shadow-lg transition-colors"
+                  aria-label="카드 수정"
+                  title="카드 수정"
+                >
+                  <FiEdit2 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={(e) => handleDeleteCard(e, card)}
+                  className="h-8 w-8 rounded-full bg-red-600 text-white hover:bg-red-700 flex items-center justify-center shadow-lg transition-colors"
+                  aria-label="카드 삭제"
+                  title="카드 삭제"
+                >
+                  <FiTrash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           );
         })}
@@ -463,6 +533,25 @@ export default function CardPage() {
           </div>
         </>
       )}
+
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, card: null })}
+        onConfirm={handleConfirmDelete}
+        title="카드 삭제"
+        message={
+          deleteModal.card
+            ? `"${deleteModal.card.cardName}" 카드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
+            : ''
+        }
+        confirmText="삭제"
+        cancelText="취소"
+        variant="danger"
+      />
+
+      {/* 로딩 마스크 */}
+      <LoadingMask isOpen={isDeleting} message="카드를 삭제하는 중..." />
     </div>
   );
 }

@@ -10,6 +10,7 @@ from app.schemas.card import (
     CardSaveResponseSchema,
     CardListResponseSchema,
     CardResponseSchema,
+    CardDeleteResponseSchema,
 )
 from app.services.card_service import CardService
 from app.database.database import get_db
@@ -140,4 +141,35 @@ async def get_cards(
         raise HTTPException(
             status_code=500,
             detail=f"카드 목록 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.delete("/{card_sn}", response_model=CardDeleteResponseSchema)
+async def delete_card(card_sn: int, db: Session = Depends(get_db)):
+    """
+    카드를 삭제합니다.
+    
+    - **card_sn**: 삭제할 카드의 일련번호
+    """
+    try:
+        # 카드 삭제
+        success = card_service.delete_card(db, card_sn)
+        
+        if not success:
+            raise HTTPException(
+                status_code=404,
+                detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다."
+            )
+        
+        return CardDeleteResponseSchema(
+            success=True,
+            message="카드가 성공적으로 삭제되었습니다."
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"카드 삭제 중 오류가 발생했습니다: {str(e)}"
         )

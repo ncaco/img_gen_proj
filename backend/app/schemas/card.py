@@ -95,6 +95,12 @@ class CardListResponseSchema(BaseModel):
     cards: list[CardResponseSchema] = Field(..., description="카드 목록")
 
 
+class CardDeleteResponseSchema(BaseModel):
+    """카드 삭제 응답 스키마"""
+    success: bool = Field(..., description="성공 여부")
+    message: str = Field(..., description="응답 메시지")
+
+
 class RootResponseSchema(BaseModel):
     """루트 엔드포인트 응답 스키마"""
     message: str = Field(..., description="서버 메시지")
