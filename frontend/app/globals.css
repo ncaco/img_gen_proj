@@ -19,3 +19,13 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 가로 스크롤 영역에서 스크롤바 숨기기 */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE 및 Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}

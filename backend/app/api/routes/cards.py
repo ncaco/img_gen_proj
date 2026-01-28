@@ -14,11 +14,13 @@ from app.schemas.card import (
     CardResponseSchema,
     CardDeleteResponseSchema,
     CardGeneratedImageUploadResponseSchema,
+    CardGeneratedImageDeleteResponseSchema,
+    CardGeneratedImageListResponseSchema,
 )
 from app.services.card_service import CardService
 from app.database.database import get_db
 from app.database.models import Card, CardGeneratedImage
-from app.utils.file_utils import save_uploaded_file
+from app.utils.file_utils import save_uploaded_file, get_file_path_from_url, delete_file
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -116,6 +118,7 @@ async def get_cards(
             .order_by(desc(CardGeneratedImage.created_at))
             .all()
         )
+        # 카드별 최신 합성이미지 (가장 최근 1장)
         latest_gen_by_card: dict[int, str] = {}
         for row in gen_rows:
             if row.card_sn not in latest_gen_by_card:
@@ -124,7 +127,10 @@ async def get_cards(
         # 카드 모델을 응답 스키마로 변환
         card_list = []
         for card in cards:
-            gen_url = latest_gen_by_card.get(card.card_sn) or card.generated_image_url
+            # 최초 저장된 생성 이미지(초안)
+            draft_url = card.generated_image_url
+            # 합성이미지 중 가장 최신 1장을 generatedImageUrl 로 노출(없으면 초안 사용)
+            gen_url = latest_gen_by_card.get(card.card_sn) or draft_url
             card_list.append(CardResponseSchema(
                 cardSn=card.card_sn,
                 cardNumber=card.card_number,
@@ -144,6 +150,7 @@ async def get_cards(
                 backgroundImageUrl=card.background_image_url,
                 generatedPrompt=card.generated_prompt,
                 generatedImageUrl=gen_url,
+                draftImageUrl=draft_url,
                 createdAt=card.created_at.isoformat() if card.created_at else "",
                 updatedAt=card.updated_at.isoformat() if card.updated_at else "",
             ))
@@ -169,7 +176,8 @@ async def upload_card_generated_image(
 ):
     """
     해당 카드에 AI 합성이미지 파일을 업로드하고 합성카드 테이블에 연계합니다.
-    파일은 /data/upload/gen/ 경로에 gen_ 접두어가 붙은 파일명으로 저장됩니다.
+    파일은 해당 카드의 기본 이미지 경로 하위에 gen/ 디렉토리를 생성하여 gen_ 접두어가 붙은 파일명으로 저장됩니다.
+    (예: /data/upload/{series}/{card_number}/gen/gen_xxx.png)
     """
     try:
         # 카드 존재 여부 확인
@@ -180,11 +188,23 @@ async def upload_card_generated_image(
                 detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다."
             )
 
-        # 파일 저장 (subdirectory="gen", filename_prefix="gen_")
+        # 이 카드의 기본 이미지가 저장된 경로(/upload/{series}/{number})와 동일한 구조로 gen 디렉토리 생성
+        series_name = card.series or "default"
+        card_number = card.card_number or str(card.card_sn)
+
+        # card_number에서 # 제거 및 특수문자 처리 (CardService.save_card와 동일한 로직)
+        clean_number = card_number.replace("#", "").strip()
+        safe_series = "".join(c for c in series_name if c.isalnum() or c in (" ", "-", "_")).strip()
+        safe_series = safe_series.replace(" ", "_") if safe_series else "default"
+        safe_number = "".join(c for c in clean_number if c.isalnum() or c in ("-", "_")).strip() or str(card.card_sn)
+
+        # upload/{series}/{number}/gen 디렉토리 하위에 저장
+        subdirectory = f"{safe_series}/{safe_number}/gen"
+
         file_url, _ = await save_uploaded_file(
             file,
-            subdirectory="gen",
-            filename_prefix="gen_"
+            subdirectory=subdirectory,
+            filename_prefix="gen_",
         )
 
         # 합성카드 테이블에 연계 저장
@@ -205,6 +225,107 @@ async def upload_card_generated_image(
         raise HTTPException(
             status_code=500,
             detail=f"합성이미지 등록 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.delete("/{card_sn}/generated-image", response_model=CardGeneratedImageDeleteResponseSchema)
+async def delete_latest_card_generated_image(
+    card_sn: int,
+    db: Session = Depends(get_db),
+):
+    """
+    해당 카드의 가장 최근 합성이미지를 1장 삭제합니다.
+    - 카드별 최신 생성순(CardGeneratedImage.created_at DESC)으로 1장을 찾아
+      물리 파일과 DB 레코드를 함께 삭제합니다.
+    """
+    try:
+        # 카드 존재 여부 확인
+        card = db.query(Card).filter(Card.card_sn == card_sn).first()
+        if not card:
+            raise HTTPException(
+                status_code=404,
+                detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다.",
+            )
+
+        # 최신 합성이미지 1장 조회
+        latest_gen = (
+            db.query(CardGeneratedImage)
+            .filter(CardGeneratedImage.card_sn == card_sn)
+            .order_by(desc(CardGeneratedImage.created_at))
+            .first()
+        )
+
+        if not latest_gen:
+            raise HTTPException(
+                status_code=404,
+                detail="삭제할 합성이미지가 없습니다.",
+            )
+
+        # 물리 파일 삭제 시도 (실패하더라도 계속 진행)
+        try:
+            file_path = get_file_path_from_url(latest_gen.image_url)
+            if file_path:
+                delete_file(file_path)
+        except Exception:
+            # 로그만 출력하고 계속 진행
+            import traceback
+            print("합성이미지 파일 삭제 중 오류:", traceback.format_exc())
+
+        # DB 레코드 삭제
+        db.delete(latest_gen)
+        db.commit()
+
+        return CardGeneratedImageDeleteResponseSchema(
+            success=True,
+            message="가장 최근 합성이미지가 삭제되었습니다.",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"합성이미지 삭제 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/{card_sn}/generated-images", response_model=CardGeneratedImageListResponseSchema)
+async def list_card_generated_images(
+    card_sn: int,
+    db: Session = Depends(get_db),
+):
+    """
+    해당 카드에 등록된 모든 합성이미지 URL 목록을 반환합니다.
+    등록 순서(created_at ASC)대로 정렬하여 반환합니다.
+    """
+    try:
+        # 카드 존재 여부 확인
+        card = db.query(Card).filter(Card.card_sn == card_sn).first()
+        if not card:
+            raise HTTPException(
+                status_code=404,
+                detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다.",
+            )
+
+        rows = (
+            db.query(CardGeneratedImage)
+            .filter(CardGeneratedImage.card_sn == card_sn)
+            .order_by(CardGeneratedImage.created_at.asc())
+            .all()
+        )
+
+        urls = [row.image_url for row in rows]
+
+        return CardGeneratedImageListResponseSchema(
+            success=True,
+            images=urls,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"합성이미지 목록 조회 중 오류가 발생했습니다: {str(e)}",
         )
 
 

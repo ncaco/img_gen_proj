@@ -84,6 +84,7 @@ class CardResponseSchema(BaseModel):
     backgroundImageUrl: Optional[str] = Field(None, description="배경 이미지 URL")
     generatedPrompt: Optional[str] = Field(None, description="생성된 프롬프트")
     generatedImageUrl: Optional[str] = Field(None, description="생성된 이미지 URL")
+    draftImageUrl: Optional[str] = Field(None, description="초안(최초 생성) 이미지 URL")
     createdAt: str = Field(..., description="생성일시")
     updatedAt: str = Field(..., description="수정일시")
 
@@ -106,6 +107,18 @@ class CardGeneratedImageUploadResponseSchema(BaseModel):
     success: bool = Field(..., description="성공 여부")
     message: str = Field(..., description="응답 메시지")
     imageUrl: Optional[str] = Field(None, description="저장된 이미지 URL")
+
+
+class CardGeneratedImageDeleteResponseSchema(BaseModel):
+    """카드 합성이미지 삭제 응답 스키마"""
+    success: bool = Field(..., description="성공 여부")
+    message: str = Field(..., description="응답 메시지")
+
+
+class CardGeneratedImageListResponseSchema(BaseModel):
+    """카드 합성이미지 목록 응답 스키마"""
+    success: bool = Field(..., description="성공 여부")
+    images: list[str] = Field(default_factory=list, description="합성이미지 URL 목록 (등록 순서)")
 
 
 class RootResponseSchema(BaseModel):

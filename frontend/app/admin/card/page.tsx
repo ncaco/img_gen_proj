@@ -25,6 +25,8 @@ interface Card {
   characterImageUrl?: string;
   backgroundImageUrl?: string;
   generatedImageUrl?: string;
+  // 백엔드에서 추가로 내려주는 최초 생성 이미지(초안) URL
+  draftImageUrl?: string;
   generatedPrompt?: string;
   createdAt: string;
   updatedAt: string;
@@ -42,13 +44,55 @@ export default function CardPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [isSlideOpen, setIsSlideOpen] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; card: Card | null }>({
     isOpen: false,
     card: null,
   });
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploadingGenImage, setIsUploadingGenImage] = useState(false);
+  const [isDeletingGenImage, setIsDeletingGenImage] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenIndex, setFullscreenIndex] = useState(0);
+  const [generatedImageUrls, setGeneratedImageUrls] = useState<string[]>([]);
   const generatedImageInputRef = useRef<HTMLInputElement>(null);
+  const imageScrollRef = useRef<HTMLDivElement>(null);
+
+  // 특정 인덱스의 이미지를 가운데로 스크롤하는 유틸 함수
+  const scrollToImage = (index: number) => {
+    const container = imageScrollRef.current;
+    if (!container) return;
+
+    const cards = container.querySelectorAll<HTMLDivElement>('[data-image-card]');
+    const target = cards[index];
+    if (!target) return;
+
+    const containerWidth = container.clientWidth;
+    const targetCenter = target.offsetLeft + target.offsetWidth / 2;
+    const rawScrollLeft = targetCenter - containerWidth / 2;
+
+    // 스크롤 가능한 범위 내로 클램핑 (마지막 카드에서는 가장 끝까지)
+    const maxScrollLeft = container.scrollWidth - container.clientWidth;
+    const scrollLeft = Math.min(Math.max(rawScrollLeft, 0), Math.max(maxScrollLeft, 0));
+
+    container.scrollTo({
+      left: scrollLeft,
+      behavior: 'smooth',
+    });
+  };
+
+  // 카드 상세가 열릴 때 현재 선택된 이미지를 가운데로 정렬
+  useEffect(() => {
+    if (!selectedCard || !isSlideOpen) return;
+    scrollToImage(selectedImageIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCard, isSlideOpen]);
+
+  // 선택 인덱스가 변경될 때마다 해당 이미지를 가운데로 스크롤
+  useEffect(() => {
+    if (!selectedCard || !isSlideOpen) return;
+    scrollToImage(selectedImageIndex);
+  }, [selectedImageIndex, selectedCard, isSlideOpen]);
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -94,6 +138,64 @@ export default function CardPage() {
     return `http://localhost:8000${path}`;
   };
 
+  /**
+   * 카드 상세에서 사용할 이미지 리스트 구성
+   * - 1) 원본: characterImageUrl > backgroundImageUrl
+   * - 2) 초안: draftImageUrl (최초 생성 이미지)
+   * - 3) 합성: generatedImageUrl (최신 합성이미지)
+   * 이 순서로 정렬한다.
+   */
+  const buildCardImages = (card: Card) => {
+    const images: { key: string; url: string; label: string }[] = [];
+
+    // 1) 원본 카드 이미지 (캐릭터 > 배경)
+    const baseUrl = getImageUrl(card.characterImageUrl || card.backgroundImageUrl);
+    if (baseUrl) {
+      images.push({
+        key: 'base',
+        url: baseUrl,
+        label: '원본',
+      });
+    }
+
+    // 2) 초안 이미지 (최초 생성 이미지)
+    if (card.draftImageUrl) {
+      const draftUrl = getImageUrl(card.draftImageUrl);
+      if (draftUrl && !images.some((img) => img.url === draftUrl)) {
+        images.push({
+          key: 'draft',
+          url: draftUrl,
+          label: '초안',
+        });
+      }
+    }
+
+    // 3) 합성이미지들 (등록 순서대로: 합성1, 합성2, ...)
+    if (generatedImageUrls.length > 0) {
+      generatedImageUrls.forEach((raw, idx) => {
+        const genUrl = getImageUrl(raw);
+        if (!genUrl || images.some((img) => img.url === genUrl)) return;
+        images.push({
+          key: `generated-${idx}`,
+          url: genUrl,
+          label: `합성${idx + 1}`,
+        });
+      });
+    } else if (card.generatedImageUrl) {
+      // 백엔드 목록 조회 이전에는 단일 generatedImageUrl 이라도 활용
+      const genUrl = getImageUrl(card.generatedImageUrl);
+      if (genUrl && !images.some((img) => img.url === genUrl)) {
+        images.push({
+          key: 'generated-latest',
+          url: genUrl,
+          label: '합성1',
+        });
+      }
+    }
+
+    return images;
+  };
+
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -128,15 +230,34 @@ export default function CardPage() {
       backgroundImageRef: card.backgroundImageUrl || '없음',
     });
 
-  const handleCardClick = (card: Card) => {
+  const handleCardClick = async (card: Card) => {
     setSelectedCard(card);
+    setSelectedImageIndex(0); // 상세 열릴 때 항상 첫 이미지를 선택
     setIsSlideOpen(true);
+
+    // 카드별 합성이미지 전체 목록 조회
+    try {
+      const res = await fetch(
+        `http://localhost:8000/api/v1/cards/${card.cardSn}/generated-images`,
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { success: boolean; images?: string[] };
+        setGeneratedImageUrls(data.images ?? []);
+      } else {
+        setGeneratedImageUrls([]);
+      }
+    } catch {
+      setGeneratedImageUrls([]);
+    }
   };
 
   const handleCloseSlide = () => {
     setIsSlideOpen(false);
     setTimeout(() => {
       setSelectedCard(null);
+      setGeneratedImageUrls([]);
+      setIsFullscreen(false);
+      setFullscreenIndex(0);
     }, 300);
   };
 
@@ -241,6 +362,7 @@ export default function CardPage() {
       }
 
       const data = (await response.json()) as { imageUrl?: string };
+
       // 목록 재조회하여 갱신된 generatedImageUrl 반영
       const listRes = await fetch('http://localhost:8000/api/v1/cards/list?limit=100');
       if (listRes.ok) {
@@ -249,12 +371,32 @@ export default function CardPage() {
         const updated = listData.cards.find((c) => c.cardSn === selectedCard.cardSn);
         if (updated) setSelectedCard(updated);
       } else if (data.imageUrl) {
-        setSelectedCard((prev) => (prev ? { ...prev, generatedImageUrl: data.imageUrl } : null));
+        setSelectedCard((prev) =>
+          prev ? { ...prev, generatedImageUrl: data.imageUrl } : null,
+        );
         setCards((prev) =>
           prev.map((c) =>
-            c.cardSn === selectedCard.cardSn ? { ...c, generatedImageUrl: data.imageUrl } : c
-          )
+            c.cardSn === selectedCard.cardSn
+              ? { ...c, generatedImageUrl: data.imageUrl }
+              : c,
+          ),
         );
+      }
+
+      // 합성이미지 전체 목록 재조회
+      try {
+        const genRes = await fetch(
+          `http://localhost:8000/api/v1/cards/${selectedCard.cardSn}/generated-images`,
+        );
+        if (genRes.ok) {
+          const genData = (await genRes.json()) as {
+            success: boolean;
+            images?: string[];
+          };
+          setGeneratedImageUrls(genData.images ?? []);
+        }
+      } catch {
+        // 무시
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : '합성이미지 등록 중 오류가 발생했습니다.');
@@ -263,6 +405,128 @@ export default function CardPage() {
       e.target.value = '';
     }
   };
+
+  const handleDeleteGeneratedImage = async () => {
+    if (!selectedCard) return;
+
+    if (!selectedCard.generatedImageUrl) {
+      alert('삭제할 합성이미지가 없습니다.');
+      return;
+    }
+
+    if (!confirm('가장 최근 합성이미지를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      setIsDeletingGenImage(true);
+      const response = await fetch(
+        `http://localhost:8000/api/v1/cards/${selectedCard.cardSn}/generated-image`,
+        {
+          method: 'DELETE',
+        },
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ detail: '삭제에 실패했습니다.' }));
+        throw new Error(errData.detail || '합성이미지 삭제에 실패했습니다.');
+      }
+
+      // 삭제 후 목록 재조회하여 최신 합성이미지 상태 반영
+      const listRes = await fetch('http://localhost:8000/api/v1/cards/list?limit=100');
+      if (listRes.ok) {
+        const listData: CardListResponse = await listRes.json();
+        setCards(listData.cards);
+        const updated = listData.cards.find((c) => c.cardSn === selectedCard.cardSn);
+        if (updated) {
+          setSelectedCard(updated);
+        }
+      }
+
+      // 합성이미지 전체 목록 재조회
+      try {
+        const genRes = await fetch(
+          `http://localhost:8000/api/v1/cards/${selectedCard.cardSn}/generated-images`,
+        );
+        if (genRes.ok) {
+          const genData = (await genRes.json()) as {
+            success: boolean;
+            images?: string[];
+          };
+          const urls = genData.images ?? [];
+          setGeneratedImageUrls(urls);
+          if (urls.length === 0) {
+            setSelectedImageIndex(0);
+          } else if (selectedImageIndex >= urls.length + 2) {
+            // 원본(0), 초안(있다면 1) 이후 합성이 줄어든 경우를 대비해 보정
+            setSelectedImageIndex(urls.length + 1);
+          }
+        }
+      } catch {
+        // 무시
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '합성이미지 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setIsDeletingGenImage(false);
+    }
+  };
+
+  // 상세 썸네일 클릭 시 동작: 다른 이미지는 선택만, 이미 선택된 이미지를 한 번 더 클릭하면 전체화면 진입
+  const handleDetailImageClick = (index: number) => {
+    setSelectedImageIndex((prev) => {
+      if (prev === index) {
+        setFullscreenIndex(index);
+        setIsFullscreen(true);
+        return prev;
+      }
+      return index;
+    });
+  };
+
+  // 키보드 이벤트 (전체화면에서 방향키/ESC 처리, 상세 열려있을 때 ESC로 닫기)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedCard) return;
+
+      if (isFullscreen) {
+        const images = buildCardImages(selectedCard);
+        if (images.length === 0) return;
+
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          setFullscreenIndex((prev) => {
+            const next = (prev - 1 + images.length) % images.length;
+            setSelectedImageIndex(next);
+            return next;
+          });
+          return;
+        }
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          setFullscreenIndex((prev) => {
+            const next = (prev + 1) % images.length;
+            setSelectedImageIndex(next);
+            return next;
+          });
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setIsFullscreen(false);
+          return;
+        }
+      } else if (isSlideOpen && e.key === 'Escape') {
+        e.preventDefault();
+        handleCloseSlide();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen, isSlideOpen, selectedCard, selectedImageIndex]);
 
   const actionBar = (
     <div className="flex justify-end gap-2">
@@ -309,7 +573,7 @@ export default function CardPage() {
             <div key={card.cardSn} className="group relative">
               <div
                 onClick={() => handleCardClick(card)}
-                className="bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-105 cursor-pointer"
+                className="bg-transparent rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-105 cursor-pointer"
                 style={{ aspectRatio: '1024/1536' }}
               >
                 {imageUrl ? (
@@ -422,46 +686,113 @@ export default function CardPage() {
                 </div>
               </div>
 
-              <div className="flex-1 p-4 space-y-4">
+              <div className="flex-1 px-4 pt-6 pb-4 space-y-4">
                 <div className="flex justify-center">
                   <div
-                    className="relative bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden shadow-lg"
-                    style={{ width: '360px', aspectRatio: '1024/1536' }}
+                    ref={imageScrollRef}
+                    className="max-w-full overflow-x-hidden py-4 no-scrollbar"
                   >
-                    {(() => {
-                      const imageUrl = getImageUrl(
-                        selectedCard.generatedImageUrl ||
-                          selectedCard.characterImageUrl ||
-                          selectedCard.backgroundImageUrl,
-                      );
-                      if (imageUrl) {
-                        return (
-                          <img
-                            src={imageUrl}
-                            alt={selectedCard.cardName}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent && !parent.querySelector('.image-fallback')) {
-                                const fallback = document.createElement('div');
-                                fallback.className =
-                                  'image-fallback w-full h-full flex items-center justify-center text-gray-400 bg-gray-300 dark:bg-gray-600';
-                                fallback.innerHTML = '<span class="text-6xl">🎴</span>';
-                                parent.appendChild(fallback);
-                              }
-                            }}
-                          />
-                        );
-                      }
+                    <div
+                      className="flex gap-6 px-2"
+                      style={{ perspective: '1200px' }}
+                    >
+                      {(() => {
+                        const images = buildCardImages(selectedCard);
 
-                      return (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-300 dark:bg-gray-600">
-                          <span className="text-6xl">🎴</span>
-                        </div>
-                      );
-                    })()}
+                        if (images.length === 0) {
+                          return (
+                            <div
+                              className="flex-none relative bg-transparent rounded-lg overflow-hidden shadow-lg flex items-center justify-center text-gray-400"
+                              style={{ width: '200px', aspectRatio: '1024/1536' }}
+                            >
+                              <span className="text-4xl">🎴</span>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <>
+                            {/* 왼쪽 여백: 처음 카드가 가운데부터 시작되도록 */}
+                            <div className="flex-none" style={{ width: '50%' }} />
+                            {images.map((img, index) => {
+                              const isSelected = index === selectedImageIndex;
+                              const offset = index - selectedImageIndex;
+                              const clampedOffset = Math.max(-2, Math.min(2, offset));
+                              const rotateY = clampedOffset * 10; // 좌우 회전 약간 완화
+                              const translateZ = isSelected ? 60 : -30; // 카드 크기 축소에 맞게 깊이 조정
+                              const translateY = isSelected ? 0 : 12;
+                              const scale = isSelected ? 1.02 : 0.92;
+
+                              return (
+                                <div
+                                  key={img.key}
+                                  className="flex-none cursor-pointer"
+                                  data-image-card
+                                  style={{ width: '200px' }}
+                                  onClick={() => handleDetailImageClick(index)}
+                                >
+                                  <div
+                                    className="relative bg-transparent rounded-lg overflow-hidden shadow-lg transition-transform duration-300 ease-out"
+                                    style={{
+                                      aspectRatio: '1024/1536',
+                                      transform: `translateY(${translateY}px) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`,
+                                      transformStyle: 'preserve-3d',
+                                    }}
+                                  >
+                                    <img
+                                      src={img.url}
+                                      alt={img.label}
+                                      className="w-full h-full object-contain"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        const parent = target.parentElement;
+                                        if (parent && !parent.querySelector('.image-fallback')) {
+                                          const fallback = document.createElement('div');
+                                          fallback.className =
+                                            'image-fallback w-full h-full flex items-center justify-center text-gray-400 bg-gray-300 dark:bg-gray-600';
+                                          fallback.innerHTML = '<span class="text-4xl">🎴</span>';
+                                          parent.appendChild(fallback);
+                                        }
+                                      }}
+                                    />
+                                    {isSelected && (
+                                      <div className="absolute inset-0 ring-2 ring-indigo-500/70 pointer-events-none" />
+                                    )}
+                                  </div>
+                                  <div className="mt-2 flex items-center justify-center gap-2">
+                                    <span
+                                      className={`text-xs ${
+                                        isSelected
+                                          ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+                                          : 'text-gray-600 dark:text-gray-400'
+                                      }`}
+                                    >
+                                      {img.label}
+                                    </span>
+                                    {isSelected &&
+                                      img.label.startsWith('합성') &&
+                                      selectedCard.generatedImageUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={handleDeleteGeneratedImage}
+                                          disabled={isDeletingGenImage}
+                                          className="inline-flex items-center justify-center rounded-full bg-red-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                          title="합성 이미지 삭제"
+                                        >
+                                          삭제
+                                        </button>
+                                      )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {/* 오른쪽 여백: 마지막 카드도 가운데까지 스크롤 가능하도록 */}
+                            <div className="flex-none" style={{ width: '50%' }} />
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
 
@@ -665,6 +996,102 @@ export default function CardPage() {
 
       {/* 로딩 마스크 */}
       <LoadingMask isOpen={isDeleting} message="카드를 삭제하는 중..." />
+
+      {/* 전체화면 카드 뷰어 */}
+      {selectedCard && isFullscreen && (
+        (() => {
+          const images = buildCardImages(selectedCard);
+          if (images.length === 0) return null;
+          const safeIndex = Math.min(fullscreenIndex, images.length - 1);
+          const current = images[safeIndex];
+
+          const goPrev = () => {
+            setFullscreenIndex((prev) => {
+              const next = (prev - 1 + images.length) % images.length;
+              setSelectedImageIndex(next);
+              return next;
+            });
+          };
+
+          const goNext = () => {
+            setFullscreenIndex((prev) => {
+              const next = (prev + 1) % images.length;
+              setSelectedImageIndex(next);
+              return next;
+            });
+          };
+
+          return (
+            <>
+              <div
+                className="fixed inset-0 bg-black/80 z-[70]"
+                onClick={() => setIsFullscreen(false)}
+              />
+              <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
+                <div className="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center">
+                  {/* 좌우 이동 버튼 */}
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goPrev();
+                        }}
+                        className="absolute left-0 -translate-x-full text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2"
+                        aria-label="이전 이미지"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goNext();
+                        }}
+                        className="absolute right-0 translate-x-full text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2"
+                        aria-label="다음 이미지"
+                      >
+                        ›
+                      </button>
+                    </>
+                  )}
+
+                  {/* 닫기 버튼 */}
+                  <button
+                    type="button"
+                    onClick={() => setIsFullscreen(false)}
+                    className="absolute -top-8 right-0 text-white/80 hover:text-white"
+                    aria-label="전체화면 닫기"
+                  >
+                    ✕
+                  </button>
+
+                  <div
+                    className="bg-transparent rounded-lg overflow-hidden shadow-2xl"
+                    style={{ maxWidth: '420px', maxHeight: '90vh' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div style={{ aspectRatio: '1024/1536' }} className="bg-transparent">
+                      <img
+                        src={current.url}
+                        alt={current.label}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-center gap-2 text-xs text-white">
+                      <span>{current.label}</span>
+                      <span className="text-white/60">
+                        ({safeIndex + 1}/{images.length})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()
+      )}
     </div>
   );
 }
