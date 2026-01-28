@@ -97,10 +97,11 @@ export default function CardForm({ formData, onChange }: CardFormProps) {
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">등급 선택</option>
-            <option value="⭐">⭐ 일반</option>
+            <option value="⭐">⭐ 노말</option>
             <option value="⭐⭐">⭐⭐ 레어</option>
-            <option value="⭐⭐⭐">⭐⭐⭐ 슈퍼레어</option>
-            <option value="⭐⭐⭐⭐">⭐⭐⭐⭐ 울트라레어</option>
+            <option value="⭐⭐⭐">⭐⭐⭐ 에픽</option>
+            <option value="⭐⭐⭐⭐">⭐⭐⭐⭐ 레전드</option>
+            <option value="⭐⭐⭐⭐⭐">⭐⭐⭐⭐⭐ 신화</option>
           </select>
         </div>
 
