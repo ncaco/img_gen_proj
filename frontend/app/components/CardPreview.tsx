@@ -48,7 +48,7 @@ export default function CardPreview({ cardData }: CardPreviewProps) {
   const typeDisplay = typeData || '타입';
 
   return (
-    <div className="relative w-[400px] h-[560px] rounded-lg overflow-hidden shadow-2xl border-2 border-gray-300" data-card-preview="true">
+    <div className="relative w-[400px] rounded-lg overflow-hidden shadow-2xl border-2 border-gray-300 aspect-[1024/1536]" data-card-preview="true">
       {/* Layer 2: 배경 이미지 (전체 영역) */}
       {backgroundImage ? (
         <div

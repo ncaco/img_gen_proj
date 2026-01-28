@@ -172,7 +172,7 @@ export default function ResultPanel({ prompt, previewImageUrl, cardData }: Resul
 
             <div className="bg-gray-800 rounded-lg p-3 flex justify-center mb-4">
               {/* 실제 다운로드될 레이아웃과 동일한 카드 컴포넌트 미리보기 */}
-              <div className="relative" style={{ width: '400px', height: '560px' }}>
+              <div className="relative" style={{ width: '400px', aspectRatio: '1024/1536' }}>
                 <CardPreview cardData={cardData} />
               </div>
             </div>

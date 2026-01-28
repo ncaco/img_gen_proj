@@ -101,6 +101,13 @@ class CardDeleteResponseSchema(BaseModel):
     message: str = Field(..., description="응답 메시지")
 
 
+class CardGeneratedImageUploadResponseSchema(BaseModel):
+    """카드 합성이미지 업로드 응답 스키마"""
+    success: bool = Field(..., description="성공 여부")
+    message: str = Field(..., description="응답 메시지")
+    imageUrl: Optional[str] = Field(None, description="저장된 이미지 URL")
+
+
 class RootResponseSchema(BaseModel):
     """루트 엔드포인트 응답 스키마"""
     message: str = Field(..., description="서버 메시지")

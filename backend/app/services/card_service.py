@@ -332,7 +332,7 @@ class CardService:
     @staticmethod
     def delete_card(db: Session, card_sn: int) -> bool:
         """
-        카드 삭제 (연결된 이미지 파일도 함께 삭제)
+        카드 삭제 (연결된 이미지 파일·합성 테이블 행도 함께 삭제)
         
         Args:
             db: 데이터베이스 세션
@@ -341,9 +341,8 @@ class CardService:
         Returns:
             bool: 삭제 성공 여부
         """
-        from app.database.models import Card
+        from app.database.models import Card, CardGeneratedImage
         from app.utils.file_utils import get_file_path_from_url, delete_file
-        from app.core.config import settings
         
         # 카드 조회
         card = db.query(Card).filter(Card.card_sn == card_sn).first()
@@ -351,7 +350,7 @@ class CardService:
         if not card:
             return False
         
-        # 연결된 이미지 파일들 삭제
+        # 연결된 이미지 파일들 삭제 (character, background, generated)
         image_urls = [
             card.character_image_url,
             card.background_image_url,
@@ -361,19 +360,23 @@ class CardService:
         for image_url in image_urls:
             if not image_url:
                 continue
-                
             try:
                 file_path = get_file_path_from_url(image_url)
                 if file_path and file_path.exists():
-                    if delete_file(file_path):
-                        print(f"파일 삭제 성공: {file_path}")
-                    else:
-                        print(f"파일 삭제 실패: {file_path}")
-                else:
-                    print(f"파일을 찾을 수 없음: {image_url}")
+                    delete_file(file_path)
             except Exception as e:
                 print(f"파일 삭제 중 오류 발생 ({image_url}): {str(e)}")
-                # 파일 삭제 실패해도 카드 삭제는 계속 진행
+        
+        # 합성카드 테이블 연관 행 삭제 및 물리 파일 삭제
+        gen_images = db.query(CardGeneratedImage).filter(CardGeneratedImage.card_sn == card_sn).all()
+        for row in gen_images:
+            try:
+                file_path = get_file_path_from_url(row.image_url)
+                if file_path and file_path.exists():
+                    delete_file(file_path)
+            except Exception as e:
+                print(f"합성이미지 파일 삭제 중 오류 ({row.image_url}): {str(e)}")
+            db.delete(row)
         
         # 카드 삭제
         db.delete(card)

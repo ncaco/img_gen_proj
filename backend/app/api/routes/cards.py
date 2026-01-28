@@ -1,8 +1,10 @@
 """
 카드 관련 API 라우터
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, File, UploadFile
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
+
 from app.schemas.card import (
     CardGenerationRequestSchema,
     CardGenerationResponseSchema,
@@ -11,9 +13,12 @@ from app.schemas.card import (
     CardListResponseSchema,
     CardResponseSchema,
     CardDeleteResponseSchema,
+    CardGeneratedImageUploadResponseSchema,
 )
 from app.services.card_service import CardService
 from app.database.database import get_db
+from app.database.models import Card, CardGeneratedImage
+from app.utils.file_utils import save_uploaded_file
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -104,10 +109,22 @@ async def get_cards(
     """
     try:
         cards, total = card_service.get_all_cards(db, skip=skip, limit=limit)
-        
+
+        # 카드별 최신 합성이미지 URL (합성 테이블 우선, 없으면 Card.generated_image_url)
+        gen_rows = (
+            db.query(CardGeneratedImage)
+            .order_by(desc(CardGeneratedImage.created_at))
+            .all()
+        )
+        latest_gen_by_card: dict[int, str] = {}
+        for row in gen_rows:
+            if row.card_sn not in latest_gen_by_card:
+                latest_gen_by_card[row.card_sn] = row.image_url
+
         # 카드 모델을 응답 스키마로 변환
         card_list = []
         for card in cards:
+            gen_url = latest_gen_by_card.get(card.card_sn) or card.generated_image_url
             card_list.append(CardResponseSchema(
                 cardSn=card.card_sn,
                 cardNumber=card.card_number,
@@ -126,7 +143,7 @@ async def get_cards(
                 characterImageUrl=card.character_image_url,
                 backgroundImageUrl=card.background_image_url,
                 generatedPrompt=card.generated_prompt,
-                generatedImageUrl=card.generated_image_url,
+                generatedImageUrl=gen_url,
                 createdAt=card.created_at.isoformat() if card.created_at else "",
                 updatedAt=card.updated_at.isoformat() if card.updated_at else "",
             ))
@@ -141,6 +158,53 @@ async def get_cards(
         raise HTTPException(
             status_code=500,
             detail=f"카드 목록 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.post("/{card_sn}/generated-image", response_model=CardGeneratedImageUploadResponseSchema)
+async def upload_card_generated_image(
+    card_sn: int,
+    file: UploadFile = File(..., description="합성이미지 파일"),
+    db: Session = Depends(get_db)
+):
+    """
+    해당 카드에 AI 합성이미지 파일을 업로드하고 합성카드 테이블에 연계합니다.
+    파일은 /data/upload/gen/ 경로에 gen_ 접두어가 붙은 파일명으로 저장됩니다.
+    """
+    try:
+        # 카드 존재 여부 확인
+        card = db.query(Card).filter(Card.card_sn == card_sn).first()
+        if not card:
+            raise HTTPException(
+                status_code=404,
+                detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다."
+            )
+
+        # 파일 저장 (subdirectory="gen", filename_prefix="gen_")
+        file_url, _ = await save_uploaded_file(
+            file,
+            subdirectory="gen",
+            filename_prefix="gen_"
+        )
+
+        # 합성카드 테이블에 연계 저장
+        record = CardGeneratedImage(card_sn=card_sn, image_url=file_url)
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+
+        return CardGeneratedImageUploadResponseSchema(
+            success=True,
+            message="합성이미지가 등록되었습니다.",
+            imageUrl=file_url
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"합성이미지 등록 중 오류가 발생했습니다: {str(e)}"
         )
 
 

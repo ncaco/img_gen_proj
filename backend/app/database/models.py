@@ -91,3 +91,23 @@ class CardGenerationHistory(Base):
     
     def __repr__(self):
         return f"<CardGenerationHistory(id={self.id}, card_sn={self.card_sn}, success={self.success})>"
+
+
+class CardGeneratedImage(Base):
+    """
+    카드 합성이미지 연계 테이블 (card_sn별 AI 생성 합성이미지 목록)
+    """
+    __tablename__ = "card_generated_images"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    card_sn = Column(Integer, nullable=False, index=True, comment="카드 일련번호 (FK)")
+    image_url = Column(Text, nullable=False, comment="저장 경로 (예: /data/upload/gen/gen_xxx.png)")
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="등록일시"
+    )
+
+    def __repr__(self):
+        return f"<CardGeneratedImage(id={self.id}, card_sn={self.card_sn})>"

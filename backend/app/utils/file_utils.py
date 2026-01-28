@@ -46,24 +46,27 @@ def is_allowed_file(filename: str) -> bool:
     return extension in settings.allowed_extensions_list
 
 
-def generate_unique_filename(original_filename: str) -> str:
+def generate_unique_filename(original_filename: str, prefix: Optional[str] = None) -> str:
     """
     고유한 파일명 생성
     
     Args:
         original_filename: 원본 파일명
+        prefix: 파일명 앞에 붙일 접두어 (예: "gen_")
         
     Returns:
-        str: 고유한 파일명 (UUID + 원본 확장자)
+        str: 고유한 파일명 (접두어 + UUID + 원본 확장자)
     """
     extension = get_file_extension(original_filename)
     unique_id = str(uuid.uuid4())
-    return f"{unique_id}.{extension}" if extension else unique_id
+    base = f"{unique_id}.{extension}" if extension else unique_id
+    return f"{prefix}{base}" if prefix else base
 
 
 async def save_uploaded_file(
     file: UploadFile,
-    subdirectory: Optional[str] = None
+    subdirectory: Optional[str] = None,
+    filename_prefix: Optional[str] = None
 ) -> tuple[str, Path]:
     """
     업로드된 파일을 저장
@@ -71,9 +74,10 @@ async def save_uploaded_file(
     Args:
         file: 업로드된 파일 객체
         subdirectory: 서브디렉토리 (선택)
+        filename_prefix: 파일명 접두어 (선택, 예: "gen_")
         
     Returns:
-        tuple[str, Path]: (저장된 파일명, 파일 경로)
+        tuple[str, Path]: (저장된 파일 URL, 파일 경로)
         
     Raises:
         HTTPException: 파일이 허용되지 않거나 크기 제한을 초과한 경우
@@ -93,8 +97,8 @@ async def save_uploaded_file(
         upload_dir = upload_dir / subdirectory
         upload_dir.mkdir(parents=True, exist_ok=True)
     
-    # 고유한 파일명 생성
-    unique_filename = generate_unique_filename(file.filename)
+    # 고유한 파일명 생성 (접두어 적용 시 예: gen_xxxxxxxx.png)
+    unique_filename = generate_unique_filename(file.filename, prefix=filename_prefix)
     file_path = upload_dir / unique_filename
     
     # 파일 내용 읽기 및 크기 확인

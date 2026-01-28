@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { FiClipboard, FiPlus, FiEdit2, FiTrash2, FiDownload } from 'react-icons/fi';
+import { useEffect, useState, useRef } from 'react';
+import { FiClipboard, FiPlus, FiEdit2, FiTrash2, FiDownload, FiUpload } from 'react-icons/fi';
 import { buildPrompt } from '../../lib/promptBuilder';
 import ConfirmModal from '../../components/ConfirmModal';
 import LoadingMask from '../../components/LoadingMask';
@@ -47,6 +47,8 @@ export default function CardPage() {
     card: null,
   });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUploadingGenImage, setIsUploadingGenImage] = useState(false);
+  const generatedImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -212,6 +214,56 @@ export default function CardPage() {
     }
   };
 
+  const handleAddGeneratedImageClick = () => {
+    generatedImageInputRef.current?.click();
+  };
+
+  const handleGeneratedImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedCard) return;
+
+    try {
+      setIsUploadingGenImage(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(
+        `http://localhost:8000/api/v1/cards/${selectedCard.cardSn}/generated-image`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ detail: '등록에 실패했습니다.' }));
+        throw new Error(errData.detail || '합성이미지 등록에 실패했습니다.');
+      }
+
+      const data = (await response.json()) as { imageUrl?: string };
+      // 목록 재조회하여 갱신된 generatedImageUrl 반영
+      const listRes = await fetch('http://localhost:8000/api/v1/cards/list?limit=100');
+      if (listRes.ok) {
+        const listData: CardListResponse = await listRes.json();
+        setCards(listData.cards);
+        const updated = listData.cards.find((c) => c.cardSn === selectedCard.cardSn);
+        if (updated) setSelectedCard(updated);
+      } else if (data.imageUrl) {
+        setSelectedCard((prev) => (prev ? { ...prev, generatedImageUrl: data.imageUrl } : null));
+        setCards((prev) =>
+          prev.map((c) =>
+            c.cardSn === selectedCard.cardSn ? { ...c, generatedImageUrl: data.imageUrl } : c
+          )
+        );
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '합성이미지 등록 중 오류가 발생했습니다.');
+    } finally {
+      setIsUploadingGenImage(false);
+      e.target.value = '';
+    }
+  };
+
   const actionBar = (
     <div className="flex justify-end gap-2">
       <Link
@@ -258,7 +310,7 @@ export default function CardPage() {
               <div
                 onClick={() => handleCardClick(card)}
                 className="bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-105 cursor-pointer"
-                style={{ aspectRatio: '5/7' }}
+                style={{ aspectRatio: '1024/1536' }}
               >
                 {imageUrl ? (
                   <img
@@ -374,7 +426,7 @@ export default function CardPage() {
                 <div className="flex justify-center">
                   <div
                     className="relative bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden shadow-lg"
-                    style={{ width: '360px', aspectRatio: '5/7' }}
+                    style={{ width: '360px', aspectRatio: '1024/1536' }}
                   >
                     {(() => {
                       const imageUrl = getImageUrl(
@@ -411,6 +463,25 @@ export default function CardPage() {
                       );
                     })()}
                   </div>
+                </div>
+
+                <div className="flex justify-center">
+                  <input
+                    ref={generatedImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleGeneratedImageFileChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddGeneratedImageClick}
+                    disabled={isUploadingGenImage}
+                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FiUpload className="h-4 w-4" />
+                    {isUploadingGenImage ? '등록 중...' : '생성 이미지 추가'}
+                  </button>
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
