@@ -140,57 +140,86 @@ export default function CardPage() {
 
   /**
    * 카드 상세에서 사용할 이미지 리스트 구성
-   * - 1) 원본: characterImageUrl > backgroundImageUrl
+   * 기본 정렬 순서 (왼쪽 → 오른쪽):
+   * - 1) 합성 이미지들: 최신 합성부터 역순 (합성2, 합성1, ...)
    * - 2) 초안: draftImageUrl (최초 생성 이미지)
-   * - 3) 합성: generatedImageUrl (최신 합성이미지)
-   * 이 순서로 정렬한다.
+   * - 3) 원본: characterImageUrl > backgroundImageUrl
    */
   const buildCardImages = (card: Card) => {
     const images: { key: string; url: string; label: string }[] = [];
 
-    // 1) 원본 카드 이미지 (캐릭터 > 배경)
+    const compositeImages: { key: string; url: string; label: string }[] = [];
+    let draftImage: { key: string; url: string; label: string } | null = null;
+    let baseImage: { key: string; url: string; label: string } | null = null;
+
+    // 원본 카드 이미지 (캐릭터 > 배경)
     const baseUrl = getImageUrl(card.characterImageUrl || card.backgroundImageUrl);
     if (baseUrl) {
-      images.push({
+      baseImage = {
         key: 'base',
         url: baseUrl,
         label: '원본',
-      });
+      };
     }
 
-    // 2) 초안 이미지 (최초 생성 이미지)
+    // 초안 이미지 (최초 생성 이미지)
     if (card.draftImageUrl) {
       const draftUrl = getImageUrl(card.draftImageUrl);
-      if (draftUrl && !images.some((img) => img.url === draftUrl)) {
-        images.push({
+      if (draftUrl) {
+        draftImage = {
           key: 'draft',
           url: draftUrl,
           label: '초안',
-        });
+        };
       }
     }
 
-    // 3) 합성이미지들 (등록 순서대로: 합성1, 합성2, ...)
+    // 초안 URL과 동일한 경로 제외용 (같은 이미지가 합성1로 중복 표시되지 않도록)
+    const draftUrlNormalized = card.draftImageUrl ? getImageUrl(card.draftImageUrl) : null;
+
+    // 합성이미지들 (등록 순서대로: 합성1, 합성2, ...) — 초안(draftImageUrl)과 같은 URL은 제외
     if (generatedImageUrls.length > 0) {
-      generatedImageUrls.forEach((raw, idx) => {
-        const genUrl = getImageUrl(raw);
-        if (!genUrl || images.some((img) => img.url === genUrl)) return;
-        images.push({
-          key: `generated-${idx}`,
+      const compositeUrls = generatedImageUrls
+        .map((raw) => getImageUrl(raw))
+        .filter((url): url is string => !!url && url !== draftUrlNormalized);
+      const seen = new Set<string>();
+      compositeUrls.forEach((genUrl) => {
+        if (seen.has(genUrl)) return;
+        seen.add(genUrl);
+        compositeImages.push({
+          key: `generated-${compositeImages.length}`,
           url: genUrl,
-          label: `합성${idx + 1}`,
+          label: `합성${compositeImages.length + 1}`,
         });
       });
     } else if (card.generatedImageUrl) {
-      // 백엔드 목록 조회 이전에는 단일 generatedImageUrl 이라도 활용
+      // 백엔드 목록 조회 이전에는 단일 generatedImageUrl 이라도 활용 (초안과 동일 URL이면 제외)
       const genUrl = getImageUrl(card.generatedImageUrl);
-      if (genUrl && !images.some((img) => img.url === genUrl)) {
-        images.push({
+      if (genUrl && genUrl !== draftUrlNormalized) {
+        compositeImages.push({
           key: 'generated-latest',
           url: genUrl,
           label: '합성1',
         });
       }
+    }
+
+    // 1) 합성이미지: 최신 것이 먼저 오도록 역순 정렬
+    if (compositeImages.length > 0) {
+      compositeImages
+        .slice()
+        .reverse()
+        .forEach((img) => images.push(img));
+    }
+
+    // 2) 초안
+    if (draftImage && !images.some((img) => img.url === draftImage!.url)) {
+      images.push(draftImage);
+    }
+
+    // 3) 원본
+    if (baseImage && !images.some((img) => img.url === baseImage!.url)) {
+      images.push(baseImage);
     }
 
     return images;
@@ -455,11 +484,16 @@ export default function CardPage() {
           };
           const urls = genData.images ?? [];
           setGeneratedImageUrls(urls);
+
           if (urls.length === 0) {
+            // 더 이상 합성이미지가 없으면 기본 선택 인덱스로 돌리고 전체화면은 닫는다.
             setSelectedImageIndex(0);
-          } else if (selectedImageIndex >= urls.length + 2) {
-            // 원본(0), 초안(있다면 1) 이후 합성이 줄어든 경우를 대비해 보정
-            setSelectedImageIndex(urls.length + 1);
+            setFullscreenIndex(0);
+            setIsFullscreen(false);
+          } else {
+            // 최신 합성이미지가 맨 앞으로 오도록 정렬하므로, 항상 첫 번째 합성 이미지를 선택
+            setSelectedImageIndex(0);
+            setFullscreenIndex(0);
           }
         }
       } catch {
@@ -771,7 +805,7 @@ export default function CardPage() {
                                       {img.label}
                                     </span>
                                     {isSelected &&
-                                      img.label.startsWith('합성') &&
+                                      img.key.startsWith('generated-') &&
                                       selectedCard.generatedImageUrl && (
                                         <button
                                           type="button"
@@ -1038,7 +1072,7 @@ export default function CardPage() {
                           e.stopPropagation();
                           goPrev();
                         }}
-                        className="absolute left-0 -translate-x-full text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2"
+                        className="absolute -left-20 text-white/85 hover:text-white bg-black/70 hover:bg-black/90 rounded-full w-14 h-14 flex items-center justify-center text-3xl shadow-xl border border-white/20"
                         aria-label="이전 이미지"
                       >
                         ‹
@@ -1049,7 +1083,7 @@ export default function CardPage() {
                           e.stopPropagation();
                           goNext();
                         }}
-                        className="absolute right-0 translate-x-full text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2"
+                        className="absolute -right-20 text-white/85 hover:text-white bg-black/70 hover:bg-black/90 rounded-full w-14 h-14 flex items-center justify-center text-3xl shadow-xl border border-white/20"
                         aria-label="다음 이미지"
                       >
                         ›
