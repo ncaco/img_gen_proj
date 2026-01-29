@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
-import { FiClipboard, FiPlus, FiEdit2, FiTrash2, FiDownload, FiUpload } from 'react-icons/fi';
+import { FiClipboard, FiPlus, FiTrash2, FiDownload, FiUpload } from 'react-icons/fi';
 import { buildPrompt } from '../../lib/promptBuilder';
 import ConfirmModal from '../../components/ConfirmModal';
 import LoadingMask from '../../components/LoadingMask';
@@ -322,12 +322,6 @@ export default function CardPage() {
     }
   };
 
-  const handleEditCard = (e: React.MouseEvent, card: Card) => {
-    e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
-    // TODO: 수정 기능 구현
-    console.log('수정:', card);
-  };
-
   const handleDeleteCard = (e: React.MouseEvent, card: Card) => {
     e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
     setDeleteModal({ isOpen: true, card });
@@ -637,14 +631,6 @@ export default function CardPage() {
               
               {/* Hover 시 카드 외부 하단에 나타나는 조작 버튼 */}
               <div className="absolute top-full left-1/2 -translate-x-1/2 flex justify-center gap-2 pt-2 opacity-0 group-hover:opacity-100 translate-y-0 group-hover:translate-y-2 transition-all duration-300 ease-out">
-                <button
-                  onClick={(e) => handleEditCard(e, card)}
-                  className="h-8 w-8 rounded-full bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center shadow-lg transition-colors"
-                  aria-label="카드 수정"
-                  title="카드 수정"
-                >
-                  <FiEdit2 className="h-4 w-4" />
-                </button>
                 <button
                   onClick={(e) => handleDeleteCard(e, card)}
                   className="h-8 w-8 rounded-full bg-red-600 text-white hover:bg-red-700 flex items-center justify-center shadow-lg transition-colors"

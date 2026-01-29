@@ -14,7 +14,9 @@ class Card(Base):
     
     # 기본 필드 (PK)
     card_sn = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="카드 일련번호 (PK, 자동생성)")
-    
+    # 하위 호환: 기존 DB에 evolve_step 컬럼이 있으면 NOT NULL 이므로 기본값으로 포함 (진화 기능 미사용)
+    evolve_step = Column(Integer, nullable=False, default=0, comment="진화 단계 (미사용, 호환용)")
+
     # 카드 기본 정보
     card_name = Column(String(100), nullable=False, index=True, comment="카드명")
     card_number = Column(String(50), nullable=True, comment="카드번호 (사용자 입력)")

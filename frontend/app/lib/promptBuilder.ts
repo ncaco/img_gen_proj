@@ -47,14 +47,14 @@ export const buildPrompt = (input: PromptInput) => {
     const skill1Name = truncate(input.skill1Name, 12);
     const skill1Desc = input.skill1Description ? truncate(input.skill1Description, 30) : '';
     skillBlocks.push(
-      `│  │  [스킬 1] ${skill1Name.padEnd(20)}│\n│  │  • ${skill1Desc.padEnd(30)}│\n│  │                                 │\n`,
+      `│  │  ${skill1Name.padEnd(20)}│\n│  │  • ${skill1Desc.padEnd(30)}│\n│  │                                 │\n`,
     );
   }
   if (input.skill2Name?.trim()) {
     const skill2Name = truncate(input.skill2Name, 12);
     const skill2Desc = input.skill2Description ? truncate(input.skill2Description, 30) : '';
     skillBlocks.push(
-      `│  │  [스킬 2] ${skill2Name.padEnd(20)}│\n│  │  • ${skill2Desc.padEnd(30)}│\n│  │                                 │\n`,
+      `│  │  ${skill2Name.padEnd(20)}│\n│  │  • ${skill2Desc.padEnd(30)}│\n│  │                                 │\n`,
     );
   }
 

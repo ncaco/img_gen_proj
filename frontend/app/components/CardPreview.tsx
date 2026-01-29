@@ -135,7 +135,7 @@ export default function CardPreview({ cardData }: CardPreviewProps) {
           {/* 스킬 1 */}
           <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 min-h-[56px] flex flex-col justify-center">
             <div className="text-white font-semibold text-sm leading-tight">
-              [스킬 1] {skill1?.name || '스킬명'}
+              {skill1?.name || '스킬명'}
             </div>
             <div className="text-white/90 text-xs leading-tight mt-0.5">
               • {skill1?.description || '효과 설명'}
@@ -145,7 +145,7 @@ export default function CardPreview({ cardData }: CardPreviewProps) {
           {/* 스킬 2 */}
           <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 min-h-[56px] flex flex-col justify-center">
             <div className="text-white font-semibold text-sm leading-tight">
-              [스킬 2] {skill2?.name || '스킬명'}
+              {skill2?.name || '스킬명'}
             </div>
             <div className="text-white/90 text-xs leading-tight mt-0.5">
               • {skill2?.description || '효과 설명'}

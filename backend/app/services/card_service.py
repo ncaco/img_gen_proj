@@ -75,14 +75,14 @@ class CardService:
         if card_data.skill1Name and card_data.skill1Name.strip():
             skill1_name = card_data.skill1Name[:12] if len(card_data.skill1Name) > 12 else card_data.skill1Name
             skill1_desc = card_data.skill1Description[:30] if card_data.skill1Description and len(card_data.skill1Description) > 30 else (card_data.skill1Description or "")
-            prompt += f"│  │  [스킬 1] {skill1_name.ljust(20)}│\n"
+            prompt += f"│  │  {skill1_name.ljust(20)}│\n"
             prompt += f"│  │  • {skill1_desc.ljust(30)}│\n"
             prompt += "│  │                                 │\n"
         
         if card_data.skill2Name and card_data.skill2Name.strip():
             skill2_name = card_data.skill2Name[:12] if len(card_data.skill2Name) > 12 else card_data.skill2Name
             skill2_desc = card_data.skill2Description[:30] if card_data.skill2Description and len(card_data.skill2Description) > 30 else (card_data.skill2Description or "")
-            prompt += f"│  │  [스킬 2] {skill2_name.ljust(20)}│\n"
+            prompt += f"│  │  {skill2_name.ljust(20)}│\n"
             prompt += f"│  │  • {skill2_desc.ljust(30)}│\n"
             prompt += "│  │                                 │\n"
         
@@ -305,7 +305,7 @@ class CardService:
         db.refresh(card)
         
         return card
-    
+
     @staticmethod
     def get_all_cards(db: Session, skip: int = 0, limit: int = 100):
         """
