@@ -31,7 +31,8 @@ export default function Home() {
   const [backgroundImage, setBackgroundImage] = useState<string | undefined>();
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>();
-  const cardPreviewRef = useRef<HTMLDivElement>(null); // 화면 오른쪽 실시간 미리보기
+  const cardPreviewRef = useRef<HTMLDivElement>(null); // 데스크톱 실시간 미리보기
+  const cardPreviewRefMobile = useRef<HTMLDivElement>(null); // 모바일 하단 실시간 미리보기
   const [formData, setFormData] = useState<CardFormData>({
     cardName: '',
     type: '',
@@ -175,16 +176,18 @@ export default function Home() {
   };
 
   // 카드 미리보기 이미지 생성 (html-to-image 사용)
-  // 화면 오른쪽 "실시간 미리보기" 영역에 렌더링된 카드 그대로를 캡처
+  // 현재 보이는 실시간 미리보기 영역(데스크톱 오른쪽 또는 모바일 하단)을 캡처
   const generatePreviewImage = async (): Promise<string> => {
-    if (!cardPreviewRef.current) return '';
+    const isXl = typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches;
+    const containerRef = isXl ? cardPreviewRef.current : cardPreviewRefMobile.current;
+    if (!containerRef) return '';
 
     try {
       // CardPreview 컴포넌트의 최상위 div 요소 찾기 (data-card-preview 속성 사용)
       const cardElement =
-        (cardPreviewRef.current.querySelector(
+        (containerRef.querySelector(
           'div[data-card-preview="true"]',
-        ) as HTMLElement | null) || cardPreviewRef.current;
+        ) as HTMLElement | null) || containerRef;
 
       // 이미지 로드 대기
       await waitForImages(cardElement);
@@ -463,7 +466,7 @@ export default function Home() {
             )}
           </div>
 
-          {/* 오른쪽: 항상 표시되는 카드 미리보기 (고정) */}
+          {/* 오른쪽: 데스크톱(xl)에서만 표시되는 카드 미리보기 */}
           <div className="hidden xl:block flex-shrink-0">
             <div className="sticky top-8">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
@@ -519,6 +522,62 @@ export default function Home() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* 모바일/태블릿: 하단 고정 실시간 미리보기 영역 */}
+        <div className="xl:hidden mt-8 pb-4">
+          <div className="max-w-sm mx-auto px-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 text-center">
+              실시간 미리보기
+            </h3>
+            <div ref={cardPreviewRefMobile} className="flex justify-center">
+              <CardPreview cardData={cardData} />
+            </div>
+            {currentStep === 'info' && (
+              <div className="mt-4 flex gap-3 justify-center">
+                <button
+                  onClick={handleGenerate}
+                  disabled={!infoStepCompleted}
+                  className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-lg"
+                  title="카드 생성하기"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => {
+                    setCharacterImage(undefined);
+                    setBackgroundImage(undefined);
+                    setFormData({
+                      cardName: '',
+                      type: '',
+                      attribute: '',
+                      rarity: '',
+                      attack: '',
+                      health: '',
+                      skill1Name: '',
+                      skill1Description: '',
+                      skill2Name: '',
+                      skill2Description: '',
+                      flavorText: '',
+                      cardNumber: '',
+                      series: '',
+                    });
+                    setGeneratedPrompt('');
+                    setPreviewImageUrl(undefined);
+                    setCurrentStep('image');
+                  }}
+                  className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg"
+                  title="초기화"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
