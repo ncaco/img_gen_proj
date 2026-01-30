@@ -1,585 +1,201 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { toPng } from 'html-to-image';
-import DropZone from './components/DropZone';
-import CardPreview from './components/CardPreview';
-import CardForm from './components/CardForm';
-import StepTabs, { Step } from './components/StepTabs';
-import ResultPanel from './components/ResultPanel';
-import { buildPrompt } from './lib/promptBuilder';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 
-interface CardFormData {
+const API_BASE = 'http://localhost:8000';
+
+const INITIAL_COUNT = 36;
+const LOAD_MORE_COUNT = 24;
+const POOL_BATCH_SIZE = 200;
+const SCROLL_THRESHOLD = 400;
+
+interface CardItem {
+  cardSn: number;
   cardName: string;
-  type: string;
-  attribute: string;
-  rarity: string;
-  attack: string;
-  health: string;
-  skill1Name: string;
-  skill1Description: string;
-  skill2Name: string;
-  skill2Description: string;
-  flavorText: string;
-  cardNumber: string;
-  series: string;
+  generatedImageUrl: string | null;
+  draftImageUrl?: string | null;
+}
+
+type DisplayItem = CardItem & { uniqueKey: number; isPlaceholder?: boolean; gradient?: string };
+
+const PLACEHOLDER_GRADIENTS = [
+  'from-amber-400 via-orange-500 to-rose-600',
+  'from-emerald-400 via-teal-500 to-cyan-600',
+  'from-violet-400 via-purple-500 to-fuchsia-600',
+  'from-sky-400 via-blue-500 to-indigo-600',
+  'from-rose-400 via-pink-500 to-red-500',
+  'from-lime-400 via-green-500 to-emerald-600',
+  'from-amber-300 via-yellow-400 to-orange-500',
+  'from-slate-400 via-gray-500 to-zinc-600',
+];
+
+const PLACEHOLDER_ITEMS: DisplayItem[] = Array.from({ length: 24 }, (_, i) => ({
+  cardSn: i,
+  cardName: '',
+  generatedImageUrl: null,
+  draftImageUrl: null,
+  uniqueKey: i,
+  isPlaceholder: true,
+  gradient: PLACEHOLDER_GRADIENTS[i % PLACEHOLDER_GRADIENTS.length],
+}));
+
+function imageUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function randomRepeat<T extends { cardSn: number }>(
+  source: T[],
+  count: number,
+  seedOffset: number = 0
+): (T & { uniqueKey: number })[] {
+  if (source.length === 0) return [];
+  const result: (T & { uniqueKey: number })[] = [];
+  for (let i = 0; i < count; i++) {
+    const idx = Math.floor((Math.sin((seedOffset + i) * 9999) * 0.5 + 0.5) * source.length) % source.length;
+    result.push({ ...source[idx], uniqueKey: seedOffset + i });
+  }
+  return result;
 }
 
 export default function Home() {
-  const [currentStep, setCurrentStep] = useState<Step>('image');
-  const [characterImage, setCharacterImage] = useState<string | undefined>();
-  const [backgroundImage, setBackgroundImage] = useState<string | undefined>();
-  const [generatedPrompt, setGeneratedPrompt] = useState('');
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>();
-  const cardPreviewRef = useRef<HTMLDivElement>(null); // 데스크톱 실시간 미리보기
-  const cardPreviewRefMobile = useRef<HTMLDivElement>(null); // 모바일 하단 실시간 미리보기
-  const [formData, setFormData] = useState<CardFormData>({
-    cardName: '',
-    type: '',
-    attribute: '',
-    rarity: '',
-    attack: '',
-    health: '',
-    skill1Name: '',
-    skill1Description: '',
-    skill2Name: '',
-    skill2Description: '',
-    flavorText: '',
-    cardNumber: '',
-    series: '',
-  });
+  const [cards, setCards] = useState<CardItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pool, setPool] = useState<DisplayItem[]>([]);
+  const [displayCount, setDisplayCount] = useState(INITIAL_COUNT);
+  const loadingMore = useRef(false);
+  const initialPoolSet = useRef(false);
 
-  // 단계별 완료 및 활성화 상태 계산
-  const imageStepCompleted = !!(characterImage && backgroundImage);
-  const infoStepCompleted = 
-    formData.cardName.trim() !== '' &&
-    formData.type.trim() !== '' &&
-    formData.attribute.trim() !== '' &&
-    formData.rarity.trim() !== '';
+  const sourceItems: DisplayItem[] =
+    cards.length > 0
+      ? cards.map((c, i) => ({ ...c, uniqueKey: i, cardSn: c.cardSn }))
+      : PLACEHOLDER_ITEMS;
 
-  const steps = {
-    image: {
-      completed: imageStepCompleted,
-      enabled: true, // 첫 단계는 항상 활성화
-    },
-    info: {
-      completed: infoStepCompleted,
-      enabled: true, // 이미지 업로드 후 활성화 (이미지가 없어도 활성화)
-    },
-    result: {
-      completed: !!previewImageUrl,
-      enabled: !!previewImageUrl, // 결과가 생성되면 활성화
-    },
-  };
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/v1/cards/list?limit=100`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.cards) return;
+        setCards(
+          data.cards.map((c: { cardSn: number; cardName: string; generatedImageUrl?: string; draftImageUrl?: string }) => ({
+            cardSn: c.cardSn,
+            cardName: c.cardName,
+            generatedImageUrl: c.generatedImageUrl ?? null,
+            draftImageUrl: c.draftImageUrl ?? null,
+          }))
+        );
+      })
+      .catch(() => setCards([]))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const handleImageDrop = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageUrl = e.target?.result as string;
-      // 첫 번째 이미지는 캐릭터, 두 번째는 배경으로 설정
-      if (!characterImage) {
-        setCharacterImage(imageUrl);
-        // 첫 번째 이미지 업로드 시 바로 정보 탭으로 이동
-        if (currentStep === 'image') {
-          setTimeout(() => setCurrentStep('info'), 300);
-        }
-      } else if (!backgroundImage) {
-        setBackgroundImage(imageUrl);
-        // 배경 이미지도 업로드되면 정보 탭으로 이동 (이미 정보 탭에 있으면 유지)
-        if (currentStep === 'image') {
-          setTimeout(() => setCurrentStep('info'), 300);
-        }
-      } else {
-        // 이미 둘 다 있으면 캐릭터 이미지 교체
-        setCharacterImage(imageUrl);
+  // 최초 1회만 풀 세팅 (위쪽 데이터 유지). 이후에는 스크롤 시 아래로만 추가
+  useEffect(() => {
+    if (cards.length === 0) {
+      initialPoolSet.current = false;
+      setPool(randomRepeat(PLACEHOLDER_ITEMS, POOL_BATCH_SIZE, 0));
+      setDisplayCount(INITIAL_COUNT);
+      return;
+    }
+    if (initialPoolSet.current) return;
+    initialPoolSet.current = true;
+    const source = cards.map((c, i) => ({ ...c, uniqueKey: i, cardSn: c.cardSn }));
+    setPool(randomRepeat(source, POOL_BATCH_SIZE, 0));
+    setDisplayCount(INITIAL_COUNT);
+  }, [cards]);
+
+  const getSourceForPool = useCallback((): DisplayItem[] => {
+    return cards.length > 0
+      ? cards.map((c, i) => ({ ...c, uniqueKey: i, cardSn: c.cardSn }))
+      : PLACEHOLDER_ITEMS;
+  }, [cards]);
+
+  const loadMore = useCallback(() => {
+    if (loadingMore.current || sourceItems.length === 0) return;
+    loadingMore.current = true;
+    setDisplayCount((prev) => {
+      const next = prev + LOAD_MORE_COUNT;
+      loadingMore.current = false;
+      return next;
+    });
+  }, [sourceItems.length]);
+
+  // 스크롤로 더 필요할 때만 아래쪽에 풀 추가 (위쪽 pool은 변경하지 않음)
+  useEffect(() => {
+    if (pool.length === 0 || displayCount <= pool.length - LOAD_MORE_COUNT) return;
+    const source = getSourceForPool();
+    if (source.length === 0) return;
+    setPool((prev) => [...prev, ...randomRepeat(source, POOL_BATCH_SIZE, prev.length)]);
+  }, [displayCount, pool.length, getSourceForPool]);
+
+  useEffect(() => {
+    const container = document.documentElement;
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      if (scrollHeight - scrollTop - clientHeight < SCROLL_THRESHOLD) {
+        loadMore();
       }
     };
-    reader.readAsDataURL(file);
-  };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [loadMore]);
 
-  const handleReset = () => {
-    setCharacterImage(undefined);
-    setBackgroundImage(undefined);
-  };
-
-  // 프롬프트 생성 함수 (공통 템플릿 사용)
-  const generatePrompt = (): string =>
-    buildPrompt({
-      type: formData.type,
-      rarity: formData.rarity,
-      cardName: formData.cardName,
-      attribute: formData.attribute,
-      attack: formData.attack,
-      health: formData.health,
-      cardNumber: formData.cardNumber,
-      skill1Name: formData.skill1Name,
-      skill1Description: formData.skill1Description,
-      skill2Name: formData.skill2Name,
-      skill2Description: formData.skill2Description,
-      flavorText: formData.flavorText,
-      series: formData.series,
-      characterImageRef: characterImage ? '업로드된 캐릭터 이미지 스타일 참고' : '없음',
-      backgroundImageRef: backgroundImage ? '업로드된 배경 이미지 스타일 참고' : '없음',
-    });
-
-  // 이미지 로드 대기 함수 (img 태그와 배경 이미지 모두)
-  const waitForImages = (element: HTMLElement): Promise<void> => {
-    return new Promise((resolve) => {
-      const images: HTMLImageElement[] = [];
-      
-      // img 태그 찾기
-      element.querySelectorAll('img').forEach((img) => {
-        images.push(img as HTMLImageElement);
-      });
-      
-      // 배경 이미지가 있는 div 찾기
-      const bgDivs = element.querySelectorAll('div[style*="background-image"]');
-      bgDivs.forEach((div) => {
-        const style = window.getComputedStyle(div);
-        const bgImage = style.backgroundImage;
-        if (bgImage && bgImage !== 'none') {
-          const urlMatch = bgImage.match(/url\(["']?([^"']+)["']?\)/);
-          if (urlMatch) {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.src = urlMatch[1];
-            images.push(img);
-          }
-        }
-      });
-      
-      if (images.length === 0) {
-        setTimeout(resolve, 200); // 스타일 적용 대기
-        return;
-      }
-      
-      let loadedCount = 0;
-      const totalImages = images.length;
-      
-      const checkComplete = () => {
-        loadedCount++;
-        if (loadedCount === totalImages) {
-          // 추가로 약간의 시간을 두어 렌더링 완료 보장
-          setTimeout(resolve, 300);
-        }
-      };
-      
-      images.forEach((img) => {
-        if (img.complete || img.tagName === 'IMG' && (img as HTMLImageElement).complete) {
-          checkComplete();
-        } else {
-          img.onload = checkComplete;
-          img.onerror = checkComplete; // 에러가 나도 진행
-        }
-      });
-    });
-  };
-
-  // 카드 미리보기 이미지 생성 (html-to-image 사용)
-  // 현재 보이는 실시간 미리보기 영역(데스크톱 오른쪽 또는 모바일 하단)을 캡처
-  const generatePreviewImage = async (): Promise<string> => {
-    const isXl = typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches;
-    const containerRef = isXl ? cardPreviewRef.current : cardPreviewRefMobile.current;
-    if (!containerRef) return '';
-
-    try {
-      // CardPreview 컴포넌트의 최상위 div 요소 찾기 (data-card-preview 속성 사용)
-      const cardElement =
-        (containerRef.querySelector(
-          'div[data-card-preview="true"]',
-        ) as HTMLElement | null) || containerRef;
-
-      // 이미지 로드 대기
-      await waitForImages(cardElement);
-
-      // 추가 렌더링 대기 (폰트/그라데이션 등 마무리용)
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      const dataUrl = await toPng(cardElement, {
-        cacheBust: true,
-        pixelRatio: 2, // 고해상도 (2배)
-        backgroundColor: 'transparent',
-      });
-
-      return dataUrl;
-    } catch (error) {
-      console.error('이미지 생성 실패:', error);
-      return '';
-    }
-  };
-
-  // base64 이미지를 Blob으로 변환
-  const base64ToBlob = (base64: string, mimeType: string = 'image/png'): Blob => {
-    const base64Data = base64.split(',')[1] || base64;
-    const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: mimeType });
-  };
-
-  // 이미지 업로드 함수
-  const uploadImage = async (imageData: string, imageType: 'character' | 'background'): Promise<string | null> => {
-    if (!imageData) return null;
-    
-    try {
-      // base64를 Blob으로 변환
-      const blob = base64ToBlob(imageData);
-      const file = new File([blob], `${imageType}_${Date.now()}.png`, { type: 'image/png' });
-      
-      // FormData 생성
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('subdirectory', 'cards');
-      
-      // 서버에 업로드
-      const response = await fetch('http://localhost:8000/api/v1/upload/single', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error('이미지 업로드 실패');
-      }
-      
-      const result = await response.json();
-      return result.file_url || null;
-    } catch (error) {
-      console.error('이미지 업로드 오류:', error);
-      return null;
-    }
-  };
-
-  // 생성 버튼 클릭 핸들러
-  const handleGenerate = async () => {
-    try {
-      const prompt = generatePrompt();
-      setGeneratedPrompt(prompt);
-      
-      // 미리보기 이미지 생성
-      const imageUrl = await generatePreviewImage();
-      setPreviewImageUrl(imageUrl);
-      
-      // 이미지 업로드
-      const characterImageUrl = characterImage 
-        ? await uploadImage(characterImage, 'character')
-        : null;
-      const backgroundImageUrl = backgroundImage
-        ? await uploadImage(backgroundImage, 'background')
-        : null;
-      
-      // 생성된 이미지도 업로드 (있는 경우)
-      let generatedImageUrl = null;
-      if (imageUrl) {
-        generatedImageUrl = await uploadImage(imageUrl, 'generated');
-      }
-      
-      // 카드 정보를 서버에 저장
-      const saveResponse = await fetch('http://localhost:8000/api/v1/cards/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cardData: {
-            cardName: formData.cardName,
-            type: formData.type,
-            attribute: formData.attribute,
-            rarity: formData.rarity,
-            attack: formData.attack || '0',
-            health: formData.health || '0',
-            skill1Name: formData.skill1Name || '',
-            skill1Description: formData.skill1Description || '',
-            skill2Name: formData.skill2Name || '',
-            skill2Description: formData.skill2Description || '',
-            flavorText: formData.flavorText || '',
-            cardNumber: formData.cardNumber || '',
-            series: formData.series || '',
-          },
-          characterImageUrl: characterImageUrl,
-          backgroundImageUrl: backgroundImageUrl,
-          generatedPrompt: prompt,
-          generatedImageUrl: generatedImageUrl,
-        }),
-      });
-      
-      if (!saveResponse.ok) {
-        const errorData = await saveResponse.json();
-        throw new Error(errorData.detail || '카드 저장 실패');
-      }
-      
-      const saveResult = await saveResponse.json();
-      console.log('카드 저장 성공:', saveResult);
-      
-      // 결과 탭으로 이동
-      setCurrentStep('result');
-    } catch (error) {
-      console.error('카드 생성/저장 오류:', error);
-      alert(`오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
-    }
-  };
-
-  // 폼 데이터를 카드 데이터로 변환
-  const cardData = {
-    characterImage,
-    backgroundImage,
-    cardName: formData.cardName,
-    type: formData.type,
-    attribute: formData.attribute,
-    rarity: formData.rarity,
-    attack: formData.attack,
-    health: formData.health,
-    skill1: {
-      name: formData.skill1Name,
-      description: formData.skill1Description,
-    },
-    skill2: {
-      name: formData.skill2Name,
-      description: formData.skill2Description,
-    },
-    flavorText: formData.flavorText,
-    cardNumber: formData.cardNumber,
-    series: formData.series,
-  };
+  const displayItems = pool.slice(0, displayCount);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      <main className="container mx-auto px-4 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            카드 생성기
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            단계별로 카드를 생성하세요
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#0c0c0f]">
+      <Link
+        href="/create"
+        className="fixed top-4 right-4 z-30 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+        aria-label="create"
+      >
+        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      </Link>
 
-        <div className="flex gap-6 max-w-7xl mx-auto">
-          {/* 왼쪽: 단계 탭 */}
-          <div className="flex-shrink-0">
-            <StepTabs currentStep={currentStep} onStepChange={setCurrentStep} steps={steps} />
+      <main className="pinterest-masonry pt-4 pb-8 px-3 sm:px-4 md:px-6">
+        {loading ? (
+          <div className="pinterest-masonry-inner">
+            {Array.from({ length: 20 }).map((_, i) => (
+              <div key={i} className="pinterest-pin rounded-2xl bg-white/10 animate-pulse aspect-[2/3]" />
+            ))}
           </div>
+        ) : (
+          <div className="pinterest-masonry-inner">
+            {displayItems.map((item: DisplayItem, i) => {
+              const src = item.generatedImageUrl || item.draftImageUrl;
+              const isPlaceholder = item.isPlaceholder;
 
-          {/* 중앙: 단계별 콘텐츠 영역 */}
-          <div className="flex-1 space-y-6">
-            {/* 1단계: 이미지 업로드 */}
-            {currentStep === 'image' && (
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">
-                    이미지 업로드
-                  </h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    캐릭터 이미지와 배경 이미지를 업로드하세요
-                  </p>
-                  <DropZone onImageDrop={handleImageDrop} />
+              return (
+                <div key={item.uniqueKey} className="pinterest-pin">
+                  {isPlaceholder || !src ? (
+                    <div
+                      className={`w-full aspect-[2/3] rounded-2xl bg-gradient-to-br ${
+                        item.gradient ??
+                        PLACEHOLDER_GRADIENTS[i % PLACEHOLDER_GRADIENTS.length]
+                      }`}
+                    />
+                  ) : (
+                    <img
+                      src={imageUrl(src)}
+                      alt=""
+                      className="w-full aspect-[2/3] object-cover rounded-2xl"
+                    />
+                  )}
                 </div>
-
-                {/* 이미지 미리보기 */}
-                {(characterImage || backgroundImage) && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {characterImage && (
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          캐릭터 이미지
-                        </h3>
-                        <div className="relative w-full h-48 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
-                          <img
-                            src={characterImage}
-                            alt="캐릭터"
-                            className="w-full h-full object-contain"
-                          />
-                          <button
-                            onClick={() => setCharacterImage(undefined)}
-                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {backgroundImage && (
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          배경 이미지
-                        </h3>
-                        <div className="relative w-full h-48 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
-                          <img
-                            src={backgroundImage}
-                            alt="배경"
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            onClick={() => setBackgroundImage(undefined)}
-                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {imageStepCompleted && (
-                  <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                    <p className="text-green-800 dark:text-green-200 text-sm">
-                      ✓ 이미지 업로드가 완료되었습니다. 다음 단계로 진행하세요.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 2단계: 카드 정보 입력 */}
-            {currentStep === 'info' && (
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">
-                    카드 정보 입력
-                  </h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    카드의 상세 정보를 입력하세요
-                  </p>
-                </div>
-                <CardForm formData={formData} onChange={setFormData} />
-                {infoStepCompleted && (
-                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                    <p className="text-green-800 dark:text-green-200 text-sm">
-                      ✓ 카드 정보 입력이 완료되었습니다. 오른쪽에서 생성 버튼을 클릭하세요.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 3단계: 결과 */}
-            {currentStep === 'result' && (
-              <ResultPanel
-                prompt={generatedPrompt}
-                previewImageUrl={previewImageUrl}
-                cardData={cardData}
-              />
-            )}
+              );
+            })}
           </div>
-
-          {/* 오른쪽: 데스크톱(xl)에서만 표시되는 카드 미리보기 */}
-          <div className="hidden xl:block flex-shrink-0">
-            <div className="sticky top-8">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
-                실시간 미리보기
-              </h3>
-              <div ref={cardPreviewRef}>
-                <CardPreview cardData={cardData} />
-              </div>
-              
-              {/* 생성 및 초기화 버튼 */}
-              {currentStep === 'info' && (
-                <div className="mt-4 flex gap-3 justify-center">
-                  <button
-                    onClick={handleGenerate}
-                    disabled={!infoStepCompleted}
-                    className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-lg"
-                    title="카드 생성하기"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCharacterImage(undefined);
-                      setBackgroundImage(undefined);
-                      setFormData({
-                        cardName: '',
-                        type: '',
-                        attribute: '',
-                        rarity: '',
-                        attack: '',
-                        health: '',
-                        skill1Name: '',
-                        skill1Description: '',
-                        skill2Name: '',
-                        skill2Description: '',
-                        flavorText: '',
-                        cardNumber: '',
-                        series: '',
-                      });
-                      setGeneratedPrompt('');
-                      setPreviewImageUrl(undefined);
-                      setCurrentStep('image');
-                    }}
-                    className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg"
-                    title="초기화"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 모바일/태블릿: 하단 고정 실시간 미리보기 영역 */}
-        <div className="xl:hidden mt-8 pb-4">
-          <div className="max-w-sm mx-auto px-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 text-center">
-              실시간 미리보기
-            </h3>
-            <div ref={cardPreviewRefMobile} className="flex justify-center">
-              <CardPreview cardData={cardData} />
-            </div>
-            {currentStep === 'info' && (
-              <div className="mt-4 flex gap-3 justify-center">
-                <button
-                  onClick={handleGenerate}
-                  disabled={!infoStepCompleted}
-                  className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-lg"
-                  title="카드 생성하기"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => {
-                    setCharacterImage(undefined);
-                    setBackgroundImage(undefined);
-                    setFormData({
-                      cardName: '',
-                      type: '',
-                      attribute: '',
-                      rarity: '',
-                      attack: '',
-                      health: '',
-                      skill1Name: '',
-                      skill1Description: '',
-                      skill2Name: '',
-                      skill2Description: '',
-                      flavorText: '',
-                      cardNumber: '',
-                      series: '',
-                    });
-                    setGeneratedPrompt('');
-                    setPreviewImageUrl(undefined);
-                    setCurrentStep('image');
-                  }}
-                  className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg"
-                  title="초기화"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </main>
     </div>
   );

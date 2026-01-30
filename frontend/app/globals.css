@@ -20,6 +20,16 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* 전체 페이지 스크롤바 숨기기 (스크롤은 가능) */
+html {
+  -ms-overflow-style: none; /* IE 및 Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+html::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
 /* 가로 스크롤 영역에서 스크롤바 숨기기 */
 .no-scrollbar {
   -ms-overflow-style: none; /* IE 및 Edge */
@@ -28,4 +38,86 @@ body {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
+}
+
+/* 랜딩: 카드 대각선 위아래 부유 애니메이션 */
+@keyframes float-diagonal-up {
+  0%, 100% { transform: translate(0, 0) rotate(var(--card-rotate, 0deg)); }
+  50% { transform: translate(6px, -12px) rotate(var(--card-rotate, 0deg)); }
+}
+
+@keyframes float-diagonal-down {
+  0%, 100% { transform: translate(0, 0) rotate(var(--card-rotate, 0deg)); }
+  50% { transform: translate(-6px, 12px) rotate(var(--card-rotate, 0deg)); }
+}
+
+.animate-float-up {
+  animation: float-diagonal-up 6s ease-in-out infinite;
+}
+
+.animate-float-down {
+  animation: float-diagonal-down 6s ease-in-out infinite;
+}
+
+/* 랜딩: Flex로 6열 고정 (카드가 일렬로만 나오는 문제 해결) */
+.pinterest-masonry {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+}
+
+.pinterest-masonry-inner {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* 6열: (100% - 5개 간격) / 6 */
+.pinterest-pin {
+  flex: 0 0 calc((100% - 5 * 16px) / 6);
+  box-sizing: border-box;
+}
+
+@media (max-width: 959px) {
+  .pinterest-masonry-inner {
+    gap: 14px;
+  }
+  .pinterest-pin {
+    flex: 0 0 calc((100% - 4 * 14px) / 5);
+  }
+}
+
+@media (max-width: 767px) {
+  .pinterest-masonry-inner {
+    gap: 12px;
+  }
+  .pinterest-pin {
+    flex: 0 0 calc((100% - 3 * 12px) / 4);
+  }
+}
+
+@media (max-width: 639px) {
+  .pinterest-pin {
+    flex: 0 0 calc((100% - 2 * 12px) / 3);
+  }
+}
+
+@media (max-width: 479px) {
+  .pinterest-pin {
+    flex: 0 0 calc((100% - 1 * 12px) / 2);
+  }
+}
+
+.pinterest-pin img,
+.pinterest-pin > div {
+  width: 100%;
+  display: block;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: box-shadow 0.2s ease;
+}
+
+.pinterest-pin:hover img,
+.pinterest-pin:hover > div {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
