@@ -42,7 +42,7 @@ export default function CardPreview({ cardData }: CardPreviewProps) {
     skill2,
     flavorText = '카드 설명이 여기에 표시됩니다.',
     cardNumber = '#000',
-    series = '시리즈명',
+    series = 'Default / Ncaco.Inc',
   } = cardData;
 
   const typeDisplay = typeData || '타입';
@@ -133,22 +133,32 @@ export default function CardPreview({ cardData }: CardPreviewProps) {
         {/* 스킬 영역 (투명 배경 오버레이) */}
         <div className="space-y-2">
           {/* 스킬 1 */}
-          <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 min-h-[56px] flex flex-col justify-center">
-            <div className="text-white font-semibold text-sm leading-tight">
-              {skill1?.name || '스킬명'}
+          <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 min-h-[56px] flex items-center gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded bg-white/20 border border-white/40 flex items-center justify-center text-white/70 text-lg">
+              ?
             </div>
-            <div className="text-white/90 text-xs leading-tight mt-0.5">
-              • {skill1?.description || '효과 설명'}
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <div className="text-white font-semibold text-sm leading-tight">
+                {skill1?.name || '스킬명'}
+              </div>
+              <div className="text-white/90 text-xs leading-tight mt-0.5">
+                • {skill1?.description || '효과 설명'}
+              </div>
             </div>
           </div>
 
           {/* 스킬 2 */}
-          <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 min-h-[56px] flex flex-col justify-center">
-            <div className="text-white font-semibold text-sm leading-tight">
-              {skill2?.name || '스킬명'}
+          <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 min-h-[56px] flex items-center gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded bg-white/20 border border-white/40 flex items-center justify-center text-white/70 text-lg">
+              ?
             </div>
-            <div className="text-white/90 text-xs leading-tight mt-0.5">
-              • {skill2?.description || '효과 설명'}
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <div className="text-white font-semibold text-sm leading-tight">
+                {skill2?.name || '스킬명'}
+              </div>
+              <div className="text-white/90 text-xs leading-tight mt-0.5">
+                • {skill2?.description || '효과 설명'}
+              </div>
             </div>
           </div>
         </div>
@@ -157,24 +167,27 @@ export default function CardPreview({ cardData }: CardPreviewProps) {
         <div className="h-px bg-white/30 my-2" />
 
         {/* 하단 설명 영역 (투명 배경 오버레이) */}
-        <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 mb-2 flex items-center min-h-[48px]">
-          <p className="text-white/90 text-xs italic leading-tight">
+        <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-1 flex items-center justify-center min-h-[36px]">
+          <p className="text-white/90 text-xs italic leading-tight text-center">
             &ldquo;{flavorText}&rdquo;
           </p>
         </div>
 
+        {/* 구분선 */}
+        <div className="h-px bg-white/30 my-2" />
+
         {/* 공격력/체력 표시 (투명 배경 오버레이) */}
-        <div className="bg-black/40 backdrop-blur-sm rounded px-3 py-2 mb-2 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-white/90 font-bold text-lg">⚔️ {attack}</span>
+        <div className="bg-black/40 backdrop-blur-sm rounded px-1.5 py-1 mb-1 flex justify-between items-center">
+          <div className="flex items-center gap-1">
+            <span className="text-white/90 font-bold text-xs">⚔️ {attack}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-white/90 font-bold text-lg">❤️ {health}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-white/90 font-bold text-xs">❤️ {health}</span>
           </div>
         </div>
 
         {/* 하단 메타 정보 (투명 배경 오버레이) */}
-        <div className="bg-black/40 backdrop-blur-sm rounded px-2 py-1 flex justify-between items-center">
+        <div className="bg-black/40 backdrop-blur-sm rounded px-2 py-1 mt-1 flex justify-between items-center">
           <span className="text-white/80 text-xs">{cardNumber}</span>
           <span className="text-white/80 text-xs">{series}</span>
         </div>

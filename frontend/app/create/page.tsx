@@ -47,7 +47,7 @@ export default function CreatePage() {
     skill2Description: '',
     flavorText: '',
     cardNumber: '',
-    series: '',
+    series: 'Default / Ncaco.Inc',
   });
 
   const imageStepCompleted = !!(characterImage && backgroundImage);
@@ -151,6 +151,8 @@ export default function CreatePage() {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: 'transparent',
+        // 크로스 오리진 스타일시트(cssRules) 접근 시 SecurityError 방지
+        skipFonts: true,
       });
       return dataUrl;
     } catch (error) {
@@ -254,7 +256,7 @@ export default function CreatePage() {
       skill2Description: '',
       flavorText: '',
       cardNumber: '',
-      series: '',
+      series: 'Default / Ncaco.Inc',
     });
     setGeneratedPrompt('');
     setPreviewImageUrl(undefined);

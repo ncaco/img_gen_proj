@@ -40,7 +40,7 @@ export const buildPrompt = (input: PromptInput) => {
         return numbersOnly ? `#${numbersOnly.padStart(3, '0')}` : '[카드번호]';
       })()
     : '[카드번호]';
-  const seriesStr = input.series?.trim() ? input.series : '[시리즈]';
+  const seriesStr = input.series?.trim() ? input.series : 'Default / Ncaco.Inc';
 
   const skillBlocks: string[] = [];
   if (input.skill1Name?.trim()) {
