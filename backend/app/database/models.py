@@ -95,6 +95,35 @@ class CardGenerationHistory(Base):
         return f"<CardGenerationHistory(id={self.id}, card_sn={self.card_sn}, success={self.success})>"
 
 
+class User(Base):
+    """
+    회원(사용자) 모델
+    """
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="사용자 ID (PK)")
+    email = Column(String(255), nullable=False, unique=True, index=True, comment="이메일 (로그인 ID)")
+    hashed_password = Column(String(255), nullable=False, comment="암호화된 비밀번호")
+    display_name = Column(String(100), nullable=True, comment="표시 이름")
+    is_admin = Column(Integer, nullable=False, default=0, comment="관리자 여부 (1: 관리자, 0: 일반)")
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="가입일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    def __repr__(self):
+        return f"<User(id={self.id}, email='{self.email}')>"
+
+
 class CardGeneratedImage(Base):
     """
     카드 합성이미지 연계 테이블 (card_sn별 AI 생성 합성이미지 목록)

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./admin.css";
 import AdminFooter from "./components/AdminFooter";
+import AdminGuard from "./components/AdminGuard";
 import AdminHeader from "./components/AdminHeader";
 import AdminMain from "./components/AdminMain";
 
@@ -15,10 +16,12 @@ export default function AdminLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="admin-layout min-h-screen bg-gray-50 dark:bg-gray-900">
-      <AdminHeader />
-      <AdminMain>{children}</AdminMain>
-      <AdminFooter />
-    </div>
+    <AdminGuard>
+      <div className="admin-layout min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AdminHeader />
+        <AdminMain>{children}</AdminMain>
+        <AdminFooter />
+      </div>
+    </AdminGuard>
   );
 }

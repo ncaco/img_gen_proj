@@ -3,7 +3,7 @@
 """
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 
 
@@ -60,6 +60,21 @@ class Settings(BaseSettings):
         db_file = self.database_path / self.DATABASE_NAME
         return f"sqlite:///{db_file}"
     
+    # JWT / 인증 설정
+    JWT_SECRET: str = Field(
+        default="change-me-in-production-use-env",
+        description="JWT 서명 시크릿 (환경변수 JWT_SECRET 권장)",
+    )
+    JWT_ALGORITHM: str = Field(default="HS256", description="JWT 알고리즘")
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=60 * 24 * 7,
+        description="액세스 토큰 만료 시간 (분, 기본 7일)",
+    )
+
+    # 관리자 계정 추가 스크립트용 (add_admin.py, .env에 설정)
+    ADMIN_EMAIL: Optional[str] = Field(default=None, description="관리자 이메일 (add_admin.py)")
+    ADMIN_PASSWORD: Optional[str] = Field(default=None, description="관리자 비밀번호 (add_admin.py, 8자 이상)")
+
     # 파일 업로드 설정
     UPLOAD_DIR: str = Field(default="data/upload", description="업로드 디렉토리")
     MAX_UPLOAD_SIZE: int = Field(

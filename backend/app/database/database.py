@@ -1,7 +1,7 @@
 """
 데이터베이스 연결 및 세션 관리
 """
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
@@ -68,6 +68,16 @@ def init_db(force_recreate: bool = False):
     
     # 테이블 생성 (기존 테이블이 있으면 무시)
     Base.metadata.create_all(bind=engine)
+
+    # users 테이블에 is_admin 컬럼이 없으면 추가 (마이그레이션)
+    if "users" in inspector.get_table_names():
+        user_columns = [c["name"] for c in inspector.get_columns("users")]
+        if "is_admin" not in user_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0"))
+                conn.commit()
+            print("✅ users 테이블에 is_admin 컬럼을 추가했습니다.")
+
     print(f"✅ 데이터베이스 테이블이 초기화되었습니다: {settings.database_url}")
 
 
