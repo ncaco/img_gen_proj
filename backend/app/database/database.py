@@ -96,6 +96,33 @@ def init_db(force_recreate: bool = False):
                 conn.commit()
             print("✅ workspaces 테이블에 deleted_at 컬럼을 추가했습니다.")
 
+    # category_types(1뎁스) 시드 및 categories 마이그레이션
+    if "category_types" in inspector.get_table_names():
+        from app.database.models import CategoryType, Category
+        from sqlalchemy.orm import Session
+        with SessionLocal() as session:
+            if session.query(CategoryType).count() == 0:
+                for order, (type_key, name) in enumerate([("gender", "성별"), ("class", "클래스"), ("attribute", "속성")]):
+                    session.add(CategoryType(type_key=type_key, name=name, sort_order=order, is_used=1))
+                session.commit()
+                print("✅ category_types 시드(성별/클래스/속성)를 추가했습니다.")
+    if "categories" in inspector.get_table_names():
+        cat_columns = [c["name"] for c in inspector.get_columns("categories")]
+        if "type_id" not in cat_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE categories ADD COLUMN type_id INTEGER REFERENCES category_types(id)"))
+                conn.commit()
+            print("✅ categories 테이블에 type_id 컬럼을 추가했습니다.")
+        if "type" in cat_columns:
+            from app.database.models import CategoryType, Category
+            with SessionLocal() as session:
+                type_map = {t.type_key: t.id for t in session.query(CategoryType).all()}
+                for c in session.query(Category).filter(Category.type_id.is_(None)):
+                    if getattr(c, "type", None) and c.type in type_map:
+                        c.type_id = type_map[c.type]
+                session.commit()
+            print("✅ categories type_id 백필드를 완료했습니다.")
+
     print(f"✅ 데이터베이스 테이블이 초기화되었습니다: {settings.database_url}")
 
 

@@ -2,6 +2,7 @@
 데이터베이스 모델 정의
 """
 from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base
 
@@ -205,3 +206,74 @@ class Flow(Base):
 
     def __repr__(self):
         return f"<Flow(id={self.id}, name='{self.name}', workspace_id={self.workspace_id})>"
+
+
+class CategoryType(Base):
+    """
+    1뎁스: 카테고리 타입 (성별/클래스/속성 등). 소프트 삭제 및 사용여부 지원.
+    """
+    __tablename__ = "category_types"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="타입 ID (PK)")
+    type_key = Column(String(50), nullable=False, unique=True, index=True, comment="타입 키 (예: gender, class, attribute)")
+    name = Column(String(100), nullable=False, comment="표시명 (예: 성별, 클래스, 속성)")
+    sort_order = Column(Integer, nullable=False, default=0, comment="정렬 순서 (작을수록 앞)")
+    is_used = Column(Integer, nullable=False, default=1, comment="사용여부 (1: 사용, 0: 미사용)")
+    deleted_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="소프트 삭제 시각 (NULL이면 미삭제)",
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    def __repr__(self):
+        return f"<CategoryType(id={self.id}, type_key='{self.type_key}', name='{self.name}')>"
+
+
+class Category(Base):
+    """
+    2뎁스: 카테고리 항목. category_types(1뎁스)에 소속. 소프트 삭제 및 사용여부 지원.
+    """
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="카테고리 ID (PK)")
+    type_id = Column(Integer, ForeignKey("category_types.id"), nullable=True, index=True, comment="1뎁스 타입 ID (FK)")
+    type = Column(String(50), nullable=True, index=True, comment="레거시: type_key (마이그레이션 후 제거)")
+    name = Column(String(100), nullable=False, comment="표시명")
+    sort_order = Column(Integer, nullable=False, default=0, comment="정렬 순서 (작을수록 앞)")
+    is_used = Column(Integer, nullable=False, default=1, comment="사용여부 (1: 사용, 0: 미사용)")
+    deleted_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="소프트 삭제 시각 (NULL이면 미삭제)",
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    category_type = relationship("CategoryType", backref="categories", lazy="joined")
+
+    def __repr__(self):
+        return f"<Category(id={self.id}, type_id={self.type_id}, name='{self.name}')>"

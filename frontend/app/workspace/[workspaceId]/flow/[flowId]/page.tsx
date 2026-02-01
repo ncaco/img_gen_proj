@@ -18,10 +18,22 @@ import {
   type EdgeChange,
   type Node,
   type Edge,
+  type NodeTypes,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { getFlow, updateFlow } from '@/app/lib/workspace';
 import { getStoredToken } from '@/app/lib/auth';
+import { InputParamsNode, type InputParamsNodeData } from '../components/InputParamsNode';
+import { CategoryOptionsProvider } from '../context/CategoryOptionsContext';
+
+const nodeTypes = { inputParams: InputParamsNode } as NodeTypes;
+
+const defaultInputParamsNode: Node<InputParamsNodeData> = {
+  id: 'input-params-1',
+  type: 'inputParams',
+  position: { x: 120, y: 120 },
+  data: { 이름: '', 성별: '', 클래스: '', 속성: '' },
+};
 
 const defaultNodes: Node[] = [];
 const defaultEdges: Edge[] = [];
@@ -48,12 +60,14 @@ function FlowEditorInner() {
       router.replace('/login');
       return;
     }
-    getFlow(workspaceId, flowId)
+        getFlow(workspaceId, flowId)
       .then((flow) => {
         setFlowName(flow.name ?? '새 플로우');
         const data = flow.flowData;
         if (data?.nodes?.length) {
           setNodes(data.nodes as Node[]);
+        } else {
+          setNodes([defaultInputParamsNode]);
         }
         if (data?.edges?.length) {
           setEdges(data.edges as Edge[]);
@@ -124,7 +138,7 @@ function FlowEditorInner() {
         if (data?.nodes?.length) {
           setNodes(data.nodes as Node[]);
         } else {
-          setNodes([]);
+          setNodes([defaultInputParamsNode]);
         }
         if (data?.edges?.length) {
           setEdges(data.edges as Edge[]);
@@ -217,6 +231,7 @@ function FlowEditorInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        nodeTypes={nodeTypes}
         fitView
         className="bg-[#0c0c0f]"
       >
@@ -231,7 +246,9 @@ function FlowEditorInner() {
 export default function FlowEditorPage() {
   return (
     <div className="fixed inset-0 top-14 z-40 flex flex-col bg-[#0c0c0f]">
-      <FlowEditorInner />
+      <CategoryOptionsProvider>
+        <FlowEditorInner />
+      </CategoryOptionsProvider>
     </div>
   );
 }
