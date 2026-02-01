@@ -145,3 +145,63 @@ class CardGeneratedImage(Base):
 
     def __repr__(self):
         return f"<CardGeneratedImage(id={self.id}, card_sn={self.card_sn})>"
+
+
+class Workspace(Base):
+    """
+    워크스페이스 모델 (사용자별 플로우 그룹). 소프트 삭제(deleted_at) 지원.
+    """
+    __tablename__ = "workspaces"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="워크스페이스 ID (PK)")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="소유자 사용자 ID (FK)")
+    name = Column(String(200), nullable=False, comment="워크스페이스 이름")
+    deleted_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="소프트 삭제 시각 (NULL이면 미삭제)",
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    def __repr__(self):
+        return f"<Workspace(id={self.id}, name='{self.name}', user_id={self.user_id})>"
+
+
+class Flow(Base):
+    """
+    플로우 모델 (react-flow 노드/엣지 저장)
+    """
+    __tablename__ = "flows"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="플로우 ID (PK)")
+    workspace_id = Column(Integer, ForeignKey("workspaces.id"), nullable=False, index=True, comment="워크스페이스 ID (FK)")
+    name = Column(String(200), nullable=False, default="새 플로우", comment="플로우 이름")
+    flow_data = Column(JSON, nullable=True, comment="react-flow nodes/edges JSON")
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    def __repr__(self):
+        return f"<Flow(id={self.id}, name='{self.name}', workspace_id={self.workspace_id})>"

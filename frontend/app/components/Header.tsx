@@ -105,6 +105,14 @@ export default function Header() {
                   className="absolute right-0 mt-1 w-48 rounded-lg border border-white/10 bg-[#1a1a1f] py-1 shadow-lg"
                   role="menu"
                 >
+                  <Link
+                    href="/workspace"
+                    className="block px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                    role="menuitem"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    내 워크스페이스
+                  </Link>
                   <button
                     type="button"
                     onClick={handleLogout}

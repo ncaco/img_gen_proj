@@ -87,6 +87,15 @@ def init_db(force_recreate: bool = False):
                 conn.commit()
             print("✅ cards 테이블에 user_id 컬럼을 추가했습니다.")
 
+    # workspaces 테이블에 deleted_at 컬럼이 없으면 추가 (소프트 삭제용 마이그레이션)
+    if "workspaces" in inspector.get_table_names():
+        ws_columns = [c["name"] for c in inspector.get_columns("workspaces")]
+        if "deleted_at" not in ws_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE workspaces ADD COLUMN deleted_at DATETIME"))
+                conn.commit()
+            print("✅ workspaces 테이블에 deleted_at 컬럼을 추가했습니다.")
+
     print(f"✅ 데이터베이스 테이블이 초기화되었습니다: {settings.database_url}")
 
 
