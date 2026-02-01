@@ -1,7 +1,7 @@
 """
 데이터베이스 모델 정의
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, ForeignKey
 from sqlalchemy.sql import func
 from app.database.database import Base
 
@@ -11,6 +11,9 @@ class Card(Base):
     카드 모델
     """
     __tablename__ = "cards"
+
+    # 생성자 (회원 고유키)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True, comment="생성자 사용자 ID (FK)")
     
     # 기본 필드 (PK)
     card_sn = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="카드 일련번호 (PK, 자동생성)")

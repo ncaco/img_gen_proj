@@ -21,6 +21,7 @@ from app.services.card_service import CardService
 from app.database.database import get_db
 from app.database.models import Card, CardGeneratedImage
 from app.utils.file_utils import save_uploaded_file, get_file_path_from_url, delete_file
+from app.api.routes.auth import get_current_user_required
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -63,10 +64,14 @@ async def generate_card(request: CardGenerationRequestSchema):
 
 
 @router.post("/save", response_model=CardSaveResponseSchema)
-async def save_card(request: CardSaveRequestSchema, db: Session = Depends(get_db)):
+async def save_card(
+    request: CardSaveRequestSchema,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_required),
+):
     """
-    카드 정보를 데이터베이스에 저장합니다.
-    
+    카드 정보를 데이터베이스에 저장합니다. (로그인 필요, 생성자 user_id 자동 등록)
+
     - **cardData**: 카드 기본 정보 (카드명, 타입, 속성, 등급 등)
     - **characterImageUrl**: 캐릭터 이미지 URL (선택)
     - **backgroundImageUrl**: 배경 이미지 URL (선택)
@@ -78,9 +83,9 @@ async def save_card(request: CardSaveRequestSchema, db: Session = Depends(get_db
         is_valid, error_message = card_service.validate_card_data(request.cardData)
         if not is_valid:
             raise HTTPException(status_code=400, detail=error_message)
-        
-        # 카드 저장
-        card = card_service.save_card(db, request)
+
+        # 카드 저장 (생성자 user_id 설정)
+        card = card_service.save_card(db, request, user_id=current_user.id)
         
         return CardSaveResponseSchema(
             success=True,

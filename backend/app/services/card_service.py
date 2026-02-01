@@ -170,14 +170,15 @@ class CardService:
         return prompt
     
     @staticmethod
-    def save_card(db: Session, request: CardSaveRequestSchema) -> Card:
+    def save_card(db: Session, request: CardSaveRequestSchema, user_id: int | None = None) -> Card:
         """
         카드 정보를 데이터베이스에 저장
-        
+
         Args:
             db: 데이터베이스 세션
             request: 카드 저장 요청 데이터
-            
+            user_id: 생성자 사용자 ID (로그인 시 설정)
+
         Returns:
             Card: 저장된 카드 객체
         """
@@ -185,11 +186,12 @@ class CardService:
         from app.core.config import settings
         from app.utils.file_utils import get_file_path_from_url
         import shutil
-        
+
         card_data = request.cardData
-        
+
         # 카드 모델 생성 (card_sn는 DB에서 자동 생성되므로 설정하지 않음)
         card = Card(
+            user_id=user_id,
             card_name=card_data.cardName,
             card_number=card_data.cardNumber or None,
             type=card_data.type,

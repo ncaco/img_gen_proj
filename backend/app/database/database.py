@@ -78,6 +78,15 @@ def init_db(force_recreate: bool = False):
                 conn.commit()
             print("✅ users 테이블에 is_admin 컬럼을 추가했습니다.")
 
+    # cards 테이블에 user_id 컬럼이 없으면 추가 (마이그레이션)
+    if "cards" in inspector.get_table_names():
+        card_columns = [c["name"] for c in inspector.get_columns("cards")]
+        if "user_id" not in card_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE cards ADD COLUMN user_id INTEGER"))
+                conn.commit()
+            print("✅ cards 테이블에 user_id 컬럼을 추가했습니다.")
+
     print(f"✅ 데이터베이스 테이블이 초기화되었습니다: {settings.database_url}")
 
 

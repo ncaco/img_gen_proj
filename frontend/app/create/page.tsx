@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { toPng } from 'html-to-image';
 import DropZone from '../components/DropZone';
 import CardPreview from '../components/CardPreview';
@@ -8,6 +9,7 @@ import CardForm from '../components/CardForm';
 import StepTabs, { Step } from '../components/StepTabs';
 import ResultPanel from '../components/ResultPanel';
 import { buildPrompt } from '../lib/promptBuilder';
+import { getStoredToken } from '../lib/auth';
 
 interface CardFormData {
   cardName: string;
@@ -26,6 +28,7 @@ interface CardFormData {
 }
 
 export default function CreatePage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState<Step>('image');
   const [characterImage, setCharacterImage] = useState<string | undefined>();
   const [backgroundImage, setBackgroundImage] = useState<string | undefined>();
@@ -203,9 +206,18 @@ export default function CreatePage() {
         ? await uploadImage(backgroundImage, 'background')
         : null;
       let generatedImageUrl = imageUrl ? await uploadImage(imageUrl, 'generated') : null;
+      const token = getStoredToken();
+      if (!token) {
+        alert('카드 저장을 위해 로그인이 필요합니다.');
+        router.push('/login');
+        return;
+      }
       const saveResponse = await fetch('http://localhost:8000/api/v1/cards/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           cardData: {
             cardName: formData.cardName,
