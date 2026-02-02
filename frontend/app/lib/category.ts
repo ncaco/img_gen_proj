@@ -22,10 +22,11 @@ export interface CategoryTypeListResponse {
   types: CategoryTypeItem[];
 }
 
-/** 2뎁스: 카테고리 항목 */
+/** 2·3·4뎁스: 카테고리 항목 */
 export interface Category {
   id: number;
-  typeId: number;
+  typeId: number | null;
+  parentId: number | null;
   typeKey: string;
   name: string;
   sortOrder: number;
@@ -134,13 +135,15 @@ export async function restoreType(id: number): Promise<CategoryTypeItem> {
 }
 
 // ---- 2뎁스(카테고리 항목) ----
-/** 관리자: 2뎁스 목록 (type_id 필터 옵션) */
+/** 관리자: 카테고리 목록 (type_id=2뎁스, parent_id=3·4뎁스 하위) */
 export async function listCategoriesAdmin(options?: {
   type_id?: number;
+  parent_id?: number;
   includeDeleted?: boolean;
 }): Promise<CategoryListResponse> {
   const params = new URLSearchParams();
   if (options?.type_id != null) params.set('type_id', String(options.type_id));
+  if (options?.parent_id != null) params.set('parent_id', String(options.parent_id));
   if (options?.includeDeleted !== undefined) params.set('include_deleted', String(options.includeDeleted));
   const url = `${API_BASE}/api/v1/categories/list?${params.toString()}`;
   const res = await fetch(url, { headers: authHeaders() });
@@ -158,9 +161,10 @@ export async function listCategoriesPublic(): Promise<CategoryPublicResponse> {
   return res.json();
 }
 
-/** 관리자: 2뎁스 생성 */
+/** 관리자: 카테고리 생성 (2뎁스: type_id, 3·4뎁스: parent_id) */
 export async function createCategory(body: {
-  type_id: number;
+  type_id?: number;
+  parent_id?: number;
   name: string;
   sort_order?: number;
   is_used?: number;

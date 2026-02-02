@@ -23,10 +23,11 @@ class CategoryTypeUpdateSchema(BaseModel):
     is_used: Optional[int] = Field(None, description="사용여부 (1: 사용, 0: 미사용)")
 
 
-# ---- 2뎁스: 카테고리 항목 ----
+# ---- 2·3·4뎁스: 카테고리 항목 ----
 class CategoryCreateSchema(BaseModel):
-    """2뎁스(카테고리 항목) 생성 요청 스키마"""
-    type_id: int = Field(..., description="1뎁스 타입 ID (FK)")
+    """카테고리 생성: 2뎁스는 type_id, 3·4뎁스는 parent_id 사용"""
+    type_id: Optional[int] = Field(None, description="1뎁스 타입 ID (2뎁스 생성 시)")
+    parent_id: Optional[int] = Field(None, description="상위 카테고리 ID (3·4뎁스 생성 시)")
     name: str = Field(..., description="표시명", min_length=1, max_length=100)
     sort_order: int = Field(default=0, description="정렬 순서")
     is_used: int = Field(default=1, description="사용여부 (1: 사용, 0: 미사용)")

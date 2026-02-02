@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
+import { FiChevronDown, FiChevronRight, FiEdit2, FiTrash2, FiPlus, FiRefreshCw } from 'react-icons/fi';
 import {
   listTypesAdmin,
   listCategoriesAdmin,
@@ -20,12 +20,121 @@ import {
 import ConfirmModal from '@/app/components/ConfirmModal';
 import LoadingMask from '@/app/components/LoadingMask';
 
+type CategoryRowProps = {
+  category: Category;
+  depth: number;
+  expandedCategoryIds: Record<number, boolean>;
+  childrenByParentId: Record<number, Category[]>;
+  getChildren: (parentId: number) => Category[];
+  onToggleExpand: (categoryId: number) => void;
+  onEdit: (c: Category) => void;
+  onDelete: (c: Category) => void;
+  onRestore: (c: Category) => void;
+  onAddUnderParent: (parentId: number, parentName: string, depth: number) => void;
+};
+
+function CategoryRow({
+  category,
+  depth,
+  expandedCategoryIds,
+  childrenByParentId,
+  getChildren,
+  onToggleExpand,
+  onEdit,
+  onDelete,
+  onRestore,
+  onAddUnderParent,
+}: CategoryRowProps) {
+  const children = getChildren(category.id);
+  const canHaveChildren = depth < 2;
+  const expanded = expandedCategoryIds[category.id] !== false;
+  const depthLabel = depth === 0 ? '2뎁스' : depth === 1 ? '3뎁스' : '4뎁스';
+  const addChildLabel = depth === 0 ? '3뎁스' : '4뎁스';
+
+  return (
+    <div className="border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+      <div
+        className="grid grid-cols-[auto_1fr_4rem_4rem_4rem_8rem] gap-2 px-3 py-2 items-center cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-800/50"
+        style={{ paddingLeft: `calc(0.75rem + ${depth * 1.5}rem)` }}
+        onClick={() => canHaveChildren && onToggleExpand(category.id)}
+      >
+        <span className="w-6 flex items-center justify-center text-gray-500 dark:text-gray-400">
+          {canHaveChildren ? (
+            expanded ? <FiChevronDown className="w-4 h-4" /> : <FiChevronRight className="w-4 h-4" />
+          ) : (
+            <span className="w-4" />
+          )}
+        </span>
+        <span className={`text-sm ${category.deletedAt ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+          {category.name}
+          {canHaveChildren && (
+            <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
+              ({depthLabel}) {children.length > 0 ? `· ${children.length}개` : ''}
+            </span>
+          )}
+        </span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">{category.sortOrder}</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">{category.isUsed === 1 ? '사용' : '미사용'}</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">{category.deletedAt ? '삭제됨' : '-'}</span>
+        <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+          {!category.deletedAt && (
+            <>
+              <button type="button" onClick={() => onEdit(category)} className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30" title="수정" aria-label="수정">
+                <FiEdit2 className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={() => onDelete(category)} className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30" title="삭제" aria-label="삭제">
+                <FiTrash2 className="w-4 h-4" />
+              </button>
+              {canHaveChildren && (
+                <button type="button" onClick={() => onAddUnderParent(category.id, category.name, depth + 1)} className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30" title={`${addChildLabel} 추가`} aria-label={`${addChildLabel} 추가`}>
+                  <FiPlus className="w-4 h-4" />
+                </button>
+              )}
+            </>
+          )}
+          {category.deletedAt && (
+            <button type="button" onClick={() => onRestore(category)} className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30" title="복원" aria-label="복원">
+              <FiRefreshCw className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+      {canHaveChildren && expanded && (
+        <div className="bg-white dark:bg-gray-900">
+          {children.length === 0 ? (
+            <div className="text-sm text-gray-500 dark:text-gray-400 py-3" style={{ paddingLeft: `calc(0.75rem + ${(depth + 1) * 1.5}rem)` }}>
+              등록된 {addChildLabel}가 없습니다.
+            </div>
+          ) : (
+            children.map((child) => (
+            <CategoryRow
+              key={child.id}
+              category={child}
+              depth={depth + 1}
+              expandedCategoryIds={expandedCategoryIds}
+              childrenByParentId={childrenByParentId}
+              getChildren={getChildren}
+              onToggleExpand={onToggleExpand}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onRestore={onRestore}
+              onAddUnderParent={onAddUnderParent}
+            />
+          ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type Modal =
   | { kind: 'typeAdd' }
   | { kind: 'typeEdit'; type: CategoryTypeItem }
   | { kind: 'typeDelete'; type: CategoryTypeItem }
   | { kind: 'typeRestore'; type: CategoryTypeItem }
   | { kind: 'categoryAdd'; typeId: number; typeName: string }
+  | { kind: 'categoryAddUnderParent'; parentId: number; parentName: string; depth: number }
   | { kind: 'categoryEdit'; category: Category }
   | { kind: 'categoryDelete'; category: Category }
   | { kind: 'categoryRestore'; category: Category }
@@ -38,6 +147,8 @@ export default function CategoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [expandedTypeIds, setExpandedTypeIds] = useState<Record<number, boolean>>({});
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<Record<number, boolean>>({});
+  const [childrenByParentId, setChildrenByParentId] = useState<Record<number, Category[]>>({});
   const [modal, setModal] = useState<Modal>(null);
   const [editTypeKey, setEditTypeKey] = useState('');
   const [editName, setEditName] = useState('');
@@ -74,7 +185,7 @@ export default function CategoryPage() {
     const map: Record<number, Category[]> = {};
     types.forEach((t) => (map[t.id] = []));
     categories.forEach((c) => {
-      if (map[c.typeId]) map[c.typeId].push(c);
+      if (c.parentId == null && c.typeId != null && map[c.typeId]) map[c.typeId].push(c);
     });
     Object.keys(map).forEach((id) => map[Number(id)].sort((a, b) => a.sortOrder - b.sortOrder));
     return map;
@@ -82,6 +193,25 @@ export default function CategoryPage() {
 
   const toggleExpanded = (typeId: number) => {
     setExpandedTypeIds((prev) => ({ ...prev, [typeId]: !prev[typeId] }));
+  };
+
+  const toggleCategoryExpanded = useCallback(
+    async (categoryId: number) => {
+      setExpandedCategoryIds((prev) => ({ ...prev, [categoryId]: !prev[categoryId] }));
+      if (childrenByParentId[categoryId] == null) {
+        try {
+          const res = await listCategoriesAdmin({ parent_id: categoryId, includeDeleted });
+          setChildrenByParentId((prev) => ({ ...prev, [categoryId]: res.categories }));
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [childrenByParentId, includeDeleted]
+  );
+
+  const getChildren = (parentId: number): Category[] => {
+    return childrenByParentId[parentId] ?? [];
   };
 
   useEffect(() => {
@@ -113,6 +243,15 @@ export default function CategoryPage() {
     setEditIsUsed(1);
     setActionError(null);
     setModal({ kind: 'categoryAdd', typeId, typeName });
+  };
+
+  const openCategoryAddUnderParent = (parentId: number, parentName: string, depth: number) => {
+    const children = getChildren(parentId);
+    setEditName('');
+    setEditSortOrder(children.length);
+    setEditIsUsed(1);
+    setActionError(null);
+    setModal({ kind: 'categoryAddUnderParent', parentId, parentName, depth });
   };
   const openCategoryEdit = (c: Category) => {
     setEditName(c.name);
@@ -187,6 +326,31 @@ export default function CategoryPage() {
         is_used: editIsUsed,
       });
       setModal(null);
+      fetchAll();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : '저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveCategoryUnderParent = async () => {
+    if (modal?.kind !== 'categoryAddUnderParent') return;
+    if (!editName.trim()) {
+      setActionError('이름을 입력하세요.');
+      return;
+    }
+    try {
+      setSaving(true);
+      setActionError(null);
+      await createCategory({
+        parent_id: modal.parentId,
+        name: editName.trim(),
+        sort_order: editSortOrder,
+        is_used: editIsUsed,
+      });
+      setModal(null);
+      setChildrenByParentId((prev) => ({}));
       fetchAll();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : '저장에 실패했습니다.');
@@ -346,49 +510,47 @@ export default function CategoryPage() {
                   <span>{t.sortOrder}</span>
                   <span>{t.isUsed === 1 ? '사용' : '미사용'}</span>
                   <span>{t.deletedAt ? '삭제됨' : '-'}</span>
-                  <div className="flex flex-wrap gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                     {!t.deletedAt && (
                       <>
-                        <button type="button" onClick={() => openTypeEdit(t)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">수정</button>
-                        <button type="button" onClick={() => openTypeDelete(t)} className="text-red-600 dark:text-red-400 hover:underline text-xs">삭제</button>
-                        <button type="button" onClick={() => openCategoryAdd(t.id, t.name)} className="text-green-600 dark:text-green-400 hover:underline text-xs">+ 2뎁스</button>
+                        <button type="button" onClick={() => openTypeEdit(t)} className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30" title="수정" aria-label="수정">
+                          <FiEdit2 className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => openTypeDelete(t)} className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30" title="삭제" aria-label="삭제">
+                          <FiTrash2 className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => openCategoryAdd(t.id, t.name)} className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30" title="2뎁스 추가" aria-label="2뎁스 추가">
+                          <FiPlus className="w-4 h-4" />
+                        </button>
                       </>
                     )}
                     {t.deletedAt && (
-                      <button type="button" onClick={() => openTypeRestore(t)} className="text-green-600 dark:text-green-400 hover:underline text-xs">복원</button>
+                      <button type="button" onClick={() => openTypeRestore(t)} className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30" title="복원" aria-label="복원">
+                        <FiRefreshCw className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
                 </div>
-                {/* 2뎁스 행 */}
+                {/* 2·3·4뎁스 행 (재귀) */}
                 {expanded && (
                   <div className="bg-white dark:bg-gray-900">
                     {items.length === 0 ? (
                       <div className="pl-10 pr-3 py-4 text-sm text-gray-500 dark:text-gray-400">등록된 2뎁스가 없습니다.</div>
                     ) : (
                       items.map((c) => (
-                        <div
+                        <CategoryRow
                           key={c.id}
-                          className={`grid grid-cols-[auto_1fr_4rem_4rem_4rem_8rem] gap-2 px-3 py-2 text-sm items-center border-t border-gray-100 dark:border-gray-800 ${
-                            c.deletedAt ? 'bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400' : ''
-                          }`}
-                        >
-                          <span className="w-6" />
-                          <span className="font-medium truncate">{c.name}</span>
-                          <span>{c.sortOrder}</span>
-                          <span>{c.isUsed === 1 ? '사용' : '미사용'}</span>
-                          <span>{c.deletedAt ? '삭제됨' : '-'}</span>
-                          <div className="flex flex-wrap gap-1 justify-end">
-                            {!c.deletedAt && (
-                              <>
-                                <button type="button" onClick={() => openCategoryEdit(c)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">수정</button>
-                                <button type="button" onClick={() => openCategoryDelete(c)} className="text-red-600 dark:text-red-400 hover:underline text-xs">삭제</button>
-                              </>
-                            )}
-                            {c.deletedAt && (
-                              <button type="button" onClick={() => openCategoryRestore(c)} className="text-green-600 dark:text-green-400 hover:underline text-xs">복원</button>
-                            )}
-                          </div>
-                        </div>
+                          category={c}
+                          depth={0}
+                          expandedCategoryIds={expandedCategoryIds}
+                          childrenByParentId={childrenByParentId}
+                          getChildren={getChildren}
+                          onToggleExpand={toggleCategoryExpanded}
+                          onEdit={openCategoryEdit}
+                          onDelete={openCategoryDelete}
+                          onRestore={openCategoryRestore}
+                          onAddUnderParent={openCategoryAddUnderParent}
+                        />
                       ))
                     )}
                   </div>
@@ -486,6 +648,36 @@ export default function CategoryPage() {
             <div className="mt-4 flex gap-2 justify-end">
               <button type="button" onClick={() => setModal(null)} className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">취소</button>
               <button type="button" onClick={handleSaveCategoryNew} disabled={saving} className="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">{saving ? '저장 중…' : '저장'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3뎁스/4뎁스 추가 모달 */}
+      {modal?.kind === 'categoryAddUnderParent' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white dark:bg-gray-800 p-4 shadow-xl">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+              {modal.depth === 1 ? '3뎁스 추가' : '4뎁스 추가'} · {modal.parentName} 하위
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">이름</label>
+                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="표시명" className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">정렬순서</label>
+                <input type="number" value={editSortOrder} onChange={(e) => setEditSortOrder(Number(e.target.value) || 0)} className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white" />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={editIsUsed === 1} onChange={(e) => setEditIsUsed(e.target.checked ? 1 : 0)} className="rounded border-gray-300 dark:border-gray-600" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">사용여부</span>
+              </label>
+            </div>
+            {actionError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{actionError}</p>}
+            <div className="mt-4 flex gap-2 justify-end">
+              <button type="button" onClick={() => setModal(null)} className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">취소</button>
+              <button type="button" onClick={handleSaveCategoryUnderParent} disabled={saving} className="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">{saving ? '저장 중…' : '저장'}</button>
             </div>
           </div>
         </div>

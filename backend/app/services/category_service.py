@@ -1,29 +1,34 @@
 """
-2뎁스: 카테고리 항목 비즈니스 로직. category_types(1뎁스)에 소속. 소프트 삭제 및 사용여부 지원.
+2·3·4뎁스: 카테고리 항목 비즈니스 로직. parent_id NULL = 2뎁스, parent_id 설정 = 3·4뎁스.
 """
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
 from app.database.models import Category
-from app.services.category_type_service import list_category_types
+from app.services.category_type_service import list_category_types, get_category_type_by_id
 
 
 def list_categories(
     db: Session,
     type_id: int | None = None,
+    parent_id: int | None = None,
     include_deleted: bool = False,
     include_unused: bool = True,
 ) -> list[Category]:
     """
     카테고리 목록 조회.
-    - type_id: 1뎁스 타입 ID (None이면 전체)
-    - include_deleted: True면 소프트 삭제된 것도 포함
-    - include_unused: True면 사용여부 0인 것도 포함
+    - type_id: 1뎁스 타입 ID (2뎁스 필터 시 사용)
+    - parent_id: 상위 ID. None이면 2뎁스만, 값이 있으면 해당 하위(3·4뎁스)
+    - include_deleted / include_unused: 포함 여부
     """
-    q = db.query(Category).filter(Category.type_id.isnot(None))
-    if type_id is not None:
-        q = q.filter(Category.type_id == type_id)
+    q = db.query(Category)
+    if parent_id is None:
+        q = q.filter(Category.parent_id.is_(None))
+        if type_id is not None:
+            q = q.filter(Category.type_id == type_id)
+    else:
+        q = q.filter(Category.parent_id == parent_id)
     if not include_deleted:
         q = q.filter(Category.deleted_at.is_(None))
     if not include_unused:
@@ -34,15 +39,27 @@ def list_categories(
 
 def list_categories_for_flow(db: Session) -> dict:
     """
-    플로우/입력 파라미터용: 사용중·미삭제인 1뎁스별 2뎁스 name 리스트.
-    반환: { type_key: [name, ...], ... } (예: {"gender": ["남","여"], "class": ["전사",...], ...})
+    플로우/입력 파라미터용: 사용중·미삭제인 1뎁스별 2뎁스 name 리스트 (2뎁스만, parent_id NULL).
     """
     types = list_category_types(db, include_deleted=False, include_unused=False)
     result = {}
     for t in types:
-        items = list_categories(db, type_id=t.id, include_deleted=False, include_unused=False)
+        items = list_categories(db, type_id=t.id, parent_id=None, include_deleted=False, include_unused=False)
         result[t.type_key] = [c.name for c in items]
     return result
+
+
+def _get_root_type_id_and_key(db: Session, category: Category) -> tuple[int | None, str]:
+    """상위로 타고 올라가 2뎁스의 type_id, type_key 반환."""
+    c = category
+    while c:
+        if c.type_id is not None:
+            t = get_category_type_by_id(db, c.type_id, include_deleted=True)
+            return (c.type_id, t.type_key if t else (c.type or ""))
+        if c.parent_id is None:
+            break
+        c = db.query(Category).filter(Category.id == c.parent_id).first()
+    return (None, "")
 
 
 def get_category_by_id(db: Session, category_id: int, include_deleted: bool = False) -> Category | None:
@@ -55,13 +72,45 @@ def get_category_by_id(db: Session, category_id: int, include_deleted: bool = Fa
 
 def create_category(
     db: Session,
-    type_id: int,
-    name: str,
+    type_id: int | None = None,
+    parent_id: int | None = None,
+    name: str = "",
     sort_order: int = 0,
     is_used: int = 1,
 ) -> Category:
-    """카테고리 생성 (2뎁스). type_id는 1뎁스 타입 ID."""
-    c = Category(type_id=type_id, name=name.strip(), sort_order=sort_order, is_used=is_used)
+    """
+    카테고리 생성.
+    - 2뎁스: type_id 설정, parent_id None
+    - 3·4뎁스: parent_id 설정, type_id/type_key는 상위에서 상속
+    """
+    if parent_id is not None:
+        parent = get_category_by_id(db, parent_id, include_deleted=True)
+        if not parent:
+            raise ValueError("상위 카테고리를 찾을 수 없습니다.")
+        root_type_id, type_key = _get_root_type_id_and_key(db, parent)
+        if root_type_id is None:
+            raise ValueError("상위 카테고리에 type_id가 없습니다.")
+        c = Category(
+            type_id=root_type_id,
+            parent_id=parent_id,
+            type=type_key,
+            name=name.strip(),
+            sort_order=sort_order,
+            is_used=is_used,
+        )
+    else:
+        if type_id is None:
+            raise ValueError("2뎁스 생성 시 type_id가 필요합니다.")
+        t = get_category_type_by_id(db, type_id, include_deleted=True)
+        type_key = t.type_key if t else ""
+        c = Category(
+            type_id=type_id,
+            parent_id=None,
+            type=type_key,
+            name=name.strip(),
+            sort_order=sort_order,
+            is_used=is_used,
+        )
     db.add(c)
     db.commit()
     db.refresh(c)

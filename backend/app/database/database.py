@@ -113,6 +113,11 @@ def init_db(force_recreate: bool = False):
                 conn.execute(text("ALTER TABLE categories ADD COLUMN type_id INTEGER REFERENCES category_types(id)"))
                 conn.commit()
             print("✅ categories 테이블에 type_id 컬럼을 추가했습니다.")
+        if "parent_id" not in cat_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE categories ADD COLUMN parent_id INTEGER REFERENCES categories(id)"))
+                conn.commit()
+            print("✅ categories 테이블에 parent_id 컬럼(3·4뎁스용)을 추가했습니다.")
         if "type" in cat_columns:
             from app.database.models import CategoryType, Category
             with SessionLocal() as session:

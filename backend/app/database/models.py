@@ -244,12 +244,13 @@ class CategoryType(Base):
 
 class Category(Base):
     """
-    2뎁스: 카테고리 항목. category_types(1뎁스)에 소속. 소프트 삭제 및 사용여부 지원.
+    2·3·4뎁스: 카테고리 항목. parent_id NULL + type_id 설정 = 2뎁스, parent_id = 2뎁스 id = 3뎁스, parent_id = 3뎁스 id = 4뎁스.
     """
     __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="카테고리 ID (PK)")
-    type_id = Column(Integer, ForeignKey("category_types.id"), nullable=True, index=True, comment="1뎁스 타입 ID (FK)")
+    type_id = Column(Integer, ForeignKey("category_types.id"), nullable=True, index=True, comment="1뎁스 타입 ID (2뎁스만 직접 설정, 3·4뎁스는 상위에서 상속)")
+    parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True, index=True, comment="상위 카테고리 ID (NULL=2뎁스, 있으면 3·4뎁스)")
     type = Column(String(50), nullable=True, index=True, comment="레거시: type_key (마이그레이션 후 제거)")
     name = Column(String(100), nullable=False, comment="표시명")
     sort_order = Column(Integer, nullable=False, default=0, comment="정렬 순서 (작을수록 앞)")
@@ -274,6 +275,7 @@ class Category(Base):
     )
 
     category_type = relationship("CategoryType", backref="categories", lazy="joined")
+    parent = relationship("Category", remote_side=[id], backref="children", lazy="joined")
 
     def __repr__(self):
-        return f"<Category(id={self.id}, type_id={self.type_id}, name='{self.name}')>"
+        return f"<Category(id={self.id}, type_id={self.type_id}, parent_id={self.parent_id}, name='{self.name}')>"
