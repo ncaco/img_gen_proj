@@ -13,6 +13,8 @@ import {
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
+  useStore,
+  useReactFlow,
   type Connection,
   type NodeChange,
   type EdgeChange,
@@ -24,10 +26,25 @@ import '@xyflow/react/dist/style.css';
 import { getFlow, updateFlow } from '@/app/lib/workspace';
 import { getStoredToken } from '@/app/lib/auth';
 import { InputParamsNode, type InputParamsNodeData } from '../components/InputParamsNode';
-import { CategoryOptionsProvider } from '../context/CategoryOptionsContext';
+import { NameInputNode, type NameInputNodeData } from '../components/NameInputNode';
+import { GenderSelectNode } from '../components/GenderSelectNode';
+import { AttributeSelectNode } from '../components/AttributeSelectNode';
+import { ClassSelectNode } from '../components/ClassSelectNode';
+import { OptionLabelNode, type OptionLabelNodeData } from '../components/OptionLabelNode';
+import { LoreResultNode, LORE_NODE_ID, type LoreResultNodeData } from '../components/LoreResultNode';
+import { CategoryOptionsProvider, useCategoryOptions, type CategoryOptions } from '../context/CategoryOptionsContext';
 
-const nodeTypes = { inputParams: InputParamsNode } as NodeTypes;
+const nodeTypes = {
+  inputParams: InputParamsNode,
+  nameInput: NameInputNode,
+  genderSelect: GenderSelectNode,
+  attributeSelect: AttributeSelectNode,
+  classSelect: ClassSelectNode,
+  optionLabel: OptionLabelNode,
+  loreResult: LoreResultNode,
+} as NodeTypes;
 
+/** 기존 단일 입력 노드 (호환용) */
 const defaultInputParamsNode: Node<InputParamsNodeData> = {
   id: 'input-params-1',
   type: 'inputParams',
@@ -35,14 +52,138 @@ const defaultInputParamsNode: Node<InputParamsNodeData> = {
   data: { 이름: '', 성별: '', 클래스: '', 속성: '' },
 };
 
+const edgeStyle = { stroke: '#ffffff', strokeWidth: 1.5 };
+
+/** 카테고리 기반 기본 그래프: 1 이름 → 2 성별 → 6 속성 → (2뎁스별 3뎁스) 클래스 노드들 */
+function buildDefaultFlowGraph(options: CategoryOptions): { nodes: Node[]; edges: Edge[] } {
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
+  const genderList = options.gender ?? [];
+  const attributeList = options.attribute ?? [];
+  const classTree = options.classTree ?? [];
+
+  const LAYOUT_OFFSET_Y = 160;
+  const ATTR_ROW_Y = 180 + LAYOUT_OFFSET_Y;
+  const ATTR_GAP_X = 118;
+  const attrStartX = 80;
+  const OPTION_NODE_WIDTH = 100;
+  const attrCount = Math.max(1, attributeList.length);
+  const attrEndX = attrStartX + (attrCount - 1) * ATTR_GAP_X + OPTION_NODE_WIDTH;
+  const CLASS_COL_X = attrEndX + 24;
+  const GENDER_CORNER_X = attrStartX;
+  const GENDER_GAP_X = 150;
+  const genderCenterX =
+    genderList.length > 0
+      ? GENDER_CORNER_X + (genderList.length - 1) * GENDER_GAP_X / 2
+      : GENDER_CORNER_X;
+  const NAME_NODE_WIDTH = 180;
+  const nameX = Math.round(genderCenterX - NAME_NODE_WIDTH / 2);
+  const nameY = -95;
+  const GENDER_ROW_Y = 20 + LAYOUT_OFFSET_Y;
+  const NAME_ID = 'name-1';
+  const NAME_NODE_UI_WIDTH = 220;
+  const LORE_NODE_GAP_X = 24;
+  nodes.push({
+    id: NAME_ID,
+    type: 'nameInput',
+    position: { x: nameX, y: nameY },
+    data: { 이름: '' } as NameInputNodeData,
+  });
+  nodes.push({
+    id: LORE_NODE_ID,
+    type: 'loreResult',
+    position: { x: nameX + NAME_NODE_UI_WIDTH + LORE_NODE_GAP_X, y: nameY },
+    data: {} as LoreResultNodeData,
+  });
+  edges.push({
+    id: `e-${NAME_ID}-${LORE_NODE_ID}`,
+    source: NAME_ID,
+    sourceHandle: 'to-lore',
+    target: LORE_NODE_ID,
+    style: edgeStyle,
+  });
+
+  const genderIds: string[] = [];
+  genderList.forEach((label, i) => {
+    const id = `gender-${i}`;
+    genderIds.push(id);
+    nodes.push({
+      id,
+      type: 'optionLabel',
+      position: { x: GENDER_CORNER_X + i * GENDER_GAP_X, y: GENDER_ROW_Y },
+      data: { label, kind: 'gender' } as OptionLabelNodeData,
+    });
+    edges.push({ id: `e-${NAME_ID}-${id}`, source: NAME_ID, target: id, style: edgeStyle });
+  });
+
+  const attrIds: string[] = [];
+  attributeList.forEach((label, i) => {
+    const id = `attr-${i}`;
+    attrIds.push(id);
+    nodes.push({
+      id,
+      type: 'optionLabel',
+      position: { x: attrStartX + i * ATTR_GAP_X, y: ATTR_ROW_Y },
+      data: { label, kind: 'attribute' } as OptionLabelNodeData,
+    });
+    genderIds.forEach((gId) => edges.push({ id: `e-${gId}-${id}`, source: gId, target: id, style: edgeStyle }));
+  });
+
+  const classNodes: { id: string; twoName: string; threeName: string }[] = [];
+  const CLASS_ROW_Y_START = 268 + LAYOUT_OFFSET_Y;
+  const CLASS_GAP_Y = 44;
+  classTree.forEach((two, i) => {
+    (two.children ?? []).forEach((three, j) => {
+      const id = `class-${i}-${j}`;
+      const idx = classNodes.length;
+      classNodes.push({ id, twoName: two.name, threeName: three.name });
+      nodes.push({
+        id,
+        type: 'optionLabel',
+        position: {
+          x: CLASS_COL_X,
+          y: CLASS_ROW_Y_START + idx * CLASS_GAP_Y,
+        },
+        data: {
+          label: three.name,
+          kind: 'class',
+          parentLabel: two.name,
+        } as OptionLabelNodeData,
+      });
+    });
+  });
+  attrIds.forEach((aId) => {
+    classNodes.forEach((c) => {
+      edges.push({ id: `e-${aId}-${c.id}`, source: aId, target: c.id, style: edgeStyle });
+    });
+  });
+
+  return { nodes, edges };
+}
+
 const defaultNodes: Node[] = [];
 const defaultEdges: Edge[] = [];
+
+/** 노드가 채워진 뒤 뷰를 그래프에 맞춤 (비동기 로드 대응) */
+function FitViewOnNodesReady() {
+  const nodeCount = useStore((s) => s.nodes.length);
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    if (nodeCount === 0) return;
+    const t = setTimeout(() => {
+      fitView({ padding: 0.2, duration: 200 });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [nodeCount, fitView]);
+  return null;
+}
 
 function FlowEditorInner() {
   const params = useParams();
   const router = useRouter();
   const workspaceId = Number(params.workspaceId);
   const flowId = Number(params.flowId);
+  const options = useCategoryOptions();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [flowName, setFlowName] = useState('');
@@ -52,6 +193,8 @@ function FlowEditorInner() {
   const [nodes, setNodes] = useNodesState(defaultNodes);
   const [edges, setEdges] = useEdgesState(defaultEdges);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [flowNeedsInitialGraph, setFlowNeedsInitialGraph] = useState(false);
+  const builtWithOptions = useRef(false);
 
   useEffect(() => {
     if (Number.isNaN(workspaceId) || Number.isNaN(flowId)) return;
@@ -60,22 +203,40 @@ function FlowEditorInner() {
       router.replace('/login');
       return;
     }
-        getFlow(workspaceId, flowId)
+    getFlow(workspaceId, flowId)
       .then((flow) => {
         setFlowName(flow.name ?? '새 플로우');
         const data = flow.flowData;
         if (data?.nodes?.length) {
           setNodes(data.nodes as Node[]);
+          setEdges(data.edges?.length ? (data.edges as Edge[]) : []);
+          setFlowNeedsInitialGraph(false);
+          builtWithOptions.current = true;
         } else {
-          setNodes([defaultInputParamsNode]);
-        }
-        if (data?.edges?.length) {
-          setEdges(data.edges as Edge[]);
+          setNodes([]);
+          setEdges([]);
+          setFlowNeedsInitialGraph(true);
+          builtWithOptions.current = false;
         }
       })
       .catch(() => setError('플로우를 불러오지 못했습니다.'))
       .finally(() => setLoading(false));
   }, [workspaceId, flowId, router, setNodes, setEdges]);
+
+  useEffect(() => {
+    if (!flowNeedsInitialGraph) return;
+    const hasOptions = (options.gender?.length ?? 0) > 0 || (options.attribute?.length ?? 0) > 0;
+    if (nodes.length > 0 && builtWithOptions.current) return;
+    if (nodes.length > 0 && !hasOptions) return;
+    const { nodes: builtNodes, edges: builtEdges } = buildDefaultFlowGraph(options);
+    if (builtNodes.length === 0) return;
+    setNodes(builtNodes);
+    setEdges(builtEdges);
+    if (hasOptions) {
+      setFlowNeedsInitialGraph(false);
+      builtWithOptions.current = true;
+    }
+  }, [flowNeedsInitialGraph, options.gender, options.attribute, options.classTree, nodes.length, setNodes, setEdges]);
 
   const saveTitle = useCallback(() => {
     const trimmed = titleInput.trim();
@@ -137,13 +298,14 @@ function FlowEditorInner() {
         const data = flow.flowData;
         if (data?.nodes?.length) {
           setNodes(data.nodes as Node[]);
+          setEdges(data.edges?.length ? (data.edges as Edge[]) : []);
+          setFlowNeedsInitialGraph(false);
+          builtWithOptions.current = true;
         } else {
-          setNodes([defaultInputParamsNode]);
-        }
-        if (data?.edges?.length) {
-          setEdges(data.edges as Edge[]);
-        } else {
+          setNodes([]);
           setEdges([]);
+          setFlowNeedsInitialGraph(true);
+          builtWithOptions.current = false;
         }
       })
       .catch(() => setError('플로우를 불러오지 못했습니다.'))
@@ -232,9 +394,15 @@ function FlowEditorInner() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        zoomOnScroll
+        defaultEdgeOptions={{
+          style: { stroke: '#ffffff', strokeWidth: 1.5 },
+          type: 'smoothstep',
+        }}
         fitView
         className="bg-[#0c0c0f]"
       >
+        <FitViewOnNodesReady />
         <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="#333" />
         <Controls className="!bg-[#1a1a1f] !border-white/10 !rounded-lg" />
       </ReactFlow>

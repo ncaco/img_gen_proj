@@ -102,10 +102,11 @@ def init_db(force_recreate: bool = False):
         from sqlalchemy.orm import Session
         with SessionLocal() as session:
             if session.query(CategoryType).count() == 0:
-                for order, (type_key, name) in enumerate([("gender", "성별"), ("class", "클래스"), ("attribute", "속성")]):
+                # 화면 순서: 이름·성별·속성·클래스 (플로우 입력 파라미터 순서와 일치)
+                for order, (type_key, name) in enumerate([("gender", "성별"), ("attribute", "속성"), ("class", "클래스")]):
                     session.add(CategoryType(type_key=type_key, name=name, sort_order=order, is_used=1))
                 session.commit()
-                print("✅ category_types 시드(성별/클래스/속성)를 추가했습니다.")
+                print("✅ category_types 시드(성별/속성/클래스)를 추가했습니다.")
     if "categories" in inspector.get_table_names():
         cat_columns = [c["name"] for c in inspector.get_columns("categories")]
         if "type_id" not in cat_columns:

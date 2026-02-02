@@ -2,7 +2,7 @@
 API 모듈
 """
 from fastapi import APIRouter
-from app.api.routes import cards, upload, auth, workspaces, categories
+from app.api.routes import cards, upload, auth, workspaces, categories, flow
 
 # API 라우터 통합
 api_router = APIRouter()
@@ -13,5 +13,6 @@ api_router.include_router(upload.router)
 api_router.include_router(auth.router)
 api_router.include_router(workspaces.router)
 api_router.include_router(categories.router)
+api_router.include_router(flow.router)
 
 __all__ = ["api_router"]

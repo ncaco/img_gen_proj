@@ -13,6 +13,7 @@ def list_categories(
     db: Session,
     type_id: int | None = None,
     parent_id: int | None = None,
+    all_depths: bool = False,
     include_deleted: bool = False,
     include_unused: bool = True,
 ) -> list[Category]:
@@ -20,15 +21,16 @@ def list_categories(
     카테고리 목록 조회.
     - type_id: 1뎁스 타입 ID (2뎁스 필터 시 사용)
     - parent_id: 상위 ID. None이면 2뎁스만, 값이 있으면 해당 하위(3·4뎁스)
+    - all_depths: True이고 parent_id 없으면 2·3·4뎁스 전부 반환 (관리자 목록용)
     - include_deleted / include_unused: 포함 여부
     """
     q = db.query(Category)
-    if parent_id is None:
+    if parent_id is not None:
+        q = q.filter(Category.parent_id == parent_id)
+    elif not all_depths:
         q = q.filter(Category.parent_id.is_(None))
         if type_id is not None:
             q = q.filter(Category.type_id == type_id)
-    else:
-        q = q.filter(Category.parent_id == parent_id)
     if not include_deleted:
         q = q.filter(Category.deleted_at.is_(None))
     if not include_unused:
@@ -37,15 +39,24 @@ def list_categories(
     return q.all()
 
 
+def _build_category_tree_under(db: Session, parent_id: int) -> list[dict]:
+    """parent_id 하위 3·4뎁스 재귀 트리. [{ name, children: [...] }, ...]"""
+    items = list_categories(db, parent_id=parent_id, include_deleted=False, include_unused=False)
+    return [{"name": c.name, "children": _build_category_tree_under(db, c.id)} for c in items]
+
+
 def list_categories_for_flow(db: Session) -> dict:
     """
-    플로우/입력 파라미터용: 사용중·미삭제인 1뎁스별 2뎁스 name 리스트 (2뎁스만, parent_id NULL).
+    플로우/입력 파라미터용: 사용중·미삭제인 1뎁스별 2뎁스 name 리스트 + type_key_tree(2·3·4뎁스 트리).
     """
     types = list_category_types(db, include_deleted=False, include_unused=False)
     result = {}
     for t in types:
         items = list_categories(db, type_id=t.id, parent_id=None, include_deleted=False, include_unused=False)
         result[t.type_key] = [c.name for c in items]
+        result[f"{t.type_key}_tree"] = [
+            {"name": c.name, "children": _build_category_tree_under(db, c.id)} for c in items
+        ]
     return result
 
 

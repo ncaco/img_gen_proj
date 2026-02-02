@@ -279,3 +279,49 @@ class Category(Base):
 
     def __repr__(self):
         return f"<Category(id={self.id}, type_id={self.type_id}, parent_id={self.parent_id}, name='{self.name}')>"
+
+
+class FlowCharacter(Base):
+    """
+    플로우 캐릭터: 캐릭터 설정(이름·설명) + 세계관 분석 결과 저장.
+    Run 시 입력으로 레코드 생성 후 GPT 결과로 업데이트.
+    """
+    __tablename__ = "flow_characters"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="캐릭터 ID (키)")
+    flow_id = Column(Integer, ForeignKey("flows.id"), nullable=True, index=True, comment="플로우 ID (FK)")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True, comment="생성자 사용자 ID (FK)")
+
+    # 캐릭터 입력 (Run 전)
+    name = Column(String(200), nullable=False, comment="캐릭터 이름")
+    description = Column(Text, nullable=True, comment="캐릭터/세계관 설명")
+
+    # 세계관 분석 결과 (GPT Run 후 업데이트)
+    historical_or_mythical = Column(String(50), nullable=True, comment="역사/신화 구분")
+    origin_country = Column(String(100), nullable=True, comment="출신")
+    era = Column(String(100), nullable=True, comment="시대")
+    main_archetype = Column(String(50), nullable=True, comment="아키타입")
+    legend_rank = Column(String(20), nullable=True, comment="전설성")
+    mystery_level = Column(String(20), nullable=True, comment="신비도")
+    divinity_potential = Column(String(20), nullable=True, comment="신성")
+    iconic_weapons_or_symbols = Column(JSON, nullable=True, comment="상징/무기 (JSON 배열)")
+    key_achievements = Column(JSON, nullable=True, comment="업적 (JSON 배열)")
+    suitable_for_pretender = Column(Integer, nullable=True, default=0, comment="Pretender 적합 (0/1)")
+    suitable_for_foreigner = Column(Integer, nullable=True, default=0, comment="Foreigner 적합 (0/1)")
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    def __repr__(self):
+        return f"<FlowCharacter(id={self.id}, name='{self.name}')>"

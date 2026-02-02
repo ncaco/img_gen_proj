@@ -1,18 +1,25 @@
 'use client';
 
 import { createContext, useContext, useMemo, useState, useEffect } from 'react';
-import { listCategoriesPublic } from '@/app/lib/category';
+import { listCategoriesPublic, type CategoryTreeNode } from '@/app/lib/category';
 
 export interface CategoryOptions {
   gender: string[];
   class: string[];
   attribute: string[];
+  /** 2·3·4뎁스 트리 (플로우에서 클래스 선택 시 하위 선택용) */
+  classTree: CategoryTreeNode[];
+  genderTree: CategoryTreeNode[];
+  attributeTree: CategoryTreeNode[];
 }
 
 const defaultOptions: CategoryOptions = {
   gender: [],
   class: [],
   attribute: [],
+  classTree: [],
+  genderTree: [],
+  attributeTree: [],
 };
 
 const CategoryOptionsContext = createContext<CategoryOptions>(defaultOptions);
@@ -24,9 +31,12 @@ export function CategoryOptionsProvider({ children }: { children: React.ReactNod
     listCategoriesPublic()
       .then((res) => {
         setOptions({
-          gender: res.gender ?? [],
-          class: res.class ?? [],
-          attribute: res.attribute ?? [],
+          gender: (res.gender as string[]) ?? [],
+          class: (res.class as string[]) ?? [],
+          attribute: (res.attribute as string[]) ?? [],
+          classTree: (res.class_tree as CategoryTreeNode[]) ?? [],
+          genderTree: (res.gender_tree as CategoryTreeNode[]) ?? [],
+          attributeTree: (res.attribute_tree as CategoryTreeNode[]) ?? [],
         });
       })
       .catch(() => {

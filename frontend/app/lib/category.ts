@@ -42,10 +42,16 @@ export interface CategoryListResponse {
   categories: Category[];
 }
 
-/** 플로우/입력 파라미터용 공개 목록 (type_key별 name 배열) */
+/** 플로우용: 2·3·4뎁스 트리 노드 (name + children) */
+export interface CategoryTreeNode {
+  name: string;
+  children: CategoryTreeNode[];
+}
+
+/** 플로우/입력 파라미터용 공개 목록 (type_key별 name 배열 + type_key_tree) */
 export interface CategoryPublicResponse {
   success: boolean;
-  [typeKey: string]: boolean | string[];
+  [key: string]: boolean | string[] | CategoryTreeNode[] | undefined;
 }
 
 function authHeaders(): HeadersInit {
@@ -135,15 +141,17 @@ export async function restoreType(id: number): Promise<CategoryTypeItem> {
 }
 
 // ---- 2뎁스(카테고리 항목) ----
-/** 관리자: 카테고리 목록 (type_id=2뎁스, parent_id=3·4뎁스 하위) */
+/** 관리자: 카테고리 목록 (type_id=2뎁스, parent_id=3·4뎁스 하위, all_depths=2·3·4뎁스 전부) */
 export async function listCategoriesAdmin(options?: {
   type_id?: number;
   parent_id?: number;
+  all_depths?: boolean;
   includeDeleted?: boolean;
 }): Promise<CategoryListResponse> {
   const params = new URLSearchParams();
   if (options?.type_id != null) params.set('type_id', String(options.type_id));
   if (options?.parent_id != null) params.set('parent_id', String(options.parent_id));
+  if (options?.all_depths === true) params.set('all_depths', 'true');
   if (options?.includeDeleted !== undefined) params.set('include_deleted', String(options.includeDeleted));
   const url = `${API_BASE}/api/v1/categories/list?${params.toString()}`;
   const res = await fetch(url, { headers: authHeaders() });

@@ -174,12 +174,13 @@ async def restore_type_route(
 async def list_categories_admin(
     type_id: int | None = Query(None, description="1뎁스 타입 ID (2뎁스 목록 시)"),
     parent_id: int | None = Query(None, description="상위 카테고리 ID (3·4뎁스 목록 시)"),
+    all_depths: bool = Query(False, description="True면 2·3·4뎁스 전부 반환 (관리자 트리용)"),
     include_deleted: bool = Query(False, description="소프트 삭제된 항목 포함"),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    """관리자: 카테고리 목록. parent_id 없으면 2뎁스(type_id 필터), 있으면 해당 하위(3·4뎁스)."""
-    items = list_categories(db, type_id=type_id, parent_id=parent_id, include_deleted=include_deleted, include_unused=True)
+    """관리자: 카테고리 목록. all_depths=True면 전체, parent_id 있으면 해당 하위(3·4뎁스)."""
+    items = list_categories(db, type_id=type_id, parent_id=parent_id, all_depths=all_depths, include_deleted=include_deleted, include_unused=True)
     return {"success": True, "total": len(items), "categories": [_category_to_response(c) for c in items]}
 
 

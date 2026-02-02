@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     ADMIN_EMAIL: Optional[str] = Field(default=None, description="관리자 이메일 (add_admin.py)")
     ADMIN_PASSWORD: Optional[str] = Field(default=None, description="관리자 비밀번호 (add_admin.py, 8자 이상)")
 
+    # OpenAI (플로우 Lore 분석 등)
+    OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API 키 (환경변수 OPENAI_API_KEY)")
+
     # 파일 업로드 설정
     UPLOAD_DIR: str = Field(default="data/upload", description="업로드 디렉토리")
     MAX_UPLOAD_SIZE: int = Field(

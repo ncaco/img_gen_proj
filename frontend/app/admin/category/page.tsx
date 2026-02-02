@@ -31,6 +31,7 @@ type CategoryRowProps = {
   onDelete: (c: Category) => void;
   onRestore: (c: Category) => void;
   onAddUnderParent: (parentId: number, parentName: string, depth: number) => void;
+  onToggleUsed: (c: Category) => void;
 };
 
 function CategoryRow({
@@ -44,10 +45,11 @@ function CategoryRow({
   onDelete,
   onRestore,
   onAddUnderParent,
+  onToggleUsed,
 }: CategoryRowProps) {
   const children = getChildren(category.id);
   const canHaveChildren = depth < 2;
-  const expanded = expandedCategoryIds[category.id] !== false;
+  const expanded = expandedCategoryIds[category.id] === true;
   const depthLabel = depth === 0 ? '2뎁스' : depth === 1 ? '3뎁스' : '4뎁스';
   const addChildLabel = depth === 0 ? '3뎁스' : '4뎁스';
 
@@ -74,7 +76,15 @@ function CategoryRow({
           )}
         </span>
         <span className="text-sm text-gray-600 dark:text-gray-400">{category.sortOrder}</span>
-        <span className="text-sm text-gray-600 dark:text-gray-400">{category.isUsed === 1 ? '사용' : '미사용'}</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400" onClick={(e) => e.stopPropagation()}>
+          {!category.deletedAt ? (
+            <button type="button" onClick={() => onToggleUsed(category)} className={`px-2 py-0.5 rounded text-xs font-medium ${category.isUsed === 1 ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400'}`}>
+              {category.isUsed === 1 ? '사용' : '미사용'}
+            </button>
+          ) : (
+            category.isUsed === 1 ? '사용' : '미사용'
+          )}
+        </span>
         <span className="text-sm text-gray-600 dark:text-gray-400">{category.deletedAt ? '삭제됨' : '-'}</span>
         <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
           {!category.deletedAt && (
@@ -119,6 +129,7 @@ function CategoryRow({
               onDelete={onDelete}
               onRestore={onRestore}
               onAddUnderParent={onAddUnderParent}
+              onToggleUsed={onToggleUsed}
             />
           ))
           )}
@@ -163,17 +174,38 @@ export default function CategoryPage() {
       setError(null);
       const [typesRes, categoriesRes] = await Promise.all([
         listTypesAdmin({ includeDeleted }),
-        listCategoriesAdmin({ includeDeleted }),
+        listCategoriesAdmin({ includeDeleted, all_depths: true }),
       ]);
       setTypes(typesRes.types);
       setCategories(categoriesRes.categories);
+      const childMap: Record<number, Category[]> = {};
+      categoriesRes.categories.forEach((c) => {
+        if (c.parentId != null) {
+          const pid = c.parentId;
+          if (!childMap[pid]) childMap[pid] = [];
+          childMap[pid].push(c);
+        }
+      });
+      Object.keys(childMap).forEach((k) => {
+        childMap[Number(k)].sort((a, b) => a.sortOrder - b.sortOrder);
+      });
+      setChildrenByParentId(childMap);
+      const typeIdsWithItems = new Set<number>();
+      categoriesRes.categories.forEach((c) => {
+        if (c.parentId == null && c.typeId != null) typeIdsWithItems.add(c.typeId);
+      });
       setExpandedTypeIds((prev) => {
         const next = { ...prev };
         typesRes.types.forEach((t) => {
-          if (next[t.id] === undefined) next[t.id] = true;
+          next[t.id] = typeIdsWithItems.has(t.id);
         });
         return next;
       });
+      const categoryIdsWithChildren: Record<number, boolean> = {};
+      Object.keys(childMap).forEach((pid) => {
+        categoryIdsWithChildren[Number(pid)] = true;
+      });
+      setExpandedCategoryIds(categoryIdsWithChildren);
     } catch (e) {
       setError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
     } finally {
@@ -263,6 +295,36 @@ export default function CategoryPage() {
   const openCategoryDelete = (c: Category) => setModal({ kind: 'categoryDelete', category: c });
   const openCategoryRestore = (c: Category) => setModal({ kind: 'categoryRestore', category: c });
 
+  const handleToggleTypeUsed = async (t: CategoryTypeItem) => {
+    if (t.deletedAt) return;
+    try {
+      const updated = await updateType(t.id, { is_used: t.isUsed === 1 ? 0 : 1 });
+      setTypes((prev) => prev.map((x) => (x.id === updated.id ? { ...x, isUsed: updated.isUsed } : x)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '사용여부 변경에 실패했습니다.');
+    }
+  };
+
+  const handleToggleCategoryUsed = async (c: Category) => {
+    if (c.deletedAt) return;
+    try {
+      const updated = await updateCategory(c.id, { is_used: c.isUsed === 1 ? 0 : 1 });
+      setCategories((prev) => prev.map((x) => (x.id === updated.id ? { ...x, isUsed: updated.isUsed } : x)));
+      setChildrenByParentId((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((pid) => {
+          const arr = next[Number(pid)];
+          if (arr.some((x) => x.id === updated.id)) {
+            next[Number(pid)] = arr.map((x) => (x.id === updated.id ? { ...x, isUsed: updated.isUsed } : x));
+          }
+        });
+        return next;
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '사용여부 변경에 실패했습니다.');
+    }
+  };
+
   const handleSaveTypeNew = async () => {
     if (!editTypeKey.trim() || !editName.trim()) {
       setActionError('타입 키와 이름을 입력하세요.');
@@ -340,18 +402,20 @@ export default function CategoryPage() {
       setActionError('이름을 입력하세요.');
       return;
     }
+    const parentId = modal.parentId;
     try {
       setSaving(true);
       setActionError(null);
       await createCategory({
-        parent_id: modal.parentId,
+        parent_id: parentId,
         name: editName.trim(),
         sort_order: editSortOrder,
         is_used: editIsUsed,
       });
       setModal(null);
-      setChildrenByParentId((prev) => ({}));
-      fetchAll();
+      await fetchAll();
+      const res = await listCategoriesAdmin({ parent_id: parentId, includeDeleted });
+      setChildrenByParentId((prev) => ({ ...prev, [parentId]: res.categories }));
     } catch (e) {
       setActionError(e instanceof Error ? e.message : '저장에 실패했습니다.');
     } finally {
@@ -508,7 +572,15 @@ export default function CategoryPage() {
                     <span className="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400">({t.typeKey}) · {items.length}개</span>
                   </span>
                   <span>{t.sortOrder}</span>
-                  <span>{t.isUsed === 1 ? '사용' : '미사용'}</span>
+                  <span onClick={(e) => e.stopPropagation()}>
+                    {!t.deletedAt ? (
+                      <button type="button" onClick={() => handleToggleTypeUsed(t)} className={`px-2 py-0.5 rounded text-xs font-medium ${t.isUsed === 1 ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400'}`}>
+                        {t.isUsed === 1 ? '사용' : '미사용'}
+                      </button>
+                    ) : (
+                      t.isUsed === 1 ? '사용' : '미사용'
+                    )}
+                  </span>
                   <span>{t.deletedAt ? '삭제됨' : '-'}</span>
                   <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                     {!t.deletedAt && (
@@ -550,6 +622,7 @@ export default function CategoryPage() {
                           onDelete={openCategoryDelete}
                           onRestore={openCategoryRestore}
                           onAddUnderParent={openCategoryAddUnderParent}
+                          onToggleUsed={handleToggleCategoryUsed}
                         />
                       ))
                     )}
