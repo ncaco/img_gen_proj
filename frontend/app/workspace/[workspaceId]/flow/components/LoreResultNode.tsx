@@ -31,6 +31,12 @@ function LoreResultNodeComponent(props: NodeProps) {
   return (
     <div className="rounded-xl min-w-[220px] max-w-[320px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
       <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-white/40" />
+      <Handle
+        type="source"
+        id="to-prompt"
+        position={Position.Right}
+        className="!w-2.5 !h-2.5 !bg-white/60"
+      />
       <div className="rounded-t-xl border-b border-white/10 p-2.5 bg-white/5">
         <div className="text-white/90 font-medium text-xs">세계관 분석</div>
       </div>

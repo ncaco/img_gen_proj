@@ -32,6 +32,7 @@ import { AttributeSelectNode } from '../components/AttributeSelectNode';
 import { ClassSelectNode } from '../components/ClassSelectNode';
 import { OptionLabelNode, type OptionLabelNodeData } from '../components/OptionLabelNode';
 import { LoreResultNode, LORE_NODE_ID, type LoreResultNodeData } from '../components/LoreResultNode';
+import { PromptTextareaNode, type PromptTextareaNodeData } from '../components/PromptTextareaNode';
 import { CategoryOptionsProvider, useCategoryOptions, type CategoryOptions } from '../context/CategoryOptionsContext';
 
 const nodeTypes = {
@@ -42,6 +43,7 @@ const nodeTypes = {
   classSelect: ClassSelectNode,
   optionLabel: OptionLabelNode,
   loreResult: LoreResultNode,
+  promptTextarea: PromptTextareaNode,
 } as NodeTypes;
 
 /** 기존 단일 입력 노드 (호환용) */
@@ -129,32 +131,66 @@ function buildDefaultFlowGraph(options: CategoryOptions): { nodes: Node[]; edges
     genderIds.forEach((gId) => edges.push({ id: `e-${gId}-${id}`, source: gId, target: id, style: edgeStyle }));
   });
 
-  const classNodes: { id: string; twoName: string; threeName: string }[] = [];
-  const CLASS_ROW_Y_START = 268 + LAYOUT_OFFSET_Y;
-  const CLASS_GAP_Y = 44;
-  classTree.forEach((two, i) => {
-    (two.children ?? []).forEach((three, j) => {
-      const id = `class-${i}-${j}`;
-      const idx = classNodes.length;
-      classNodes.push({ id, twoName: two.name, threeName: three.name });
-      nodes.push({
-        id,
-        type: 'optionLabel',
-        position: {
-          x: CLASS_COL_X,
-          y: CLASS_ROW_Y_START + idx * CLASS_GAP_Y,
-        },
-        data: {
-          label: three.name,
-          kind: 'class',
-          parentLabel: two.name,
-        } as OptionLabelNodeData,
+  // 경우의 수: 속성 × 클래스 → "불의 세이버", "어둠의 어벤저" 등.
+  // 클래스는 모두 한 줄로 가로 일자 정렬. 이미지 프롬프트는 더 아래에 배치. 클래스는 라인(엣지)보다 앞에 표시.
+  const CLASS_ROW_Y = 268 + LAYOUT_OFFSET_Y;
+  const CLASS_NODE_WIDTH = 120;
+  const CLASS_NODE_HEIGHT = 40;
+  const PROMPT_NODE_WIDTH = 280;
+  const PROMPT_GAP_X = 32;
+  const STEP_X = PROMPT_NODE_WIDTH + PROMPT_GAP_X;
+  const PROMPT_OFFSET_Y = 160; // 클래스 행과 프롬프트 행 사이 큰 간격
+  const PROMPT_ROW_Y = CLASS_ROW_Y + CLASS_NODE_HEIGHT + PROMPT_OFFSET_Y;
+
+  let colIdx = 0;
+  attributeList.forEach((attrLabel, attrIdx) => {
+    classTree.forEach((two, i) => {
+      (two.children ?? []).forEach((three, j) => {
+        const classId = `class-${attrIdx}-${i}-${j}`;
+        const promptId = `prompt-${attrIdx}-${i}-${j}`;
+        const label = `${attrLabel}의 ${three.name}`;
+        const colX = CLASS_COL_X + colIdx * STEP_X;
+        const classX = colX + (STEP_X - CLASS_NODE_WIDTH) / 2;
+        nodes.push({
+          id: classId,
+          type: 'optionLabel',
+          position: { x: classX, y: CLASS_ROW_Y },
+          data: {
+            label,
+            kind: 'class',
+            parentLabel: two.name,
+          } as OptionLabelNodeData,
+          zIndex: 10,
+        });
+        edges.push({
+          id: `e-attr-${attrIdx}-${classId}`,
+          source: attrIds[attrIdx],
+          target: classId,
+          style: edgeStyle,
+        });
+        nodes.push({
+          id: promptId,
+          type: 'promptTextarea',
+          position: { x: colX, y: PROMPT_ROW_Y },
+          data: {} as PromptTextareaNodeData,
+        });
+        edges.push({
+          id: `e-${classId}-${promptId}`,
+          source: classId,
+          target: promptId,
+          targetHandle: 'top',
+          style: edgeStyle,
+        });
+        edges.push({
+          id: `e-${LORE_NODE_ID}-${promptId}`,
+          source: LORE_NODE_ID,
+          sourceHandle: 'to-prompt',
+          target: promptId,
+          targetHandle: 'left',
+          style: edgeStyle,
+        });
+        colIdx += 1;
       });
-    });
-  });
-  attrIds.forEach((aId) => {
-    classNodes.forEach((c) => {
-      edges.push({ id: `e-${aId}-${c.id}`, source: aId, target: c.id, style: edgeStyle });
     });
   });
 
