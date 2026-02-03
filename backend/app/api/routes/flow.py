@@ -26,8 +26,6 @@ def _apply_lore_to_character(character: FlowCharacter, lore: LoreMappingResult) 
     character.divinity_potential = lore.divinity_potential
     character.iconic_weapons_or_symbols = lore.iconic_weapons_or_symbols
     character.key_achievements = lore.key_achievements
-    character.suitable_for_pretender = 1 if lore.suitable_for_pretender else 0
-    character.suitable_for_foreigner = 1 if lore.suitable_for_foreigner else 0
 
 
 @router.post("/lore-mapping")

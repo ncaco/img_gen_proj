@@ -22,11 +22,8 @@ class LoreMappingResult(BaseModel):
     mystery_level: str = Field(..., description="신비도, 예: 현대(Modern)")
     divinity_potential: str = Field(..., description="신성, 예: 없음(None)")
 
-    iconic_weapons_or_symbols: list[str] = Field(default_factory=list, description="상징/무기, 한국어")
+    iconic_weapons_or_symbols: list[str] = Field(default_factory=list, description="전투/보구 (전투 스타일·보구), 한국어")
     key_achievements: list[str] = Field(default_factory=list, description="업적, 한국어")
-
-    suitable_for_pretender: bool = False
-    suitable_for_foreigner: bool = False
 
 
 class LoreMappingRequest(BaseModel):
@@ -51,6 +48,4 @@ def lore_mapping_to_response(obj: LoreMappingResult) -> dict:
         "divinityPotential": obj.divinity_potential,
         "iconicWeaponsOrSymbols": obj.iconic_weapons_or_symbols,
         "keyAchievements": obj.key_achievements,
-        "suitableForPretender": obj.suitable_for_pretender,
-        "suitableForForeigner": obj.suitable_for_foreigner,
     }

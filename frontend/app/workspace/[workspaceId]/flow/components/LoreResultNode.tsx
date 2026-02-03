@@ -32,7 +32,7 @@ function LoreResultNodeComponent(props: NodeProps) {
     <div className="rounded-xl min-w-[220px] max-w-[320px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
       <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-white/40" />
       <div className="rounded-t-xl border-b border-white/10 p-2.5 bg-white/5">
-        <div className="text-white/90 font-medium text-xs">세계관 분석 (읽기 전용)</div>
+        <div className="text-white/90 font-medium text-xs">세계관 분석</div>
       </div>
       <div className="p-2.5 space-y-1.5 text-xs">
         {loreError && (
@@ -46,20 +46,12 @@ function LoreResultNodeComponent(props: NodeProps) {
         <ValueRow label="신비도" value={lore?.mysteryLevel ?? ''} />
         <ValueRow label="신성" value={lore?.divinityPotential ?? ''} />
         <ValueRow
-          label="상징/무기"
+          label="전투/보구"
           value={lore?.iconicWeaponsOrSymbols?.length ? lore.iconicWeaponsOrSymbols.join(', ') : ''}
         />
         <ValueRow
           label="업적"
           value={lore?.keyAchievements?.length ? lore.keyAchievements.join(', ') : ''}
-        />
-        <ValueRow
-          label="특수"
-          value={
-            lore && (lore.suitableForPretender || lore.suitableForForeigner)
-              ? [lore.suitableForPretender && 'Pretender', lore.suitableForForeigner && 'Foreigner'].filter(Boolean).join(', ')
-              : ''
-          }
         />
       </div>
     </div>

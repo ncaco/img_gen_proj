@@ -14,8 +14,6 @@ export interface LoreMappingData {
   divinityPotential: string;
   iconicWeaponsOrSymbols: string[];
   keyAchievements: string[];
-  suitableForPretender: boolean;
-  suitableForForeigner: boolean;
 }
 
 export interface LoreMappingResponse {

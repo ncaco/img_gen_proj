@@ -32,9 +32,8 @@ Return ONLY valid JSON matching the provided schema. Do NOT include extra commen
 - mystery_level: use exactly one of 현대(Modern), 중세(Medieval), 고대(Ancient), 신대(Age of Gods).
 - divinity_potential: use exactly one of 없음(None), 낮음(Low), 중간(Medium), 높음(High).
 - era, origin_country: Korean with optional (English) in parentheses.
-- iconic_weapons_or_symbols, key_achievements: list of Korean strings, optionally "한국어(English)" per item.
-
-Only mark suitable_for_pretender as true if the character is known for identity fraud, impersonation, false legends, or multiple historical identities.
+- iconic_weapons_or_symbols (전투/보구: 전투 스타일·보구): list of Korean strings, optionally "한국어(English)" per item.
+- key_achievements: list of Korean strings, optionally "한국어(English)" per item.
 """
 
     desc_block = f"\nDescription: {description}" if (description and description.strip()) else ""

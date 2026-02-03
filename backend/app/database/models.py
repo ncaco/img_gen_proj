@@ -304,10 +304,8 @@ class FlowCharacter(Base):
     legend_rank = Column(String(20), nullable=True, comment="전설성")
     mystery_level = Column(String(20), nullable=True, comment="신비도")
     divinity_potential = Column(String(20), nullable=True, comment="신성")
-    iconic_weapons_or_symbols = Column(JSON, nullable=True, comment="상징/무기 (JSON 배열)")
+    iconic_weapons_or_symbols = Column(JSON, nullable=True, comment="전투/보구 (JSON 배열)")
     key_achievements = Column(JSON, nullable=True, comment="업적 (JSON 배열)")
-    suitable_for_pretender = Column(Integer, nullable=True, default=0, comment="Pretender 적합 (0/1)")
-    suitable_for_foreigner = Column(Integer, nullable=True, default=0, comment="Foreigner 적합 (0/1)")
 
     created_at = Column(
         DateTime(timezone=True),
