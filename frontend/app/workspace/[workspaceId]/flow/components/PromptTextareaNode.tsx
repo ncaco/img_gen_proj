@@ -8,6 +8,9 @@ export const PROMPT_NODE_ID = 'prompt-textarea-1';
 export type PromptTextareaNodeData = {
   /** 이미지 생성 프롬프트 */
   promptText?: string;
+  /** 속성·클래스 라벨 (표시용) */
+  attributeLabel?: string;
+  classLabel?: string;
 };
 
 function PromptTextareaNodeComponent(props: NodeProps) {
@@ -33,6 +36,11 @@ function PromptTextareaNodeComponent(props: NodeProps) {
       <Handle type="target" id="top" position={Position.Top} className="!w-2.5 !h-2.5 !bg-white/40" />
       <div className="rounded-t-xl border-b border-white/10 p-2.5 bg-white/5">
         <div className="text-white/90 font-medium text-xs">이미지 생성 프롬프트</div>
+        {(data.attributeLabel || data.classLabel) && (
+          <div className="text-white/50 text-xs mt-0.5 truncate" title={`${data.attributeLabel ?? ''} ${data.classLabel ?? ''}`}>
+            {[data.attributeLabel, data.classLabel].filter(Boolean).join(' · ')}
+          </div>
+        )}
       </div>
       <div className="p-2.5">
         <textarea

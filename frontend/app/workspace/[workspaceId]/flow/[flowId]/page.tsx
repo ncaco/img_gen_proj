@@ -26,13 +26,15 @@ import '@xyflow/react/dist/style.css';
 import { getFlow, updateFlow } from '@/app/lib/workspace';
 import { getStoredToken } from '@/app/lib/auth';
 import { InputParamsNode, type InputParamsNodeData } from '../components/InputParamsNode';
-import { NameInputNode, type NameInputNodeData } from '../components/NameInputNode';
+import { NameInputNode } from '../components/NameInputNode';
 import { GenderSelectNode } from '../components/GenderSelectNode';
 import { AttributeSelectNode } from '../components/AttributeSelectNode';
 import { ClassSelectNode } from '../components/ClassSelectNode';
-import { OptionLabelNode, type OptionLabelNodeData } from '../components/OptionLabelNode';
+import { OptionLabelNode } from '../components/OptionLabelNode';
 import { LoreResultNode, LORE_NODE_ID, type LoreResultNodeData } from '../components/LoreResultNode';
-import { PromptTextareaNode, type PromptTextareaNodeData } from '../components/PromptTextareaNode';
+import { PromptTextareaNode } from '../components/PromptTextareaNode';
+import { CharacterConfigNode, CHARACTER_CONFIG_NODE_ID, type CharacterConfigNodeData } from '../components/CharacterConfigNode';
+import { CategorySelectNode, CATEGORY_SELECT_NODE_ID, type CategorySelectNodeData } from '../components/CategorySelectNode';
 import { CategoryOptionsProvider, useCategoryOptions, type CategoryOptions } from '../context/CategoryOptionsContext';
 
 const nodeTypes = {
@@ -44,6 +46,8 @@ const nodeTypes = {
   optionLabel: OptionLabelNode,
   loreResult: LoreResultNode,
   promptTextarea: PromptTextareaNode,
+  characterConfig: CharacterConfigNode,
+  categorySelect: CategorySelectNode,
 } as NodeTypes;
 
 /** 기존 단일 입력 노드 (호환용) */
@@ -56,142 +60,51 @@ const defaultInputParamsNode: Node<InputParamsNodeData> = {
 
 const edgeStyle = { stroke: '#ffffff', strokeWidth: 1.5 };
 
-/** 카테고리 기반 기본 그래프: 1 이름 → 2 성별 → 6 속성 → (2뎁스별 3뎁스) 클래스 노드들 */
-function buildDefaultFlowGraph(options: CategoryOptions): { nodes: Node[]; edges: Edge[] } {
+/** 캐릭터 설정 → 세계관설정, 성별·속성·클래스는 별도 노드 */
+function buildDefaultFlowGraph(_options: CategoryOptions): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
-  const genderList = options.gender ?? [];
-  const attributeList = options.attribute ?? [];
-  const classTree = options.classTree ?? [];
 
-  const LAYOUT_OFFSET_Y = 160;
-  const ATTR_ROW_Y = 180 + LAYOUT_OFFSET_Y;
-  const ATTR_GAP_X = 118;
-  const attrStartX = 80;
-  const OPTION_NODE_WIDTH = 100;
-  const attrCount = Math.max(1, attributeList.length);
-  const attrEndX = attrStartX + (attrCount - 1) * ATTR_GAP_X + OPTION_NODE_WIDTH;
-  const CLASS_COL_X = attrEndX + 24;
-  const GENDER_CORNER_X = attrStartX;
-  const GENDER_GAP_X = 150;
-  const genderCenterX =
-    genderList.length > 0
-      ? GENDER_CORNER_X + (genderList.length - 1) * GENDER_GAP_X / 2
-      : GENDER_CORNER_X;
-  const NAME_NODE_WIDTH = 180;
-  const nameX = Math.round(genderCenterX - NAME_NODE_WIDTH / 2);
-  const nameY = -95;
-  const GENDER_ROW_Y = 20 + LAYOUT_OFFSET_Y;
-  const NAME_ID = 'name-1';
-  const NAME_NODE_UI_WIDTH = 220;
-  const LORE_NODE_GAP_X = 24;
+  const CONFIG_X = 80;
+  const CONFIG_Y = 60;
+  const CONFIG_NODE_WIDTH = 280;
+  const LORE_GAP = 24;
+  const LORE_X = CONFIG_X + CONFIG_NODE_WIDTH + LORE_GAP;
+  const CATEGORY_OFFSET_Y = 220; // 캐릭터 설정 아래에 배치
+
   nodes.push({
-    id: NAME_ID,
-    type: 'nameInput',
-    position: { x: nameX, y: nameY },
-    data: { 이름: '' } as NameInputNodeData,
+    id: CHARACTER_CONFIG_NODE_ID,
+    type: 'characterConfig',
+    position: { x: CONFIG_X, y: CONFIG_Y },
+    data: {} as CharacterConfigNodeData,
   });
+
   nodes.push({
     id: LORE_NODE_ID,
     type: 'loreResult',
-    position: { x: nameX + NAME_NODE_UI_WIDTH + LORE_NODE_GAP_X, y: nameY },
+    position: { x: LORE_X, y: CONFIG_Y },
     data: {} as LoreResultNodeData,
   });
   edges.push({
-    id: `e-${NAME_ID}-${LORE_NODE_ID}`,
-    source: NAME_ID,
+    id: `e-${CHARACTER_CONFIG_NODE_ID}-${LORE_NODE_ID}`,
+    source: CHARACTER_CONFIG_NODE_ID,
     sourceHandle: 'to-lore',
     target: LORE_NODE_ID,
     style: edgeStyle,
   });
 
-  const genderIds: string[] = [];
-  genderList.forEach((label, i) => {
-    const id = `gender-${i}`;
-    genderIds.push(id);
-    nodes.push({
-      id,
-      type: 'optionLabel',
-      position: { x: GENDER_CORNER_X + i * GENDER_GAP_X, y: GENDER_ROW_Y },
-      data: { label, kind: 'gender' } as OptionLabelNodeData,
-    });
-    edges.push({ id: `e-${NAME_ID}-${id}`, source: NAME_ID, target: id, style: edgeStyle });
+  nodes.push({
+    id: CATEGORY_SELECT_NODE_ID,
+    type: 'categorySelect',
+    position: { x: CONFIG_X, y: CONFIG_Y + CATEGORY_OFFSET_Y },
+    data: {} as CategorySelectNodeData,
   });
-
-  const attrIds: string[] = [];
-  attributeList.forEach((label, i) => {
-    const id = `attr-${i}`;
-    attrIds.push(id);
-    nodes.push({
-      id,
-      type: 'optionLabel',
-      position: { x: attrStartX + i * ATTR_GAP_X, y: ATTR_ROW_Y },
-      data: { label, kind: 'attribute' } as OptionLabelNodeData,
-    });
-    genderIds.forEach((gId) => edges.push({ id: `e-${gId}-${id}`, source: gId, target: id, style: edgeStyle }));
-  });
-
-  // 경우의 수: 속성 × 클래스 → "불의 세이버", "어둠의 어벤저" 등.
-  // 클래스는 모두 한 줄로 가로 일자 정렬. 이미지 프롬프트는 더 아래에 배치. 클래스는 라인(엣지)보다 앞에 표시.
-  const CLASS_ROW_Y = 268 + LAYOUT_OFFSET_Y;
-  const CLASS_NODE_WIDTH = 120;
-  const CLASS_NODE_HEIGHT = 40;
-  const PROMPT_NODE_WIDTH = 280;
-  const PROMPT_GAP_X = 32;
-  const STEP_X = PROMPT_NODE_WIDTH + PROMPT_GAP_X;
-  const PROMPT_OFFSET_Y = 160; // 클래스 행과 프롬프트 행 사이 큰 간격
-  const PROMPT_ROW_Y = CLASS_ROW_Y + CLASS_NODE_HEIGHT + PROMPT_OFFSET_Y;
-
-  let colIdx = 0;
-  attributeList.forEach((attrLabel, attrIdx) => {
-    classTree.forEach((two, i) => {
-      (two.children ?? []).forEach((three, j) => {
-        const classId = `class-${attrIdx}-${i}-${j}`;
-        const promptId = `prompt-${attrIdx}-${i}-${j}`;
-        const label = `${attrLabel}의 ${three.name}`;
-        const colX = CLASS_COL_X + colIdx * STEP_X;
-        const classX = colX + (STEP_X - CLASS_NODE_WIDTH) / 2;
-        nodes.push({
-          id: classId,
-          type: 'optionLabel',
-          position: { x: classX, y: CLASS_ROW_Y },
-          data: {
-            label,
-            kind: 'class',
-            parentLabel: two.name,
-          } as OptionLabelNodeData,
-          zIndex: 10,
-        });
-        edges.push({
-          id: `e-attr-${attrIdx}-${classId}`,
-          source: attrIds[attrIdx],
-          target: classId,
-          style: edgeStyle,
-        });
-        nodes.push({
-          id: promptId,
-          type: 'promptTextarea',
-          position: { x: colX, y: PROMPT_ROW_Y },
-          data: {} as PromptTextareaNodeData,
-        });
-        edges.push({
-          id: `e-${classId}-${promptId}`,
-          source: classId,
-          target: promptId,
-          targetHandle: 'top',
-          style: edgeStyle,
-        });
-        edges.push({
-          id: `e-${LORE_NODE_ID}-${promptId}`,
-          source: LORE_NODE_ID,
-          sourceHandle: 'to-prompt',
-          target: promptId,
-          targetHandle: 'left',
-          style: edgeStyle,
-        });
-        colIdx += 1;
-      });
-    });
+  edges.push({
+    id: `e-${LORE_NODE_ID}-${CATEGORY_SELECT_NODE_ID}`,
+    source: LORE_NODE_ID,
+    sourceHandle: 'to-prompt',
+    target: CATEGORY_SELECT_NODE_ID,
+    style: edgeStyle,
   });
 
   return { nodes, edges };
