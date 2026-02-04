@@ -55,3 +55,198 @@ export async function fetchLoreMapping(params: {
   if (!json.success || !json.data || json.characterId == null) throw new Error('응답 형식이 올바르지 않습니다.');
   return { data: json.data, characterId: json.characterId };
 }
+
+export interface FlowCharacter {
+  id: number;
+  name: string;
+}
+
+export interface FlowCharacterListResponse {
+  success: boolean;
+  total: number;
+  characters: FlowCharacter[];
+}
+
+export interface FlowCharacterDetail {
+  id: number;
+  name: string;
+  description?: string | null;
+  historicalOrMythical?: string | null;
+  originCountry?: string | null;
+  era?: string | null;
+  mainArchetype?: string | null;
+  legendRank?: string | null;
+  mysteryLevel?: string | null;
+  divinityPotential?: string | null;
+  iconicWeaponsOrSymbols: string[];
+  keyAchievements: string[];
+}
+
+/** 현재 사용자의 FlowCharacter 목록 조회 (id, name만 반환). 로그인 필요. */
+export async function listFlowCharacters(): Promise<FlowCharacterListResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/flow/characters`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '캐릭터 목록을 불러오지 못했습니다.');
+  }
+  return res.json();
+}
+
+/** 캐릭터 상세 정보 조회. 로그인 필요. */
+export async function getFlowCharacter(characterId: number): Promise<FlowCharacterDetail> {
+  const res = await fetch(`${API_BASE}/api/v1/flow/characters/${characterId}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '캐릭터 정보를 불러오지 못했습니다.');
+  }
+  return res.json();
+}
+
+export interface FlowCardGenerateRequest {
+  characterId: number;
+  genders: string[];
+  attributes: string[];
+  types: string[];
+}
+
+export interface FlowCardGenerateResponse {
+  success: boolean;
+  message: string;
+  created: number;
+  skipped: number;
+}
+
+/** 캐릭터에 대한 모든 조합의 FlowCard 생성. 로그인 필요. */
+export async function generateFlowCards(request: FlowCardGenerateRequest): Promise<FlowCardGenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/flow/characters/${request.characterId}/cards/generate`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      characterId: request.characterId,
+      genders: request.genders,
+      attributes: request.attributes,
+      types: request.types,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '카드 생성에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export interface FlowCard {
+  id: number;
+  characterId: number;
+  gender: string;
+  attribute: string;
+  type: string;
+  prompt?: string | null;
+  negativePrompt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FlowCardListResponse {
+  success: boolean;
+  total: number;
+  cards: FlowCard[];
+}
+
+/** 캐릭터의 FlowCard 목록 조회 (필터링 지원). 로그인 필요. */
+export async function listFlowCards(params?: {
+  characterId: number;
+  gender?: string;
+  attribute?: string;
+  type?: string;
+}): Promise<FlowCardListResponse> {
+  if (!params?.characterId) {
+    throw new Error('characterId는 필수입니다.');
+  }
+  const searchParams = new URLSearchParams();
+  if (params.gender != null) searchParams.set('gender', params.gender);
+  if (params.attribute != null) searchParams.set('attribute', params.attribute);
+  if (params.type != null) searchParams.set('type_val', params.type);
+
+  const res = await fetch(
+    `${API_BASE}/api/v1/flow/characters/${params.characterId}/cards?${searchParams.toString()}`,
+    {
+      headers: authHeaders(),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? 'FlowCard 목록을 불러오지 못했습니다.');
+  }
+  return res.json();
+}
+
+/** FlowCard 단건 조회. 로그인 필요. */
+export async function getFlowCard(cardId: number): Promise<FlowCard> {
+  const res = await fetch(`${API_BASE}/api/v1/flow/cards/${cardId}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? 'FlowCard를 불러오지 못했습니다.');
+  }
+  return res.json();
+}
+
+export interface ImagePromptRequest {
+  characterId: number;
+  gender: string;
+  attribute: string;
+  type: string;
+}
+
+export interface ImagePromptResponse {
+  success: boolean;
+  prompt: string;
+  negativePrompt: string;
+}
+
+/** 이미지 프롬프트 생성. 로그인 필요. */
+export async function generateImagePrompt(request: ImagePromptRequest): Promise<ImagePromptResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/flow/image-prompt`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '이미지 프롬프트 생성에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export interface FlowCardUpdateRequest {
+  prompt?: string | null;
+  negativePrompt?: string | null;
+}
+
+export interface FlowCardUpdateResponse {
+  success: boolean;
+  message: string;
+}
+
+/** FlowCard 프롬프트 업데이트. 로그인 필요. */
+export async function updateFlowCard(
+  cardId: number,
+  request: FlowCardUpdateRequest
+): Promise<FlowCardUpdateResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/flow/cards/${cardId}`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? 'FlowCard 업데이트에 실패했습니다.');
+  }
+  return res.json();
+}

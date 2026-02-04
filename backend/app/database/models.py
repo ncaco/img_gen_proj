@@ -1,7 +1,7 @@
 """
 데이터베이스 모델 정의
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base
@@ -27,6 +27,7 @@ class Card(Base):
     type = Column(String(50), nullable=False, comment="카드 타입")
     attribute = Column(String(50), nullable=False, comment="카드 속성")
     rarity = Column(String(50), nullable=False, comment="카드 등급")
+    gender = Column(String(50), nullable=True, comment="카드 성별 (옵션)")
     
     # 스탯
     attack = Column(String(10), default="0", comment="공격력")
@@ -323,3 +324,41 @@ class FlowCharacter(Base):
 
     def __repr__(self):
         return f"<FlowCharacter(id={self.id}, name='{self.name}')>"
+
+
+class FlowCard(Base):
+    """
+    플로우 카드: 캐릭터별 성별/속성/클래스 조합에 대한 카드 데이터.
+    유니크 키: character_id + gender + attribute + type
+    """
+    __tablename__ = "flow_cards"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="카드 ID (PK)")
+    character_id = Column(Integer, ForeignKey("flow_characters.id"), nullable=False, index=True, comment="캐릭터 ID (FK)")
+    gender = Column(String(50), nullable=False, comment="성별")
+    attribute = Column(String(50), nullable=False, comment="속성")
+    type = Column(String(50), nullable=False, comment="클래스 (2뎁스만 저장)")
+    prompt = Column(Text, nullable=True, comment="프롬프트 (초기 생성 시 null)")
+    negative_prompt = Column(Text, nullable=True, comment="네거티브 프롬프트 (초기 생성 시 null)")
+    
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    # 유니크 제약조건: character_id + gender + attribute + type
+    __table_args__ = (
+        UniqueConstraint('character_id', 'gender', 'attribute', 'type', name='uq_flow_card_combination'),
+    )
+
+    def __repr__(self):
+        return f"<FlowCard(id={self.id}, character_id={self.character_id}, gender='{self.gender}', attribute='{self.attribute}', type='{self.type}')>"

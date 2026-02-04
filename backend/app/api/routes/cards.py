@@ -106,16 +106,32 @@ async def save_card(
 async def get_cards(
     skip: int = 0,
     limit: int = 100,
+    character_id: int | None = None,
+    gender: str | None = None,
+    attribute: str | None = None,
+    type: str | None = None,
     db: Session = Depends(get_db)
 ):
     """
-    카드 목록을 조회합니다.
+    카드 목록을 조회합니다 (필터링 지원).
     
     - **skip**: 건너뛸 개수 (페이지네이션)
     - **limit**: 가져올 최대 개수 (기본값: 100)
+    - **character_id**: FlowCharacter ID로 필터링 (선택, 추후 확장용)
+    - **gender**: 성별로 필터링 (선택)
+    - **attribute**: 속성으로 필터링 (선택)
+    - **type**: 클래스(타입)로 필터링 (선택)
     """
     try:
-        cards, total = card_service.get_all_cards(db, skip=skip, limit=limit)
+        cards, total = card_service.get_all_cards(
+            db,
+            skip=skip,
+            limit=limit,
+            character_id=character_id,
+            gender=gender,
+            attribute=attribute,
+            type=type,
+        )
 
         # 카드별 최신 합성이미지 URL (합성 테이블 우선, 없으면 Card.generated_image_url)
         gen_rows = (
@@ -143,6 +159,7 @@ async def get_cards(
                 type=card.type,
                 attribute=card.attribute,
                 rarity=card.rarity,
+                gender=card.gender,
                 attack=card.attack or "0",
                 health=card.health or "0",
                 skill1Name=card.skill1_name,

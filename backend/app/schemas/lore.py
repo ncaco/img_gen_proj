@@ -49,3 +49,33 @@ def lore_mapping_to_response(obj: LoreMappingResult) -> dict:
         "iconicWeaponsOrSymbols": obj.iconic_weapons_or_symbols,
         "keyAchievements": obj.key_achievements,
     }
+
+
+# ----- FlowCharacter -----
+class FlowCharacterResponseSchema(BaseModel):
+    """FlowCharacter 응답 (id, name만 포함)"""
+    id: int = Field(..., description="캐릭터 ID")
+    name: str = Field(..., description="캐릭터 이름")
+
+
+class FlowCharacterListResponseSchema(BaseModel):
+    """FlowCharacter 목록 응답"""
+    success: bool = Field(..., description="성공 여부")
+    total: int = Field(..., description="전체 개수")
+    characters: list[FlowCharacterResponseSchema] = Field(..., description="캐릭터 목록")
+
+
+class FlowCharacterDetailResponseSchema(BaseModel):
+    """FlowCharacter 상세 응답"""
+    id: int = Field(..., description="캐릭터 ID")
+    name: str = Field(..., description="캐릭터 이름")
+    description: Optional[str] = Field(None, description="캐릭터/세계관 설명")
+    historicalOrMythical: Optional[str] = Field(None, description="역사/신화 구분")
+    originCountry: Optional[str] = Field(None, description="출신")
+    era: Optional[str] = Field(None, description="시대")
+    mainArchetype: Optional[str] = Field(None, description="아키타입")
+    legendRank: Optional[str] = Field(None, description="전설성")
+    mysteryLevel: Optional[str] = Field(None, description="신비도")
+    divinityPotential: Optional[str] = Field(None, description="신성")
+    iconicWeaponsOrSymbols: list[str] = Field(default_factory=list, description="전투/보구")
+    keyAchievements: list[str] = Field(default_factory=list, description="업적")

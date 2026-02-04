@@ -197,6 +197,7 @@ class CardService:
             type=card_data.type,
             attribute=card_data.attribute,
             rarity=card_data.rarity,
+            gender=card_data.gender or None,
             attack=card_data.attack or "0",
             health=card_data.health or "0",
             skill1_name=card_data.skill1Name or None,
@@ -309,25 +310,54 @@ class CardService:
         return card
 
     @staticmethod
-    def get_all_cards(db: Session, skip: int = 0, limit: int = 100):
+    def get_all_cards(
+        db: Session,
+        skip: int = 0,
+        limit: int = 100,
+        character_id: int | None = None,
+        gender: str | None = None,
+        attribute: str | None = None,
+        type: str | None = None,
+    ):
         """
-        모든 카드 목록 조회
+        모든 카드 목록 조회 (필터링 지원)
         
         Args:
             db: 데이터베이스 세션
             skip: 건너뛸 개수 (페이지네이션)
             limit: 가져올 최대 개수
+            character_id: FlowCharacter ID로 필터링 (선택, 추후 확장용)
+            gender: 성별로 필터링 (선택)
+            attribute: 속성으로 필터링 (선택)
+            type: 클래스(타입)로 필터링 (선택)
             
         Returns:
             tuple: (카드 목록, 전체 개수)
         """
         from app.database.models import Card
         
-        # 전체 개수 조회
-        total = db.query(Card).count()
+        # 기본 쿼리 생성
+        query = db.query(Card)
+        
+        # 필터링 적용
+        # character_id는 현재 Card 모델에 해당 필드가 없으므로 추후 확장을 위해 파라미터만 받음
+        # if character_id is not None:
+        #     query = query.filter(Card.character_id == character_id)
+        
+        if gender is not None:
+            query = query.filter(Card.gender == gender)
+        
+        if attribute is not None:
+            query = query.filter(Card.attribute == attribute)
+        
+        if type is not None:
+            query = query.filter(Card.type == type)
+        
+        # 전체 개수 조회 (필터링 적용 후)
+        total = query.count()
         
         # 카드 목록 조회 (최신순)
-        cards = db.query(Card).order_by(Card.card_sn.desc()).offset(skip).limit(limit).all()
+        cards = query.order_by(Card.card_sn.desc()).offset(skip).limit(limit).all()
         
         return cards, total
     

@@ -36,6 +36,7 @@ import { PromptTextareaNode } from '../components/PromptTextareaNode';
 import { CharacterConfigNode, CHARACTER_CONFIG_NODE_ID, type CharacterConfigNodeData } from '../components/CharacterConfigNode';
 import { CategorySelectNode, CATEGORY_SELECT_NODE_ID, type CategorySelectNodeData } from '../components/CategorySelectNode';
 import { CategoryOptionsProvider, useCategoryOptions, type CategoryOptions } from '../context/CategoryOptionsContext';
+import EncyclopediaSidebar from '../components/EncyclopediaSidebar';
 
 const nodeTypes = {
   inputParams: InputParamsNode,
@@ -144,6 +145,7 @@ function FlowEditorInner() {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [flowNeedsInitialGraph, setFlowNeedsInitialGraph] = useState(false);
   const builtWithOptions = useRef(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (Number.isNaN(workspaceId) || Number.isNaN(flowId)) return;
@@ -333,9 +335,20 @@ function FlowEditorInner() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-9 h-9 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            title="도감 사이드바"
+            aria-label="도감 사이드바"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          </button>
         </div>
       </div>
-      <div className="h-full w-full bg-[#0c0c0f] flex-1 min-h-0">
+      <div className="h-full w-full bg-[#0c0c0f] flex-1 min-h-0 relative">
         <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -356,6 +369,11 @@ function FlowEditorInner() {
         <Controls className="!bg-[#1a1a1f] !border-white/10 !rounded-lg" />
       </ReactFlow>
       </div>
+      <EncyclopediaSidebar 
+        isOpen={sidebarOpen} 
+        onClose={() => setSidebarOpen(false)}
+        onUpdateNodes={(updater) => setNodes(updater)}
+      />
     </>
   );
 }

@@ -78,7 +78,7 @@ def init_db(force_recreate: bool = False):
                 conn.commit()
             print("✅ users 테이블에 is_admin 컬럼을 추가했습니다.")
 
-    # cards 테이블에 user_id 컬럼이 없으면 추가 (마이그레이션)
+    # cards 테이블 마이그레이션 (user_id, gender 컬럼 추가)
     if "cards" in inspector.get_table_names():
         card_columns = [c["name"] for c in inspector.get_columns("cards")]
         if "user_id" not in card_columns:
@@ -86,6 +86,13 @@ def init_db(force_recreate: bool = False):
                 conn.execute(text("ALTER TABLE cards ADD COLUMN user_id INTEGER"))
                 conn.commit()
             print("✅ cards 테이블에 user_id 컬럼을 추가했습니다.")
+        
+        # cards 테이블에 gender 컬럼이 없으면 추가 (마이그레이션)
+        if "gender" not in card_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE cards ADD COLUMN gender VARCHAR(50)"))
+                conn.commit()
+            print("✅ cards 테이블에 gender 컬럼을 추가했습니다.")
 
     # workspaces 테이블에 deleted_at 컬럼이 없으면 추가 (소프트 삭제용 마이그레이션)
     if "workspaces" in inspector.get_table_names():
@@ -128,6 +135,22 @@ def init_db(force_recreate: bool = False):
                         c.type_id = type_map[c.type]
                 session.commit()
             print("✅ categories type_id 백필드를 완료했습니다.")
+
+    # flow_cards 테이블 마이그레이션
+    if "flow_cards" in inspector.get_table_names():
+        flow_card_columns = [c["name"] for c in inspector.get_columns("flow_cards")]
+        # 필요한 컬럼이 없으면 추가
+        if "prompt" not in flow_card_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE flow_cards ADD COLUMN prompt TEXT"))
+                conn.commit()
+            print("✅ flow_cards 테이블에 prompt 컬럼을 추가했습니다.")
+        
+        if "negative_prompt" not in flow_card_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE flow_cards ADD COLUMN negative_prompt TEXT"))
+                conn.commit()
+            print("✅ flow_cards 테이블에 negative_prompt 컬럼을 추가했습니다.")
 
     print(f"✅ 데이터베이스 테이블이 초기화되었습니다: {settings.database_url}")
 

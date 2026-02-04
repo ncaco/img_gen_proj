@@ -84,3 +84,62 @@ export async function updateFlow(
   if (!res.ok) throw new Error('플로우 저장에 실패했습니다.');
   return res.json();
 }
+
+export interface CardItem {
+  cardSn: number;
+  cardNumber?: string;
+  cardName: string;
+  type: string;
+  attribute: string;
+  rarity: string;
+  gender?: string;
+  attack: string;
+  health: string;
+  skill1Name?: string;
+  skill1Description?: string;
+  skill2Name?: string;
+  skill2Description?: string;
+  flavorText?: string;
+  series?: string;
+  characterImageUrl?: string;
+  backgroundImageUrl?: string;
+  generatedPrompt?: string;
+  negativePrompt?: string;
+  generatedImageUrl?: string;
+  draftImageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CardListResponse {
+  success: boolean;
+  total: number;
+  cards: CardItem[];
+}
+
+/** 카드 목록 조회 (필터링 지원). */
+export async function listCards(params?: {
+  skip?: number;
+  limit?: number;
+  characterId?: number;
+  gender?: string;
+  attribute?: string;
+  type?: string;
+}): Promise<CardListResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.skip != null) searchParams.set('skip', String(params.skip));
+  if (params?.limit != null) searchParams.set('limit', String(params.limit));
+  if (params?.characterId != null) searchParams.set('character_id', String(params.characterId));
+  if (params?.gender != null) searchParams.set('gender', params.gender);
+  if (params?.attribute != null) searchParams.set('attribute', params.attribute);
+  if (params?.type != null) searchParams.set('type', params.type);
+
+  const res = await fetch(`${API_BASE}/api/v1/cards/list?${searchParams.toString()}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '카드 목록을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
