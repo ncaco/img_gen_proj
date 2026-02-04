@@ -79,6 +79,7 @@ export interface FlowCharacterDetail {
   mysteryLevel?: string | null;
   divinityPotential?: string | null;
   iconicWeaponsOrSymbols: string[];
+  noblePhantasms?: Array<{ 보구명?: string; 진명개방?: string; noble_phantasm_name?: string; true_name_release?: string }>;
   keyAchievements: string[];
 }
 

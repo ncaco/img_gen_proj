@@ -34,8 +34,14 @@ class OptimalServantSetup(BaseModel):
     divinity_rank: str
     era: str
 
-    # 전투/보구
+    # 상징
     main_noble_phantasm_type: str
+
+    # 보구정보
+    noble_phantasms: list[dict[str, str]] = Field(
+        default_factory=list,
+        description="보구정보. 각 항목은 {'보구명': '', '진명개방': ''} 형태"
+    )
 
     # 위협 수준
     world_threat_level: Literal[

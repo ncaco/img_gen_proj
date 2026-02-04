@@ -49,6 +49,7 @@ def _apply_lore_to_character(character: FlowCharacter, lore: LoreMappingResult) 
     character.mystery_level = lore.mystery_level
     character.divinity_potential = lore.divinity_potential
     character.iconic_weapons_or_symbols = lore.iconic_weapons_or_symbols
+    character.noble_phantasms = lore.noble_phantasms
     character.key_achievements = lore.key_achievements
 
 
@@ -168,6 +169,7 @@ async def get_character(
         mysteryLevel=character.mystery_level,
         divinityPotential=character.divinity_potential,
         iconicWeaponsOrSymbols=character.iconic_weapons_or_symbols or [],
+        noblePhantasms=character.noble_phantasms or [],
         keyAchievements=character.key_achievements or [],
     )
 
@@ -349,6 +351,7 @@ async def generate_image_prompt(
         mystery_level=character.mystery_level or "현대(Modern)",
         divinity_potential=character.divinity_potential or "없음(None)",
         iconic_weapons_or_symbols=character.iconic_weapons_or_symbols or [],
+        noble_phantasms=character.noble_phantasms or [],
         key_achievements=character.key_achievements or [],
     )
     

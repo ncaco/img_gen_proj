@@ -152,6 +152,17 @@ def init_db(force_recreate: bool = False):
                 conn.commit()
             print("✅ flow_cards 테이블에 negative_prompt 컬럼을 추가했습니다.")
 
+    # flow_characters 테이블 마이그레이션
+    if "flow_characters" in inspector.get_table_names():
+        flow_char_columns = [c["name"] for c in inspector.get_columns("flow_characters")]
+        
+        # noble_phantasms 컬럼이 없으면 추가
+        if "noble_phantasms" not in flow_char_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE flow_characters ADD COLUMN noble_phantasms JSON"))
+                conn.commit()
+            print("✅ flow_characters 테이블에 noble_phantasms 컬럼을 추가했습니다.")
+
     print(f"✅ 데이터베이스 테이블이 초기화되었습니다: {settings.database_url}")
 
 

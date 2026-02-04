@@ -25,6 +25,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { getFlow, updateFlow } from '@/app/lib/workspace';
 import { getStoredToken } from '@/app/lib/auth';
+import { fetchLoreMapping } from '@/app/lib/flow';
 import { InputParamsNode, type InputParamsNodeData } from '../components/InputParamsNode';
 import { NameInputNode } from '../components/NameInputNode';
 import { GenderSelectNode } from '../components/GenderSelectNode';
@@ -263,6 +264,59 @@ function FlowEditorInner() {
       .finally(() => setLoading(false));
   }, [workspaceId, flowId, setNodes, setEdges]);
 
+  const handleRegenerateCharacter = useCallback(async () => {
+    const characterConfigNode = nodes.find((n) => n.id === CHARACTER_CONFIG_NODE_ID);
+    if (!characterConfigNode) return;
+    
+    const data = characterConfigNode.data as CharacterConfigNodeData;
+    const name = (data.이름 ?? '').trim();
+    if (!name) {
+      setNodes((nodes) =>
+        nodes.map((n) =>
+          n.id === LORE_NODE_ID
+            ? { ...n, data: { ...n.data, loreError: '이름을 입력한 뒤 실행하세요.', loreMapping: null } }
+            : n
+        )
+      );
+      return;
+    }
+    
+    setNodes((nodes) =>
+      nodes.map((n) =>
+        n.id === LORE_NODE_ID ? { ...n, data: { ...n.data, loreError: null } } : n
+      )
+    );
+    
+    try {
+      const { data: loreData, characterId: newCharacterId } = await fetchLoreMapping({
+        name,
+        description: (data.설명 ?? '').trim(),
+        characterId: data.characterId ?? undefined,
+        flowId,
+      });
+      setNodes((nodes) =>
+        nodes.map((n) => {
+          if (n.id === LORE_NODE_ID) {
+            return { ...n, data: { ...n.data, loreMapping: loreData, loreError: null } };
+          }
+          if (n.id === CHARACTER_CONFIG_NODE_ID) {
+            return { ...n, data: { ...n.data, characterId: newCharacterId } as CharacterConfigNodeData };
+          }
+          return n;
+        })
+      );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '세계관 분석에 실패했습니다.';
+      setNodes((nodes) =>
+        nodes.map((n) =>
+          n.id === LORE_NODE_ID
+            ? { ...n, data: { ...n.data, loreError: message, loreMapping: null } }
+            : n
+        )
+      );
+    }
+  }, [nodes, flowId, setNodes]);
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-[#0c0c0f] text-white/70">
@@ -373,6 +427,9 @@ function FlowEditorInner() {
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)}
         onUpdateNodes={(updater) => setNodes(updater)}
+        nodes={nodes}
+        flowId={flowId}
+        onRegenerateCharacter={handleRegenerateCharacter}
       />
     </>
   );
