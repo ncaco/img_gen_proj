@@ -340,6 +340,7 @@ class FlowCard(Base):
     type = Column(String(50), nullable=False, comment="클래스 (2뎁스만 저장)")
     prompt = Column(Text, nullable=True, comment="프롬프트 (초기 생성 시 null)")
     negative_prompt = Column(Text, nullable=True, comment="네거티브 프롬프트 (초기 생성 시 null)")
+    image_url = Column(Text, nullable=True, comment="카드 이미지 URL (16:9 비율)")
     
     created_at = Column(
         DateTime(timezone=True),

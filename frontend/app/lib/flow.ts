@@ -147,6 +147,7 @@ export interface FlowCard {
   type: string;
   prompt?: string | null;
   negativePrompt?: string | null;
+  imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -242,6 +243,28 @@ export async function generateImagePrompt(request: ImagePromptRequest): Promise<
 export interface FlowCardUpdateRequest {
   prompt?: string | null;
   negativePrompt?: string | null;
+  imageUrl?: string | null;
+}
+
+/** FlowCard 이미지 업로드. 로그인 필요. */
+export async function uploadFlowCardImage(
+  cardId: number,
+  file: File
+): Promise<FlowCardUpdateResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  const res = await fetch(`${API_BASE}/api/v1/flow/cards/${cardId}/image`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '이미지 업로드에 실패했습니다.');
+  }
+  return res.json();
 }
 
 export interface FlowCardUpdateResponse {

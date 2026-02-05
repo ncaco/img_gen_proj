@@ -113,20 +113,22 @@ class FlowCardService:
         return query.order_by(FlowCard.id.asc()).all()
 
     @staticmethod
-    def update_prompts(
+    def update_card(
         db: Session,
         card_id: int,
         prompt: str | None = None,
         negative_prompt: str | None = None,
+        image_url: str | None = None,
     ) -> FlowCard | None:
         """
-        FlowCard의 프롬프트 및 네거티브 프롬프트 업데이트
+        FlowCard의 프롬프트, 네거티브 프롬프트, 이미지 URL 업데이트
         
         Args:
             db: 데이터베이스 세션
             card_id: 카드 ID
             prompt: 프롬프트 (선택)
             negative_prompt: 네거티브 프롬프트 (선택)
+            image_url: 이미지 URL (선택)
             
         Returns:
             FlowCard: 업데이트된 카드 또는 None
@@ -139,6 +141,8 @@ class FlowCardService:
             card.prompt = prompt
         if negative_prompt is not None:
             card.negative_prompt = negative_prompt
+        if image_url is not None:
+            card.image_url = image_url
 
         db.commit()
         db.refresh(card)

@@ -125,21 +125,37 @@ export default function CardGrid({
               }
             : undefined;
 
+          // 이미지 URL 찾기 (flowCardId가 있으면 flowCards에서 찾기)
+          const cardImageUrl = flowCardId && flowCards.length > 0 
+            ? flowCards.find(card => card.id === flowCardId)?.imageUrl 
+            : undefined;
+          
+          // 이미지가 있으면 16:9 (가로형), 없으면 5:7 비율
+          const aspectRatio = cardImageUrl ? 'aspect-[5/7]' : 'aspect-[5/7]';
+
           return (
             <div
               key={itemKey}
               onClick={handleClick}
-              className={`aspect-[5/7] w-full flex flex-col items-center justify-center border border-white/20 bg-white/5 rounded overflow-hidden ${
+              className={`${aspectRatio} w-full flex items-center justify-center border border-white/20 bg-white/5 rounded overflow-hidden ${
                 onCardClick ? 'cursor-pointer hover:bg-white/10 transition-colors' : ''
               }`}
             >
-              <div className="text-white/60 text-xs font-medium text-center px-2">
-                <div>{gender}</div>
-                <div className="text-white/40">*</div>
-                <div>{attribute}</div>
-                <div className="text-white/40">*</div>
-                <div>{type}</div>
-              </div>
+              {cardImageUrl ? (
+                <img 
+                  src={`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'}${cardImageUrl}`}
+                  alt={`${gender} / ${attribute} / ${type}`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-white/60 text-xs font-medium text-center px-2">
+                  <div>{gender}</div>
+                  <div className="text-white/40">*</div>
+                  <div>{attribute}</div>
+                  <div className="text-white/40">*</div>
+                  <div>{type}</div>
+                </div>
+              )}
             </div>
           );
         })}

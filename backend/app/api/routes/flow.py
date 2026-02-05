@@ -2,13 +2,14 @@
 플로우 관련 API: Lore(세계관) 분석 등.
 Run 시 캐릭터 정보로 테이블 레코드 생성 후 GPT 결과로 업데이트.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 
 from sqlalchemy.orm import Session
 
 from app.api.routes.auth import get_current_user_required
 from app.database.database import get_db
 from app.database.models import User, FlowCharacter
+from app.utils.file_utils import save_uploaded_file
 from app.schemas.lore import (
     LoreMappingRequest,
     LoreMappingResult,
@@ -265,6 +266,7 @@ async def get_flow_cards(
                 type=card.type,
                 prompt=card.prompt,
                 negativePrompt=card.negative_prompt,
+                imageUrl=card.image_url,
                 createdAt=card.created_at.isoformat() if card.created_at else "",
                 updatedAt=card.updated_at.isoformat() if card.updated_at else "",
             )
@@ -309,6 +311,7 @@ async def get_flow_card(
         type=card.type,
         prompt=card.prompt,
         negativePrompt=card.negative_prompt,
+        imageUrl=card.image_url,
         createdAt=card.created_at.isoformat() if card.created_at else "",
         updatedAt=card.updated_at.isoformat() if card.updated_at else "",
     )
@@ -408,11 +411,12 @@ async def update_flow_card(
     if not character:
         raise HTTPException(status_code=404, detail="해당 카드를 찾을 수 없습니다.")
     
-    updated_card = FlowCardService.update_prompts(
+    updated_card = FlowCardService.update_card(
         db=db,
         card_id=card_id,
         prompt=request.prompt,
         negative_prompt=request.negativePrompt,
+        image_url=request.imageUrl,
     )
     
     if not updated_card:
@@ -422,3 +426,63 @@ async def update_flow_card(
         success=True,
         message="카드가 업데이트되었습니다.",
     )
+
+
+@router.post("/cards/{card_id}/image", response_model=FlowCardUpdateResponseSchema)
+async def upload_flow_card_image(
+    card_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_required),
+):
+    """
+    FlowCard 이미지 업로드 (16:9 비율 권장).
+    """
+    from app.database.models import FlowCard
+    
+    card = db.query(FlowCard).filter(FlowCard.id == card_id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="해당 카드를 찾을 수 없습니다.")
+    
+    # 캐릭터 소유권 확인
+    character = (
+        db.query(FlowCharacter)
+        .filter(
+            FlowCharacter.id == card.character_id,
+            FlowCharacter.user_id == current_user.id,
+        )
+        .first()
+    )
+    
+    if not character:
+        raise HTTPException(status_code=404, detail="해당 카드를 찾을 수 없습니다.")
+    
+    try:
+        # 이미지 파일 업로드 (flow_cards 서브디렉토리에 저장)
+        file_url, file_path = await save_uploaded_file(
+            file,
+            subdirectory="flow_cards",
+            filename_prefix=f"card_{card_id}_"
+        )
+        
+        # FlowCard에 이미지 URL 저장
+        updated_card = FlowCardService.update_card(
+            db=db,
+            card_id=card_id,
+            image_url=file_url,
+        )
+        
+        if not updated_card:
+            raise HTTPException(status_code=404, detail="카드 업데이트에 실패했습니다.")
+        
+        return FlowCardUpdateResponseSchema(
+            success=True,
+            message="이미지가 업로드되었습니다.",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"이미지 업로드 중 오류가 발생했습니다: {str(e)}"
+        )

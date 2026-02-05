@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { getFlowCard, getFlowCharacter, generateImagePrompt, updateFlowCard, fetchLoreMapping, type FlowCard, type FlowCharacterDetail } from '@/app/lib/flow';
+import { getFlowCard, getFlowCharacter, generateImagePrompt, updateFlowCard, uploadFlowCardImage, fetchLoreMapping, type FlowCard, type FlowCharacterDetail } from '@/app/lib/flow';
 import { CATEGORY_SELECT_NODE_ID, type CategorySelectNodeData } from './CategorySelectNode';
 import { PROMPT_NODE_ID, type PromptTextareaNodeData } from './PromptTextareaNode';
 import { LORE_NODE_ID } from './LoreResultNode';
@@ -26,6 +26,8 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
   const [copied, setCopied] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [copiedNegative, setCopiedNegative] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [isImageFullscreen, setIsImageFullscreen] = useState(false);
 
   // ESC 키로 모달 닫기
   useEffect(() => {
@@ -33,7 +35,11 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
     
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        if (isImageFullscreen) {
+          setIsImageFullscreen(false);
+        } else {
+          onClose();
+        }
       }
     };
     
@@ -41,7 +47,7 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
     return () => {
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isImageFullscreen]);
 
   // FlowCard 데이터 로드
   useEffect(() => {
@@ -254,6 +260,32 @@ ${negativePrompt}`;
     }
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!flowCardId || !event.target.files || event.target.files.length === 0) return;
+    
+    const file = event.target.files[0];
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+    
+    setUploadingImage(true);
+    try {
+      await uploadFlowCardImage(flowCardId, file);
+      // FlowCard 데이터 갱신
+      const updatedCard = await getFlowCard(flowCardId);
+      setFlowCard(updatedCard);
+      alert('이미지가 업로드되었습니다.');
+    } catch (error) {
+      console.error('이미지 업로드 실패:', error);
+      alert('이미지 업로드에 실패했습니다.');
+    } finally {
+      setUploadingImage(false);
+      // 파일 입력 초기화
+      event.target.value = '';
+    }
+  };
+
   if (!isOpen) return null;
 
   const gender = flowCard?.gender || '전체';
@@ -317,7 +349,7 @@ ${negativePrompt}`;
           {/* 컨텐츠 */}
           <div className="flex-1 min-h-0 flex overflow-hidden">
             {/* 왼쪽: 카드 정보 */}
-            <div className="w-80 flex-shrink-0 flex items-center justify-center p-6 border-r border-white/10 bg-white/5 relative">
+            <div className={`${flowCard?.imageUrl ? 'w-[600px]' : 'w-80'} flex-shrink-0 flex flex-col p-6 border-r border-white/10 bg-white/5 relative transition-all duration-300`}>
               {generating && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10 rounded">
                   <div className="flex flex-col items-center gap-2">
@@ -330,19 +362,59 @@ ${negativePrompt}`;
                 </div>
               )}
               {loading ? (
-                <div className="text-white/70">로딩 중...</div>
+                <div className="text-white/70 flex items-center justify-center h-full">로딩 중...</div>
               ) : flowCard ? (
-                <div className="w-full aspect-[5/7] flex flex-col items-center justify-center border border-white/20 bg-white/5 rounded overflow-hidden p-4">
-                  <div className="text-white/80 text-sm font-medium text-center mb-4">
-                    {character?.name || '캐릭터'}
+                <div className="w-full h-full flex flex-col gap-4">
+                  {/* 카드 이미지 영역 */}
+                  <div className={`flex-1 w-full ${flowCard.imageUrl ? '' : 'aspect-[5/7]'} flex items-center justify-center border border-white/20 bg-white/5 rounded overflow-hidden relative min-h-0`}>
+                    {flowCard.imageUrl ? (
+                      <>
+                        <img 
+                          src={`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'}${flowCard.imageUrl}`}
+                          alt={`${character?.name || '캐릭터'} - ${gender} / ${attribute} / ${type}`}
+                          className="h-full w-auto max-w-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => setIsImageFullscreen(true)}
+                        />
+                        {uploadingImage && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                            <div className="flex flex-col items-center gap-2">
+                              <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span className="text-white text-sm">업로드 중...</span>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-4">
+                        <div className="text-white/80 text-sm font-medium text-center mb-4">
+                          {character?.name || '캐릭터'}
+                        </div>
+                        <div className="text-white/60 text-xs font-medium text-center space-y-2">
+                          <div className="text-white/80 font-semibold">성별: {gender}</div>
+                          <div className="text-white/40">*</div>
+                          <div className="text-white/80 font-semibold">속성: {attribute}</div>
+                          <div className="text-white/40">*</div>
+                          <div className="text-white/80 font-semibold">클래스: {type}</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-white/60 text-xs font-medium text-center space-y-2">
-                    <div className="text-white/80 font-semibold">성별: {gender}</div>
-                    <div className="text-white/40">*</div>
-                    <div className="text-white/80 font-semibold">속성: {attribute}</div>
-                    <div className="text-white/40">*</div>
-                    <div className="text-white/80 font-semibold">클래스: {type}</div>
-                  </div>
+                  {/* 이미지 업로드 버튼 */}
+                  <label className="w-full">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage || !flowCardId}
+                      className="hidden"
+                    />
+                    <div className={`w-full px-4 py-2 rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors text-sm text-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${uploadingImage || !flowCardId ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      {uploadingImage ? '업로드 중...' : flowCard.imageUrl ? '이미지 변경' : '이미지 등록'}
+                    </div>
+                  </label>
                 </div>
               ) : (
                 <div className="w-full aspect-[5/7] flex flex-col items-center justify-center border border-white/20 bg-white/5 rounded overflow-hidden">
@@ -474,6 +546,40 @@ ${negativePrompt}`;
           </div>
         </div>
       </div>
+
+      {/* 전체화면 이미지 뷰어 */}
+      {isImageFullscreen && flowCard?.imageUrl && (
+        <>
+          {/* 오버레이 */}
+          <div
+            className="fixed inset-0 bg-black/90 z-[70] transition-opacity"
+            onClick={() => setIsImageFullscreen(false)}
+            aria-hidden="true"
+          />
+          {/* 전체화면 이미지 */}
+          <div className="fixed inset-0 z-[71] flex items-center justify-center p-4">
+            <div className="relative max-w-full max-h-full">
+              <img 
+                src={`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'}${flowCard.imageUrl}`}
+                alt={`${character?.name || '캐릭터'} - ${gender} / ${attribute} / ${type}`}
+                className="max-w-full max-h-[calc(100vh-2rem)] object-contain"
+              />
+              {/* 닫기 버튼 */}
+              <button
+                type="button"
+                onClick={() => setIsImageFullscreen(false)}
+                className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+                title="닫기"
+                aria-label="닫기"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }
