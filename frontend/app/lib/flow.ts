@@ -12,7 +12,6 @@ export interface LoreMappingData {
   legendRank: string;
   mysteryLevel: string;
   divinityPotential: string;
-  iconicWeaponsOrSymbols: string[];
   noblePhantasms?: Array<{ 보구명: string; 진명개방: string }>;
   keyAchievements: string[];
 }
@@ -79,7 +78,6 @@ export interface FlowCharacterDetail {
   legendRank?: string | null;
   mysteryLevel?: string | null;
   divinityPotential?: string | null;
-  iconicWeaponsOrSymbols: string[];
   noblePhantasms: Array<{ 보구명: string; 진명개방: string }>;
   keyAchievements: string[];
 }
@@ -210,6 +208,21 @@ export interface ImagePromptResponse {
   success: boolean;
   prompt: string;
   negativePrompt: string;
+  characterSettings: {
+    name: string;
+    historicalOrMythical: string;
+    originCountry: string | null;
+    era: string;
+    mainArchetype: string;
+    legendRank: string;
+    mysteryLevel: string;
+    divinityPotential: string;
+    noblePhantasms: Array<{ 보구명: string; 진명개방: string }>;
+    keyAchievements: string[];
+    gender: string;
+    attribute: string;
+    class: string;
+  };
 }
 
 /** 이미지 프롬프트 생성. 로그인 필요. */

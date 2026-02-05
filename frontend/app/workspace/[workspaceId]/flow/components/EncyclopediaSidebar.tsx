@@ -462,16 +462,6 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
                           <div className="pl-2">{selectedCharacterDetail.divinityPotential}</div>
                         </div>
                       )}
-                      {selectedCharacterDetail.iconicWeaponsOrSymbols.length > 0 && (
-                        <div>
-                          <div className="text-white/60 mb-1">전투/상징</div>
-                          <div className="pl-2">
-                            {selectedCharacterDetail.iconicWeaponsOrSymbols.map((item, idx) => (
-                              <div key={idx}>• {item}</div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                       {selectedCharacterDetail.noblePhantasms && selectedCharacterDetail.noblePhantasms.length > 0 && (
                         <div>
                           <div className="text-white/60 mb-1">보구</div>

@@ -22,7 +22,6 @@ class LoreMappingResult(BaseModel):
     mystery_level: str = Field(..., description="신비도, 예: 현대(Modern)")
     divinity_potential: str = Field(..., description="신성, 예: 없음(None)")
 
-    iconic_weapons_or_symbols: list[str] = Field(default_factory=list, description="상징 (전투 스타일·보구), 한국어")
     noble_phantasms: Optional[list[dict[str, str]]] = Field(
         default=None,
         description="보구정보. 각 항목은 {'보구명': '', '진명개방': ''} 형태"
@@ -50,7 +49,6 @@ def lore_mapping_to_response(obj: LoreMappingResult) -> dict:
         "legendRank": obj.legend_rank,
         "mysteryLevel": obj.mystery_level,
         "divinityPotential": obj.divinity_potential,
-        "iconicWeaponsOrSymbols": obj.iconic_weapons_or_symbols,
         "noblePhantasms": obj.noble_phantasms or [],
         "keyAchievements": obj.key_achievements,
     }
@@ -82,6 +80,5 @@ class FlowCharacterDetailResponseSchema(BaseModel):
     legendRank: Optional[str] = Field(None, description="전설성")
     mysteryLevel: Optional[str] = Field(None, description="신비도")
     divinityPotential: Optional[str] = Field(None, description="신성")
-    iconicWeaponsOrSymbols: list[str] = Field(default_factory=list, description="상징")
     noblePhantasms: list[dict[str, str]] = Field(default_factory=list, description="보구정보")
     keyAchievements: list[str] = Field(default_factory=list, description="업적")

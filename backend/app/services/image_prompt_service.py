@@ -67,7 +67,7 @@ def run_image_prompt_generator(
     gender: str,
     attribute: str,
     type: str,
-) -> ImagePromptResult:
+) -> tuple[ImagePromptResult, dict]:
     """이미지 프롬프트 생성"""
     api_key = getattr(settings, "OPENAI_API_KEY", None) or ""
     if not api_key:
@@ -101,9 +101,26 @@ STRICT RULES:
 Return ONLY valid JSON matching the schema.
 """
 
+    # 캐릭터 설정 정보 구성
+    character_settings = f"""
+Character Settings:
+- Name: {lore.name}
+- Historical/Mythical: {lore.historical_or_mythical}
+- Origin Country: {lore.origin_country or "Unknown"}
+- Era: {lore.era}
+- Main Archetype: {lore.main_archetype}
+- Legend Rank: {lore.legend_rank}
+- Mystery Level: {lore.mystery_level}
+- Divinity Potential: {lore.divinity_potential}
+- Noble Phantasms: {', '.join([np.get('보구명', '') for np in (lore.noble_phantasms or [])]) if lore.noble_phantasms else "None"}
+- Key Achievements: {', '.join(lore.key_achievements) if lore.key_achievements else "None"}
+"""
+
     user_prompt = f"""
 Lore Mapping (JSON):
 {lore.model_dump_json(indent=2)}
+
+{character_settings}
 
 Servant Configuration (MUST be prominently featured in the prompt):
 - Gender: {gender}
@@ -121,9 +138,11 @@ IMPORTANT: The generated prompt MUST explicitly and clearly include:
    - Dark: dark colors, shadow effects, mysterious atmosphere
    The attribute should be prominently featured in the visual style, color scheme, aura, and atmosphere.
 3. The class ({type}) - reflected in pose, weapons, equipment, and overall character design
+4. Character settings information - incorporate the character's historical/mythical background, era, archetype, legend rank, mystery level, divinity potential, and key achievements into the visual design and atmosphere
 
 Generate a Fate-style anime illustration prompt for this Servant in landscape (16:9) format.
-Make sure Gender, Attribute (elemental), and Class are clearly and explicitly expressed in the prompt.
+Make sure Gender, Attribute (elemental), Class, and Character Settings are clearly and explicitly expressed in the prompt.
+The prompt should reflect the character's background, era, archetype, and achievements in the visual design.
 """
 
     response = client.responses.parse(
@@ -137,17 +156,39 @@ Make sure Gender, Attribute (elemental), and Class are clearly and explicitly ex
 
     try:
         result: ImagePromptResult = response.output_parsed
-        return result
+        
+        # 캐릭터 설정 정보 구성
+        character_settings_dict = {
+            "name": lore.name,
+            "historicalOrMythical": lore.historical_or_mythical,
+            "originCountry": lore.origin_country,
+            "era": lore.era,
+            "mainArchetype": lore.main_archetype,
+            "legendRank": lore.legend_rank,
+            "mysteryLevel": lore.mystery_level,
+            "divinityPotential": lore.divinity_potential,
+            "noblePhantasms": lore.noble_phantasms or [],
+            "keyAchievements": lore.key_achievements or [],
+            "gender": gender,
+            "attribute": attribute,
+            "class": type,
+        }
+        
+        # 결과와 캐릭터 설정 정보를 튜플로 반환
+        return result, character_settings_dict
     except ValidationError as e:
         raise ValueError(f"Schema validation failed: {e}") from e
 
 
-def run_prompt_postprocess(step3: ImagePromptResult) -> ImagePromptResult:
+def run_prompt_postprocess(step3: ImagePromptResult, character_settings: dict) -> tuple[ImagePromptResult, dict]:
     """프롬프트 후처리"""
     cleaned_prompt = normalize_image_prompt(step3.landscape_image_prompt_en)
     cleaned_negative = normalize_negative_prompt(step3.negative_prompt_en)
 
-    return ImagePromptResult(
-        landscape_image_prompt_en=cleaned_prompt,
-        negative_prompt_en=cleaned_negative,
+    return (
+        ImagePromptResult(
+            landscape_image_prompt_en=cleaned_prompt,
+            negative_prompt_en=cleaned_negative,
+        ),
+        character_settings,  # 캐릭터 설정 정보 유지
     )

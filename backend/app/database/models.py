@@ -305,7 +305,6 @@ class FlowCharacter(Base):
     legend_rank = Column(String(20), nullable=True, comment="전설성")
     mystery_level = Column(String(20), nullable=True, comment="신비도")
     divinity_potential = Column(String(20), nullable=True, comment="신성")
-    iconic_weapons_or_symbols = Column(JSON, nullable=True, comment="상징 (JSON 배열)")
     noble_phantasms = Column(JSON, nullable=True, comment="보구정보 (JSON 배열, 각 항목은 {'보구명': '', '진명개방': ''} 형태)")
     key_achievements = Column(JSON, nullable=True, comment="업적 (JSON 배열)")
 

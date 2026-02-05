@@ -52,10 +52,6 @@ function LoreResultNodeComponent(props: NodeProps) {
         <ValueRow label="신비도" value={lore?.mysteryLevel ?? ''} />
         <ValueRow label="신성" value={lore?.divinityPotential ?? ''} />
         <ValueRow
-          label="전투/상징"
-          value={lore?.iconicWeaponsOrSymbols?.length ? lore.iconicWeaponsOrSymbols.join(', ') : ''}
-        />
-        <ValueRow
           label="업적"
           value={lore?.keyAchievements?.length ? lore.keyAchievements.join(', ') : ''}
         />

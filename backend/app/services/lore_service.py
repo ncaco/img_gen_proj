@@ -32,7 +32,6 @@ Return ONLY valid JSON matching the provided schema. Do NOT include extra commen
 - mystery_level: use exactly one of 현대(Modern), 중세(Medieval), 고대(Ancient), 신대(Age of Gods).
 - divinity_potential: use exactly one of 없음(None), 낮음(Low), 중간(Medium), 높음(High).
 - era, origin_country: Korean with optional (English) in parentheses.
-- iconic_weapons_or_symbols (전투/상징): list of Korean strings, optionally "한국어(English)" per item.
 - noble_phantasms (보구정보): list of dictionaries, each with "보구명" and "진명개방" keys. 
   보구(宝具, Noble Phantasm)는 서번트의 아이덴티티로, 생전에 사용하던 무구나 기술, 유명한 일화를 구현한 것입니다.
   보구는 해당 영웅이 전승·전설에서 남긴 핵심 무기/능력/현상으로 작성해줘.

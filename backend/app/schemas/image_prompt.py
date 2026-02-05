@@ -79,3 +79,7 @@ class ImagePromptResponse(BaseModel):
     success: bool = Field(..., description="성공 여부")
     prompt: str = Field(..., description="프롬프트")
     negativePrompt: str = Field(..., description="네거티브 프롬프트")
+    characterSettings: dict = Field(
+        default_factory=dict,
+        description="캐릭터 설정 정보 (프롬프트 변수에 포함)"
+    )

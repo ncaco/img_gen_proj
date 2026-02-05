@@ -48,7 +48,6 @@ def _apply_lore_to_character(character: FlowCharacter, lore: LoreMappingResult) 
     character.legend_rank = lore.legend_rank
     character.mystery_level = lore.mystery_level
     character.divinity_potential = lore.divinity_potential
-    character.iconic_weapons_or_symbols = lore.iconic_weapons_or_symbols
     character.noble_phantasms = lore.noble_phantasms
     character.key_achievements = lore.key_achievements
 
@@ -168,7 +167,6 @@ async def get_character(
         legendRank=character.legend_rank,
         mysteryLevel=character.mystery_level,
         divinityPotential=character.divinity_potential,
-        iconicWeaponsOrSymbols=character.iconic_weapons_or_symbols or [],
         noblePhantasms=character.noble_phantasms or [],
         keyAchievements=character.key_achievements or [],
     )
@@ -350,14 +348,13 @@ async def generate_image_prompt(
         legend_rank=character.legend_rank or "중간(Medium)",
         mystery_level=character.mystery_level or "현대(Modern)",
         divinity_potential=character.divinity_potential or "없음(None)",
-        iconic_weapons_or_symbols=character.iconic_weapons_or_symbols or [],
         noble_phantasms=character.noble_phantasms or [],
         key_achievements=character.key_achievements or [],
     )
     
     try:
         # Image Prompt 생성
-        image_prompt = run_image_prompt_generator(
+        image_prompt, character_settings = run_image_prompt_generator(
             lore=lore,
             gender=request.gender,
             attribute=request.attribute,
@@ -365,12 +362,13 @@ async def generate_image_prompt(
         )
         
         # 후처리
-        final_prompt = run_prompt_postprocess(image_prompt)
+        final_prompt, final_character_settings = run_prompt_postprocess(image_prompt, character_settings)
         
         return ImagePromptResponse(
             success=True,
             prompt=final_prompt.landscape_image_prompt_en,
             negativePrompt=final_prompt.negative_prompt_en,
+            characterSettings=final_character_settings,  # 캐릭터 설정 정보 포함
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
