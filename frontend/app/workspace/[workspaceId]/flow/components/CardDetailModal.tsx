@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getFlowCard, getFlowCharacter, generateImagePrompt, updateFlowCard, type FlowCard, type FlowCharacterDetail } from '@/app/lib/flow';
+import { useParams } from 'next/navigation';
+import { getFlowCard, getFlowCharacter, generateImagePrompt, updateFlowCard, fetchLoreMapping, type FlowCard, type FlowCharacterDetail } from '@/app/lib/flow';
 import { CATEGORY_SELECT_NODE_ID, type CategorySelectNodeData } from './CategorySelectNode';
 import { PROMPT_NODE_ID, type PromptTextareaNodeData } from './PromptTextareaNode';
+import { LORE_NODE_ID } from './LoreResultNode';
+import { CHARACTER_CONFIG_NODE_ID, type CharacterConfigNodeData } from './CharacterConfigNode';
 import type { Node } from '@xyflow/react';
 
 interface CardDetailModalProps {
@@ -14,6 +17,8 @@ interface CardDetailModalProps {
 }
 
 export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateNodes }: CardDetailModalProps) {
+  const params = useParams();
+  const flowId = params?.flowId != null ? Number(params.flowId) : undefined;
   const [flowCard, setFlowCard] = useState<FlowCard | null>(null);
   const [character, setCharacter] = useState<FlowCharacterDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -93,13 +98,70 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
       .finally(() => {
         setLoading(false);
       });
-  }, [isOpen, flowCardId, onUpdateNodes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, flowCardId]);
 
   const handleRun = async () => {
     if (!flowCard || !character || generating) return;
     
     setGenerating(true);
     try {
+      // 먼저 세계관 설정 기능 실행
+      if (onUpdateNodes) {
+        const name = character.name.trim();
+        if (!name) {
+          onUpdateNodes((nodes) =>
+            nodes.map((n) =>
+              n.id === LORE_NODE_ID
+                ? { ...n, data: { ...n.data, loreError: '이름을 입력한 뒤 실행하세요.', loreMapping: null } }
+                : n
+            )
+          );
+          setGenerating(false);
+          return;
+        }
+        
+        // 에러 초기화
+        onUpdateNodes((nodes) =>
+          nodes.map((n) =>
+            n.id === LORE_NODE_ID ? { ...n, data: { ...n.data, loreError: null } } : n
+          )
+        );
+        
+        try {
+          const { data: loreData, characterId: newCharacterId } = await fetchLoreMapping({
+            name,
+            description: character.description ?? undefined,
+            characterId: character.id,
+            flowId,
+          });
+          
+          // 세계관 데이터를 노드에 반영
+          onUpdateNodes((nodes) =>
+            nodes.map((n) => {
+              if (n.id === LORE_NODE_ID) {
+                return { ...n, data: { ...n.data, loreMapping: loreData, loreError: null } };
+              }
+              if (n.id === CHARACTER_CONFIG_NODE_ID) {
+                return { ...n, data: { ...n.data, characterId: newCharacterId } as CharacterConfigNodeData };
+              }
+              return n;
+            })
+          );
+        } catch (loreError) {
+          const message = loreError instanceof Error ? loreError.message : '세계관 분석에 실패했습니다.';
+          onUpdateNodes((nodes) =>
+            nodes.map((n) =>
+              n.id === LORE_NODE_ID
+                ? { ...n, data: { ...n.data, loreError: message, loreMapping: null } }
+                : n
+            )
+          );
+          // 세계관 분석 실패해도 이미지 프롬프트 생성은 계속 진행
+        }
+      }
+      
+      // 이미지 프롬프트 생성
       const result = await generateImagePrompt({
         characterId: character.id,
         gender: flowCard.gender,

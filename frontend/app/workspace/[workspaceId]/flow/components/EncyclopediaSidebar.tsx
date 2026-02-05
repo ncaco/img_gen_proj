@@ -6,8 +6,7 @@ import { useCategoryOptions } from '../context/CategoryOptionsContext';
 import CardGrid from './CardGrid';
 import CardDetailModal from './CardDetailModal';
 import { CHARACTER_CONFIG_NODE_ID, type CharacterConfigNodeData } from './CharacterConfigNode';
-import { LORE_NODE_ID, type LoreResultNodeData } from './LoreResultNode';
-import type { Node } from '@xyflow/react';
+import { LORE_NODE_ID } from './LoreResultNode';
 
 interface EncyclopediaSidebarProps {
   isOpen: boolean;
@@ -35,7 +34,6 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
   const [selectedFlowCardId, setSelectedFlowCardId] = useState<number | null>(null);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [regeneratingCharacter, setRegeneratingCharacter] = useState(false);
-  const [runningCharacterConfig, setRunningCharacterConfig] = useState(false);
   const categoryOptions = useCategoryOptions();
 
   // 캐릭터 목록 로드
@@ -169,192 +167,155 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
   };
 
   const handleRegenerateCharacter = useCallback(async () => {
-    if (onRegenerateCharacter) {
-      onRegenerateCharacter();
-      return;
-    }
+    console.log('handleRegenerateCharacter 호출됨', {
+      selectedCharacterId,
+      selectedCharacterName,
+      hasOnRegenerateCharacter: !!onRegenerateCharacter,
+      hasOnUpdateNodes: !!onUpdateNodes,
+    });
 
-    if (!onUpdateNodes) return;
+    // 사이드바에서 선택된 캐릭터 정보가 있으면 그것을 사용, 없으면 노드에서 가져오기
+    let name: string;
+    let description: string;
+    let characterId: number | undefined;
     
-    const characterConfigNode = nodes.find((n) => n.id === CHARACTER_CONFIG_NODE_ID);
-    if (!characterConfigNode) return;
+    if (selectedCharacterId) {
+      console.log('사이드바에서 선택된 캐릭터 사용:', selectedCharacterId);
+      // 사이드바에서 선택된 캐릭터가 있으면 사용
+      // selectedCharacterDetail이 없으면 로드
+      let characterDetail = selectedCharacterDetail;
+      if (!characterDetail && selectedCharacterId) {
+        try {
+          console.log('캐릭터 상세 정보 로드 중...');
+          characterDetail = await getFlowCharacter(selectedCharacterId);
+          setSelectedCharacterDetail(characterDetail);
+          console.log('캐릭터 상세 정보 로드 완료:', characterDetail);
+        } catch (error) {
+          console.error('캐릭터 정보 로드 실패:', error);
+          // 에러가 발생해도 이름은 사용 가능
+        }
+      }
+      
+      if (characterDetail) {
+        name = characterDetail.name.trim();
+        description = (characterDetail.description ?? '').trim();
+      } else {
+        // 캐릭터 상세 정보가 없어도 이름은 사용 가능
+        name = selectedCharacterName.trim();
+        description = '';
+      }
+      characterId = selectedCharacterId;
+    } else {
+      console.log('노드에서 정보 가져오기 시도');
+      // 노드에서 정보 가져오기
+      const characterConfigNode = nodes.find((n) => n.id === CHARACTER_CONFIG_NODE_ID);
+      if (!characterConfigNode) {
+        console.log('노드가 없고 캐릭터도 선택되지 않음');
+        if (onUpdateNodes) {
+          onUpdateNodes((nodes) =>
+            nodes.map((n) =>
+              n.id === LORE_NODE_ID
+                ? { ...n, data: { ...n.data, loreError: '캐릭터를 선택하거나 노드에 이름을 입력하세요.', loreMapping: null } }
+                : n
+            )
+          );
+        }
+        alert('캐릭터를 선택하거나 노드에 이름을 입력하세요.');
+        return;
+      }
+      
+      const data = characterConfigNode.data as CharacterConfigNodeData;
+      name = (data.이름 ?? '').trim();
+      description = (data.설명 ?? '').trim();
+      characterId = data.characterId ?? undefined;
+    }
     
-    const data = characterConfigNode.data as CharacterConfigNodeData;
-    const name = (data.이름 ?? '').trim();
     if (!name) {
-      onUpdateNodes((nodes) =>
-        nodes.map((n) =>
-          n.id === LORE_NODE_ID
-            ? { ...n, data: { ...n.data, loreError: '이름을 입력한 뒤 실행하세요.', loreMapping: null } }
-            : n
-        )
-      );
+      console.log('이름이 없음');
+      if (onUpdateNodes) {
+        onUpdateNodes((nodes) =>
+          nodes.map((n) =>
+            n.id === LORE_NODE_ID
+              ? { ...n, data: { ...n.data, loreError: '이름을 입력한 뒤 실행하세요.', loreMapping: null } }
+              : n
+          )
+        );
+      }
+      alert('이름을 입력한 뒤 실행하세요.');
       return;
     }
+    
+    console.log('세계관 분석 시작:', { name, description, characterId, flowId });
     
     setRegeneratingCharacter(true);
-    onUpdateNodes((nodes) =>
-      nodes.map((n) =>
-        n.id === LORE_NODE_ID ? { ...n, data: { ...n.data, loreError: null } } : n
-      )
-    );
+    if (onUpdateNodes) {
+      onUpdateNodes((nodes) =>
+        nodes.map((n) =>
+          n.id === LORE_NODE_ID ? { ...n, data: { ...n.data, loreError: null } } : n
+        )
+      );
+    }
     
     try {
       const { data: loreData, characterId: newCharacterId } = await fetchLoreMapping({
         name,
-        description: (data.설명 ?? '').trim(),
-        characterId: data.characterId ?? undefined,
+        description,
+        characterId,
         flowId,
       });
-      onUpdateNodes((nodes) =>
-        nodes.map((n) => {
-          if (n.id === LORE_NODE_ID) {
-            return { ...n, data: { ...n.data, loreMapping: loreData, loreError: null } };
+      console.log('세계관 분석 완료:', loreData, 'newCharacterId:', newCharacterId);
+      
+      if (onUpdateNodes) {
+        onUpdateNodes((nodes) =>
+          nodes.map((n) => {
+            if (n.id === LORE_NODE_ID) {
+              return { ...n, data: { ...n.data, loreMapping: loreData, loreError: null } };
+            }
+            if (n.id === CHARACTER_CONFIG_NODE_ID) {
+              return { ...n, data: { ...n.data, characterId: newCharacterId } as CharacterConfigNodeData };
+            }
+            return n;
+          })
+        );
+      }
+      
+      // 캐릭터 상세 정보 갱신
+      if (selectedCharacterId === newCharacterId || newCharacterId) {
+        try {
+          const updatedDetail = await getFlowCharacter(newCharacterId);
+          setSelectedCharacterDetail(updatedDetail);
+          // selectedCharacterId가 없었으면 설정
+          if (!selectedCharacterId) {
+            setSelectedCharacterId(newCharacterId);
+            setSelectedCharacterName(updatedDetail.name);
           }
-          if (n.id === CHARACTER_CONFIG_NODE_ID) {
-            return { ...n, data: { ...n.data, characterId: newCharacterId } as CharacterConfigNodeData };
-          }
-          return n;
-        })
-      );
+          console.log('캐릭터 상세 정보 갱신 완료');
+        } catch (error) {
+          console.error('캐릭터 정보 갱신 실패:', error);
+        }
+      }
+      
+      // onRegenerateCharacter가 있으면 호출 (추가 동작)
+      if (onRegenerateCharacter) {
+        onRegenerateCharacter();
+      }
     } catch (e) {
+      console.error('세계관 분석 실패:', e);
       const message = e instanceof Error ? e.message : '세계관 분석에 실패했습니다.';
-      onUpdateNodes((nodes) =>
-        nodes.map((n) =>
-          n.id === LORE_NODE_ID
-            ? { ...n, data: { ...n.data, loreError: message, loreMapping: null } }
-            : n
-        )
-      );
+      if (onUpdateNodes) {
+        onUpdateNodes((nodes) =>
+          nodes.map((n) =>
+            n.id === LORE_NODE_ID
+              ? { ...n, data: { ...n.data, loreError: message, loreMapping: null } }
+              : n
+          )
+        );
+      }
+      alert(`세계관 분석에 실패했습니다: ${message}`);
     } finally {
       setRegeneratingCharacter(false);
     }
-  }, [nodes, flowId, onUpdateNodes, onRegenerateCharacter]);
-
-  const handleRunCharacterConfig = useCallback(async () => {
-    if (!onUpdateNodes || !selectedCharacterDetail) return;
-    
-    const name = selectedCharacterDetail.name?.trim();
-    const description = selectedCharacterDetail.description?.trim() ?? '';
-    
-    if (!name) {
-      return;
-    }
-    
-    setRunningCharacterConfig(true);
-    
-    // 에러만 먼저 초기화 (노드 생성/업데이트는 API 성공 후에)
-    onUpdateNodes((nodes) => {
-      const hasLoreNode = nodes.some((n) => n.id === LORE_NODE_ID);
-      if (hasLoreNode) {
-        return nodes.map((n) =>
-          n.id === LORE_NODE_ID ? { ...n, data: { ...n.data, loreError: null } as LoreResultNodeData } : n
-        );
-      }
-      return nodes;
-    });
-    
-    try {
-      // characterId를 전송하여 저장된 캐릭터 정보로 AI 분석 실행 및 업데이트
-      const { data: loreData, characterId: updatedCharacterId } = await fetchLoreMapping({
-        name,
-        description,
-        characterId: selectedCharacterId ?? undefined, // characterId 전송
-        flowId,
-      });
-      
-      // API 성공 후 노드 생성/업데이트
-      onUpdateNodes((nodes) => {
-        const hasConfigNode = nodes.some((n) => n.id === CHARACTER_CONFIG_NODE_ID);
-        const hasLoreNode = nodes.some((n) => n.id === LORE_NODE_ID);
-        
-        let updatedNodes = [...nodes];
-        
-        // CharacterConfigNode가 없으면 생성, 있으면 업데이트
-        if (!hasConfigNode) {
-          updatedNodes.push({
-            id: CHARACTER_CONFIG_NODE_ID,
-            type: 'characterConfig',
-            position: { x: 80, y: 60 },
-            data: {
-              이름: name,
-              설명: description,
-              characterId: updatedCharacterId,
-            } as CharacterConfigNodeData,
-          } as Node);
-        } else {
-          updatedNodes = updatedNodes.map((n) => {
-            if (n.id === CHARACTER_CONFIG_NODE_ID) {
-              return {
-                ...n,
-                data: {
-                  ...n.data,
-                  이름: name,
-                  설명: description,
-                  characterId: updatedCharacterId,
-                } as CharacterConfigNodeData,
-              };
-            }
-            return n;
-          });
-        }
-        
-        // LoreResultNode가 없으면 생성, 있으면 업데이트
-        if (!hasLoreNode) {
-          updatedNodes.push({
-            id: LORE_NODE_ID,
-            type: 'loreResult',
-            position: { x: 364, y: 60 },
-            data: { loreMapping: loreData, loreError: null } as LoreResultNodeData,
-          } as Node);
-        } else {
-          updatedNodes = updatedNodes.map((n) => {
-            if (n.id === LORE_NODE_ID) {
-              return { ...n, data: { ...n.data, loreMapping: loreData, loreError: null } as LoreResultNodeData };
-            }
-            return n;
-          });
-        }
-        
-        return updatedNodes;
-      });
-      
-      // 캐릭터 정보가 업데이트되었으므로 사이드바의 캐릭터 상세 정보도 갱신
-      if (selectedCharacterId) {
-        try {
-          const updatedDetail = await getFlowCharacter(selectedCharacterId);
-          setSelectedCharacterDetail(updatedDetail);
-        } catch (error) {
-          console.error('캐릭터 상세 정보 갱신 실패:', error);
-          // 에러가 발생해도 계속 진행
-        }
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : '세계관 분석에 실패했습니다.';
-      onUpdateNodes((nodes) => {
-        const hasLoreNode = nodes.some((n) => n.id === LORE_NODE_ID);
-        if (hasLoreNode) {
-          return nodes.map((n) =>
-            n.id === LORE_NODE_ID
-              ? { ...n, data: { ...n.data, loreError: message, loreMapping: null } as LoreResultNodeData }
-              : n
-          );
-        }
-        // LoreResultNode가 없으면 생성
-        return [
-          ...nodes,
-          {
-            id: LORE_NODE_ID,
-            type: 'loreResult',
-            position: { x: 364, y: 60 },
-            data: { loreError: message, loreMapping: null } as LoreResultNodeData,
-          } as Node,
-        ];
-      });
-    } finally {
-      setRunningCharacterConfig(false);
-    }
-  }, [selectedCharacterDetail, selectedCharacterId, flowId, onUpdateNodes]);
+  }, [nodes, flowId, onUpdateNodes, onRegenerateCharacter, selectedCharacterId, selectedCharacterDetail, selectedCharacterName]);
 
   if (!isOpen) return null;
 
@@ -398,7 +359,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
                 <button
                   type="button"
                   onClick={handleRegenerateCharacter}
-                  disabled={regeneratingCharacter || !nodes.find((n) => n.id === CHARACTER_CONFIG_NODE_ID)}
+                  disabled={regeneratingCharacter || (!selectedCharacterId && !nodes.find((n) => n.id === CHARACTER_CONFIG_NODE_ID))}
                   className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="캐릭터 설정 재생성"
                   aria-label="캐릭터 설정 재생성"
@@ -432,57 +393,25 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
           {/* 캐릭터 상세 정보 콜랩스 */}
           {viewMode === 'cards' && selectedCharacterId && (
             <div className="border-t border-white/10">
-              <div className="flex items-center justify-between px-4 py-2 gap-2">
-                <button
-                  type="button"
-                  onClick={handleCharacterDetailToggle}
-                  className="flex-1 flex items-center justify-between text-left hover:bg-white/5 transition-colors rounded px-2 py-1 -mx-2"
+              <button
+                type="button"
+                onClick={handleCharacterDetailToggle}
+                className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-white/5 transition-colors"
+              >
+                <span className="text-xs text-white/70">캐릭터 설정 정보</span>
+                <svg
+                  className={`w-4 h-4 text-white/70 transition-transform ${isCharacterDetailOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <span className="text-xs text-white/70">캐릭터 설정 정보</span>
-                  <svg
-                    className={`w-4 h-4 text-white/70 transition-transform ${isCharacterDetailOpen ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {isCharacterDetailOpen && selectedCharacterDetail && onUpdateNodes && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRunCharacterConfig();
-                    }}
-                    disabled={runningCharacterConfig}
-                    className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                    title="저장된 이름과 설명으로 캐릭터 설정 실행"
-                    aria-label="캐릭터 설정 실행"
-                  >
-                    {runningCharacterConfig ? (
-                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <span className="text-sm leading-none">▶</span>
-                    )}
-                  </button>
-                )}
-              </div>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
               {isCharacterDetailOpen && (
                 <div className="px-4 pb-3 border-t border-white/10">
                   {characterDetailLoading ? (
                     <div className="py-2 text-xs text-white/70">로딩 중...</div>
-                  ) : runningCharacterConfig ? (
-                    <div className="py-2 flex items-center gap-2 text-xs text-white/70">
-                      <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      <span>캐릭터 설정 실행 중...</span>
-                    </div>
                   ) : selectedCharacterDetail ? (
                     <div className="py-2 space-y-2 text-xs text-white/80">
                       {selectedCharacterDetail.description && (
@@ -535,7 +464,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
                       )}
                       {selectedCharacterDetail.iconicWeaponsOrSymbols.length > 0 && (
                         <div>
-                          <div className="text-white/60 mb-1">상징</div>
+                          <div className="text-white/60 mb-1">전투/상징</div>
                           <div className="pl-2">
                             {selectedCharacterDetail.iconicWeaponsOrSymbols.map((item, idx) => (
                               <div key={idx}>• {item}</div>
@@ -545,16 +474,12 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
                       )}
                       {selectedCharacterDetail.noblePhantasms && selectedCharacterDetail.noblePhantasms.length > 0 && (
                         <div>
-                          <div className="text-white/60 mb-1">보구정보</div>
+                          <div className="text-white/60 mb-1">보구</div>
                           <div className="pl-2">
-                            {selectedCharacterDetail.noblePhantasms.map((np: any, idx: number) => (
-                              <div key={idx} className="mb-1">
-                                <div>• {np.보구명 || np.noble_phantasm_name || '보구명 없음'}</div>
-                                {np.진명개방 || np.true_name_release ? (
-                                  <div className="pl-2 text-white/60 text-[10px]">
-                                    진명개방: {np.진명개방 || np.true_name_release}
-                                  </div>
-                                ) : null}
+                            {selectedCharacterDetail.noblePhantasms.map((item, idx) => (
+                              <div key={idx}>
+                                • {item.보구명}
+                                {item.진명개방 && <span className="text-white/50"> ({item.진명개방})</span>}
                               </div>
                             ))}
                           </div>

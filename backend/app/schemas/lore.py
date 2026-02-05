@@ -23,8 +23,8 @@ class LoreMappingResult(BaseModel):
     divinity_potential: str = Field(..., description="신성, 예: 없음(None)")
 
     iconic_weapons_or_symbols: list[str] = Field(default_factory=list, description="상징 (전투 스타일·보구), 한국어")
-    noble_phantasms: list[dict[str, str]] = Field(
-        default_factory=list,
+    noble_phantasms: Optional[list[dict[str, str]]] = Field(
+        default=None,
         description="보구정보. 각 항목은 {'보구명': '', '진명개방': ''} 형태"
     )
     key_achievements: list[str] = Field(default_factory=list, description="업적, 한국어")
@@ -51,7 +51,7 @@ def lore_mapping_to_response(obj: LoreMappingResult) -> dict:
         "mysteryLevel": obj.mystery_level,
         "divinityPotential": obj.divinity_potential,
         "iconicWeaponsOrSymbols": obj.iconic_weapons_or_symbols,
-        "noblePhantasms": obj.noble_phantasms,
+        "noblePhantasms": obj.noble_phantasms or [],
         "keyAchievements": obj.key_achievements,
     }
 

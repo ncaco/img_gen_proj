@@ -109,7 +109,8 @@ class FlowCardService:
         if type_val:
             query = query.filter(FlowCard.type == type_val)
 
-        return query.order_by(FlowCard.created_at.desc()).all()
+        # 일관된 정렬 순서 유지: id 순서로 정렬 (생성 순서)
+        return query.order_by(FlowCard.id.asc()).all()
 
     @staticmethod
     def update_prompts(

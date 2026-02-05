@@ -2,7 +2,7 @@
 이미지 프롬프트 생성 관련 스키마
 """
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
 
 
 class OptimalServantSetup(BaseModel):
@@ -38,8 +38,8 @@ class OptimalServantSetup(BaseModel):
     main_noble_phantasm_type: str
 
     # 보구정보
-    noble_phantasms: list[dict[str, str]] = Field(
-        default_factory=list,
+    noble_phantasms: Optional[list[dict[str, str]]] = Field(
+        default=None,
         description="보구정보. 각 항목은 {'보구명': '', '진명개방': ''} 형태"
     )
 

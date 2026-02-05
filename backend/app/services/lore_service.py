@@ -35,6 +35,7 @@ Return ONLY valid JSON matching the provided schema. Do NOT include extra commen
 - iconic_weapons_or_symbols (전투/상징): list of Korean strings, optionally "한국어(English)" per item.
 - noble_phantasms (보구정보): list of dictionaries, each with "보구명" and "진명개방" keys. 
   보구(宝具, Noble Phantasm)는 서번트의 아이덴티티로, 생전에 사용하던 무구나 기술, 유명한 일화를 구현한 것입니다.
+  보구는 해당 영웅이 전승·전설에서 남긴 핵심 무기/능력/현상으로 작성해줘.
   진명개방(真名解放)은 보구의 진정한 힘을 끌어내기 위해 진정한 보구의 이름을 외쳐 파장을 일치시키는 것입니다.
   예시: [{"보구명": "약속된 승리의 검(Excalibur)", "진명개방": "엑스칼리버"}, {"보구명": "왕의 재보(Gate of Babylon)", "진명개방": "게이트 오브 바빌론"}]
 - key_achievements: list of Korean strings, optionally "한국어(English)" per item.
