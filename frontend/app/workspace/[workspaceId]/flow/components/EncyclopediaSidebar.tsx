@@ -717,6 +717,10 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
             cards.find(card => card.id === selectedFlowCardId)?.promptGenerationStatus === 'requested'
           )
         }
+        flowCards={cards}
+        onCardChange={(flowCardId) => {
+          setSelectedFlowCardId(flowCardId);
+        }}
       />
     </>
   );

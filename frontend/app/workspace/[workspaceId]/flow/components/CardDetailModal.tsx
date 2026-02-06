@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams } from 'next/navigation';
 import { getFlowCard, getFlowCharacter, generateImagePrompt, updateFlowCard, uploadFlowCardImage, fetchLoreMapping, type FlowCard, type FlowCharacterDetail } from '@/app/lib/flow';
 import { CATEGORY_SELECT_NODE_ID, type CategorySelectNodeData } from './CategorySelectNode';
@@ -18,9 +19,11 @@ interface CardDetailModalProps {
   onImageUploaded?: () => void;
   onPromptGenerated?: (cardId: number) => void;
   isGenerating?: boolean;
+  flowCards?: FlowCard[]; // 좌우 이동을 위한 카드 목록
+  onCardChange?: (flowCardId: number | null) => void; // 카드 변경 콜백
 }
 
-export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateNodes, onGeneratingChange, onImageUploaded, onPromptGenerated, isGenerating: externalIsGenerating }: CardDetailModalProps) {
+export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateNodes, onGeneratingChange, onImageUploaded, onPromptGenerated, isGenerating: externalIsGenerating, flowCards = [], onCardChange }: CardDetailModalProps) {
   const params = useParams();
   const flowId = params?.flowId != null ? Number(params.flowId) : undefined;
   const [flowCard, setFlowCard] = useState<FlowCard | null>(null);
@@ -34,6 +37,29 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
   const [isImageFullscreen, setIsImageFullscreen] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
+  // 현재 카드의 인덱스 찾기
+  const currentCardIndex = flowCardId !== null 
+    ? flowCards.findIndex(card => card.id === flowCardId)
+    : -1;
+  
+  // 이전/다음 카드로 이동
+  const goToPreviousCard = useCallback(() => {
+    if (currentCardIndex > 0 && onCardChange) {
+      const previousCard = flowCards[currentCardIndex - 1];
+      onCardChange(previousCard.id);
+    }
+  }, [currentCardIndex, flowCards, onCardChange]);
+
+  const goToNextCard = useCallback(() => {
+    if (currentCardIndex >= 0 && currentCardIndex < flowCards.length - 1 && onCardChange) {
+      const nextCard = flowCards[currentCardIndex + 1];
+      onCardChange(nextCard.id);
+    }
+  }, [currentCardIndex, flowCards, onCardChange]);
+
+  const canGoPrevious = currentCardIndex > 0;
+  const canGoNext = currentCardIndex >= 0 && currentCardIndex < flowCards.length - 1;
+
   // 모달이 열릴 때 외부에서 전달된 isGenerating 상태와 카드의 promptGenerationStatus와 동기화
   useEffect(() => {
     if (isOpen && flowCardId) {
@@ -46,25 +72,31 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
     }
   }, [isOpen, flowCardId, externalIsGenerating, flowCard?.promptGenerationStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ESC 키로 모달 닫기
+  // ESC 키로 모달 닫기, 좌우 화살표로 카드 이동
   useEffect(() => {
     if (!isOpen) return;
     
-    const handleEscape = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (isImageFullscreen) {
           setIsImageFullscreen(false);
         } else {
           onClose();
         }
+      } else if (e.key === 'ArrowLeft' && canGoPrevious) {
+        e.preventDefault();
+        goToPreviousCard();
+      } else if (e.key === 'ArrowRight' && canGoNext) {
+        e.preventDefault();
+        goToNextCard();
       }
     };
     
-    window.addEventListener('keydown', handleEscape);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
-      window.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose, isImageFullscreen]);
+  }, [isOpen, onClose, isImageFullscreen, canGoPrevious, canGoNext, goToPreviousCard, goToNextCard]);
 
   // FlowCard 데이터 로드
   useEffect(() => {
@@ -358,8 +390,42 @@ ${negativePrompt}`;
         >
           {/* 헤더 */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-            <div className="text-white font-medium">
-              {character?.name || '캐릭터'} - {gender} / {attribute} / {type}
+            <div className="flex items-center gap-4">
+              <div className="text-white font-medium">
+                {character?.name || '캐릭터'} - {gender} / {attribute} / {type}
+              </div>
+              {/* 좌우 이동 버튼 */}
+              {flowCards.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={goToPreviousCard}
+                    disabled={!canGoPrevious}
+                    className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="이전 카드 (←)"
+                    aria-label="이전 카드"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <span className="text-white/60 text-xs">
+                    {currentCardIndex + 1} / {flowCards.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={goToNextCard}
+                    disabled={!canGoNext}
+                    className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="다음 카드 (→)"
+                    aria-label="다음 카드"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -598,28 +664,69 @@ ${negativePrompt}`;
       </div>
 
       {/* 전체화면 이미지 뷰어 */}
-      {isImageFullscreen && flowCard?.imageUrl && (
+      {isImageFullscreen && flowCard?.imageUrl && typeof window !== 'undefined' && createPortal(
         <>
           {/* 오버레이 */}
           <div
-            className="fixed inset-0 bg-black/90 z-[70] transition-opacity"
+            className="fixed inset-0 bg-black/90 z-[9999] transition-opacity"
             onClick={() => setIsImageFullscreen(false)}
             aria-hidden="true"
           />
           {/* 전체화면 이미지 */}
-          <div className="fixed inset-0 z-[71] flex items-center justify-center p-4">
-            <div className="relative max-w-full max-h-full">
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+            <div className="relative max-w-full max-h-full flex items-center justify-center">
+              {/* 좌우 이동 버튼 */}
+              {flowCards.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goToPreviousCard();
+                    }}
+                    disabled={!canGoPrevious}
+                    className="absolute left-4 w-14 h-14 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white/85 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed border border-white/20 shadow-xl z-10"
+                    title="이전 카드 (←)"
+                    aria-label="이전 카드"
+                  >
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goToNextCard();
+                    }}
+                    disabled={!canGoNext}
+                    className="absolute right-4 w-14 h-14 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 text-white/85 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed border border-white/20 shadow-xl z-10"
+                    title="다음 카드 (→)"
+                    aria-label="다음 카드"
+                  >
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              )}
               <img 
                 src={`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'}${flowCard.imageUrl}`}
                 alt={`${character?.name || '캐릭터'} - ${gender} / ${attribute} / ${type}`}
                 className="max-w-full max-h-[calc(100vh-2rem)] object-contain"
               />
+              {/* 카드 인덱스 표시 */}
+              {flowCards.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm">
+                  {currentCardIndex + 1} / {flowCards.length}
+                </div>
+              )}
               {/* 닫기 버튼 */}
               <button
                 type="button"
                 onClick={() => setIsImageFullscreen(false)}
-                className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
-                title="닫기"
+                className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
+                title="닫기 (ESC)"
                 aria-label="닫기"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -628,7 +735,8 @@ ${negativePrompt}`;
               </button>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
 
       {/* 성공 토스트 알림 */}
