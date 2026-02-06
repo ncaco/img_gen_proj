@@ -130,7 +130,7 @@ export default function CardGrid({
             ? flowCards.find(card => card.id === flowCardId)?.imageUrl 
             : undefined;
           
-          // 이미지가 있으면 16:9 (가로형), 없으면 5:7 비율
+          // 이미지가 있으면  5:7 비율
           const aspectRatio = cardImageUrl ? 'aspect-[5/7]' : 'aspect-[5/7]';
 
           return (
@@ -145,7 +145,7 @@ export default function CardGrid({
                 <img 
                   src={`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'}${cardImageUrl}`}
                   alt={`${gender} / ${attribute} / ${type}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain scale-100"
                 />
               ) : (
                 <div className="text-white/60 text-xs font-medium text-center px-2">
