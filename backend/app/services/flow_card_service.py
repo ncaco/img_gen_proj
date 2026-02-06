@@ -3,7 +3,8 @@ FlowCard 서비스: 캐릭터별 카드 조합 생성 및 관리
 """
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from app.database.models import FlowCard, FlowCharacter
+from sqlalchemy import or_
+from app.database.models import FlowCard, FlowCharacter, Category, CategoryType
 
 
 class FlowCardService:
@@ -89,6 +90,7 @@ class FlowCardService:
     ) -> list[FlowCard]:
         """
         캐릭터의 FlowCard 목록 조회 (필터링 지원)
+        카테고리 순서 기준으로 정렬
         
         Args:
             db: 데이터베이스 세션
@@ -98,7 +100,7 @@ class FlowCardService:
             type_val: 클래스 필터 (선택)
             
         Returns:
-            list: FlowCard 목록
+            list: FlowCard 목록 (카테고리 순서 기준 정렬)
         """
         query = db.query(FlowCard).filter(FlowCard.character_id == character_id)
 
@@ -109,8 +111,58 @@ class FlowCardService:
         if type_val:
             query = query.filter(FlowCard.type == type_val)
 
-        # 일관된 정렬 순서 유지: id 순서로 정렬 (생성 순서)
-        return query.order_by(FlowCard.id.asc()).all()
+        # 먼저 카드를 가져옴
+        cards = query.all()
+        
+        # 카테고리 타입 조회
+        gender_type = db.query(CategoryType).filter(CategoryType.type_key == 'gender', CategoryType.deleted_at.is_(None)).first()
+        attribute_type = db.query(CategoryType).filter(CategoryType.type_key == 'attribute', CategoryType.deleted_at.is_(None)).first()
+        class_type = db.query(CategoryType).filter(CategoryType.type_key == 'class', CategoryType.deleted_at.is_(None)).first()
+        
+        # 카테고리 name -> sort_order 매핑 생성
+        gender_map = {}
+        attribute_map = {}
+        class_map = {}
+        
+        if gender_type:
+            # gender는 2뎁스만 사용 (parent_id가 NULL)
+            gender_categories = db.query(Category).filter(
+                Category.type_id == gender_type.id,
+                Category.parent_id.is_(None),
+                Category.deleted_at.is_(None)
+            ).all()
+            gender_map = {cat.name: cat.sort_order for cat in gender_categories}
+        
+        if attribute_type:
+            # attribute는 2뎁스만 사용 (parent_id가 NULL)
+            attribute_categories = db.query(Category).filter(
+                Category.type_id == attribute_type.id,
+                Category.parent_id.is_(None),
+                Category.deleted_at.is_(None)
+            ).all()
+            attribute_map = {cat.name: cat.sort_order for cat in attribute_categories}
+        
+        if class_type:
+            # class는 2뎁스만 사용 (parent_id가 NULL)
+            class_categories = db.query(Category).filter(
+                Category.type_id == class_type.id,
+                Category.parent_id.is_(None),
+                Category.deleted_at.is_(None)
+            ).all()
+            class_map = {cat.name: cat.sort_order for cat in class_categories}
+        
+        # 카테고리 순서 기준으로 정렬
+        # 1순위: gender sort_order
+        # 2순위: attribute sort_order
+        # 3순위: type sort_order
+        # 4순위: id (동일한 경우)
+        def get_sort_key(card: FlowCard) -> tuple:
+            gender_order = gender_map.get(card.gender, 999999)
+            attribute_order = attribute_map.get(card.attribute, 999999)
+            type_order = class_map.get(card.type, 999999)
+            return (gender_order, attribute_order, type_order, card.id)
+        
+        return sorted(cards, key=get_sort_key)
 
     @staticmethod
     def update_card(

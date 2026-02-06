@@ -20,6 +20,7 @@ from app.services.category_type_service import (
     update_category_type,
     soft_delete_category_type,
     restore_category_type,
+    move_category_type_order,
 )
 from app.services.category_service import (
     list_categories,
@@ -29,6 +30,7 @@ from app.services.category_service import (
     update_category,
     soft_delete_category,
     restore_category,
+    move_category_order,
 )
 from app.api.routes.auth import get_current_user_required
 
@@ -169,6 +171,25 @@ async def restore_type_route(
     return _type_to_response(t)
 
 
+@router.post("/types/{type_id}/move-order")
+async def move_type_order_route(
+    type_id: int,
+    direction: str = Query(..., description="이동 방향: 'up' 또는 'down'"),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """관리자: 1뎁스 정렬순서 변경 (위/아래 이동)."""
+    if direction not in ['up', 'down']:
+        raise HTTPException(status_code=400, detail="direction은 'up' 또는 'down'이어야 합니다.")
+    try:
+        t = move_category_type_order(db, type_id, direction)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not t:
+        raise HTTPException(status_code=404, detail="카테고리 타입을 찾을 수 없습니다.")
+    return _type_to_response(t)
+
+
 # ---- 관리자: 2·3·4뎁스(카테고리 항목) CRUD ----
 @router.get("/list")
 async def list_categories_admin(
@@ -248,4 +269,23 @@ async def restore_category_route(
     c = restore_category(db, category_id)
     if not c:
         raise HTTPException(status_code=404, detail="카테고리를 찾을 수 없거나 이미 복원된 상태입니다.")
+    return _category_to_response(c)
+
+
+@router.post("/{category_id}/move-order")
+async def move_category_order_route(
+    category_id: int,
+    direction: str = Query(..., description="이동 방향: 'up' 또는 'down'"),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """관리자: 카테고리 정렬순서 변경 (위/아래 이동). 같은 부모/타입 내에서만 이동 가능."""
+    if direction not in ['up', 'down']:
+        raise HTTPException(status_code=400, detail="direction은 'up' 또는 'down'이어야 합니다.")
+    try:
+        c = move_category_order(db, category_id, direction)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not c:
+        raise HTTPException(status_code=404, detail="카테고리를 찾을 수 없습니다.")
     return _category_to_response(c)

@@ -10,6 +10,8 @@ from app.schemas.card import (
     CardGenerationResponseSchema,
     CardSaveRequestSchema,
     CardSaveResponseSchema,
+    CardUpdateRequestSchema,
+    CardUpdateResponseSchema,
     CardListResponseSchema,
     CardResponseSchema,
     CardDeleteResponseSchema,
@@ -99,6 +101,68 @@ async def save_card(
         raise HTTPException(
             status_code=500,
             detail=f"카드 저장 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.put("/{card_sn}", response_model=CardUpdateResponseSchema)
+async def update_card(
+    card_sn: int,
+    request: CardUpdateRequestSchema,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_required),
+):
+    """
+    카드 정보를 업데이트합니다. (로그인 필요, 본인 카드만 가능)
+    
+    - **cardData**: 카드 기본 정보 (카드명, 타입, 속성, 등급 등) - 선택
+    - **characterImageUrl**: 캐릭터 이미지 URL (선택)
+    - **backgroundImageUrl**: 배경 이미지 URL (선택)
+    - **generatedPrompt**: 생성된 프롬프트 (선택)
+    - **generatedImageUrl**: 생성된 이미지 URL (선택)
+    """
+    try:
+        # 카드 존재 여부 및 소유권 확인
+        card = db.query(Card).filter(Card.card_sn == card_sn).first()
+        if not card:
+            raise HTTPException(
+                status_code=404,
+                detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다."
+            )
+        
+        # 소유권 확인: 본인 카드만 수정 가능 (user_id가 None이면 아무도 수정 불가)
+        if card.user_id is None or card.user_id != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="본인의 카드만 수정할 수 있습니다."
+            )
+        
+        # 카드 데이터 검증 (cardData가 제공된 경우)
+        if request.cardData:
+            is_valid, error_message = card_service.validate_card_data(request.cardData)
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=error_message)
+        
+        # 카드 업데이트
+        updated_card = card_service.update_card(db, card_sn, request)
+        
+        if not updated_card:
+            raise HTTPException(
+                status_code=404,
+                detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다."
+            )
+        
+        return CardUpdateResponseSchema(
+            success=True,
+            message="카드가 성공적으로 업데이트되었습니다.",
+            cardSn=updated_card.card_sn
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"카드 업데이트 중 오류가 발생했습니다: {str(e)}"
         )
 
 
@@ -194,20 +258,28 @@ async def get_cards(
 async def upload_card_generated_image(
     card_sn: int,
     file: UploadFile = File(..., description="합성이미지 파일"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_required),
 ):
     """
-    해당 카드에 AI 합성이미지 파일을 업로드하고 합성카드 테이블에 연계합니다.
+    해당 카드에 AI 합성이미지 파일을 업로드하고 합성카드 테이블에 연계합니다. (로그인 필요, 본인 카드만 가능)
     파일은 해당 카드의 기본 이미지 경로 하위에 gen/ 디렉토리를 생성하여 gen_ 접두어가 붙은 파일명으로 저장됩니다.
     (예: /data/upload/{series}/{card_number}/gen/gen_xxx.png)
     """
     try:
-        # 카드 존재 여부 확인
+        # 카드 존재 여부 및 소유권 확인
         card = db.query(Card).filter(Card.card_sn == card_sn).first()
         if not card:
             raise HTTPException(
                 status_code=404,
                 detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다."
+            )
+        
+        # 소유권 확인: 본인 카드만 수정 가능 (user_id가 None이면 아무도 수정 불가)
+        if card.user_id is None or card.user_id != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="본인의 카드만 수정할 수 있습니다."
             )
 
         # 이 카드의 기본 이미지가 저장된 경로(/upload/{series}/{number})와 동일한 구조로 gen 디렉토리 생성
@@ -254,19 +326,27 @@ async def upload_card_generated_image(
 async def delete_latest_card_generated_image(
     card_sn: int,
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_required),
 ):
     """
-    해당 카드의 가장 최근 합성이미지를 1장 삭제합니다.
+    해당 카드의 가장 최근 합성이미지를 1장 삭제합니다. (로그인 필요, 본인 카드만 가능)
     - 카드별 최신 생성순(CardGeneratedImage.created_at DESC)으로 1장을 찾아
       물리 파일과 DB 레코드를 함께 삭제합니다.
     """
     try:
-        # 카드 존재 여부 확인
+        # 카드 존재 여부 및 소유권 확인
         card = db.query(Card).filter(Card.card_sn == card_sn).first()
         if not card:
             raise HTTPException(
                 status_code=404,
                 detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다.",
+            )
+        
+        # 소유권 확인: 본인 카드만 삭제 가능 (user_id가 None이면 아무도 삭제 불가)
+        if card.user_id is None or card.user_id != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="본인의 카드만 삭제할 수 있습니다.",
             )
 
         # 최신 합성이미지 1장 조회
@@ -352,13 +432,32 @@ async def list_card_generated_images(
 
 
 @router.delete("/{card_sn}", response_model=CardDeleteResponseSchema)
-async def delete_card(card_sn: int, db: Session = Depends(get_db)):
+async def delete_card(
+    card_sn: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_required),
+):
     """
-    카드를 삭제합니다.
+    카드를 삭제합니다. (로그인 필요, 본인 카드만 가능)
     
     - **card_sn**: 삭제할 카드의 일련번호
     """
     try:
+        # 카드 존재 여부 및 소유권 확인
+        card = db.query(Card).filter(Card.card_sn == card_sn).first()
+        if not card:
+            raise HTTPException(
+                status_code=404,
+                detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다."
+            )
+        
+        # 소유권 확인: 본인 카드만 삭제 가능
+        if card.user_id != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="본인의 카드만 삭제할 수 있습니다."
+            )
+        
         # 카드 삭제
         success = card_service.delete_card(db, card_sn)
         

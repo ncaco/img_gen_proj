@@ -170,3 +170,55 @@ def restore_category(db: Session, category_id: int) -> Category | None:
     db.commit()
     db.refresh(c)
     return c
+
+
+def move_category_order(db: Session, category_id: int, direction: str) -> Category | None:
+    """
+    카테고리 정렬순서 변경 (위/아래 이동).
+    같은 부모/타입 내에서만 이동 가능.
+    direction: 'up' 또는 'down'
+    """
+    c = get_category_by_id(db, category_id, include_deleted=False)
+    if not c:
+        return None
+    
+    # 같은 부모/타입을 가진 카테고리 목록 가져오기
+    if c.parent_id is not None:
+        # 3·4뎁스: 같은 parent_id를 가진 것들
+        siblings = list_categories(db, parent_id=c.parent_id, include_deleted=False, include_unused=True)
+    elif c.type_id is not None:
+        # 2뎁스: 같은 type_id를 가진 것들
+        siblings = list_categories(db, type_id=c.type_id, include_deleted=False, include_unused=True)
+    else:
+        return None
+    
+    # 현재 카테고리의 인덱스 찾기
+    current_index = None
+    for i, item in enumerate(siblings):
+        if item.id == category_id:
+            current_index = i
+            break
+    
+    if current_index is None:
+        return None
+    
+    # 위로 이동
+    if direction == 'up':
+        if current_index == 0:
+            return c  # 이미 맨 위
+        target_index = current_index - 1
+    # 아래로 이동
+    elif direction == 'down':
+        if current_index == len(siblings) - 1:
+            return c  # 이미 맨 아래
+        target_index = current_index + 1
+    else:
+        raise ValueError("direction은 'up' 또는 'down'이어야 합니다.")
+    
+    # 정렬순서 교환
+    target_category = siblings[target_index]
+    c.sort_order, target_category.sort_order = target_category.sort_order, c.sort_order
+    
+    db.commit()
+    db.refresh(c)
+    return c

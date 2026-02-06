@@ -140,6 +140,19 @@ export async function restoreType(id: number): Promise<CategoryTypeItem> {
   return res.json();
 }
 
+/** 관리자: 1뎁스 정렬순서 변경 (위/아래 이동) */
+export async function moveTypeOrder(id: number, direction: 'up' | 'down'): Promise<CategoryTypeItem> {
+  const res = await fetch(`${API_BASE}/api/v1/categories/types/${id}/move-order?direction=${direction}`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '정렬순서 변경에 실패했습니다.');
+  }
+  return res.json();
+}
+
 // ---- 2뎁스(카테고리 항목) ----
 /** 관리자: 카테고리 목록 (type_id=2뎁스, parent_id=3·4뎁스 하위, all_depths=2·3·4뎁스 전부) */
 export async function listCategoriesAdmin(options?: {
@@ -228,6 +241,19 @@ export async function restoreCategory(id: number): Promise<Category> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail ?? '복원에 실패했습니다.');
+  }
+  return res.json();
+}
+
+/** 관리자: 카테고리 정렬순서 변경 (위/아래 이동) */
+export async function moveCategoryOrder(id: number, direction: 'up' | 'down'): Promise<Category> {
+  const res = await fetch(`${API_BASE}/api/v1/categories/${id}/move-order?direction=${direction}`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '정렬순서 변경에 실패했습니다.');
   }
   return res.json();
 }

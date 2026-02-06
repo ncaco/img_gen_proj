@@ -106,3 +106,47 @@ def restore_category_type(db: Session, type_id: int) -> CategoryType | None:
     db.commit()
     db.refresh(t)
     return t
+
+
+def move_category_type_order(db: Session, type_id: int, direction: str) -> CategoryType | None:
+    """
+    카테고리 타입 정렬순서 변경 (위/아래 이동).
+    direction: 'up' 또는 'down'
+    """
+    t = get_category_type_by_id(db, type_id, include_deleted=False)
+    if not t:
+        return None
+    
+    # 같은 조건의 모든 타입 목록 가져오기 (삭제되지 않은 것만)
+    all_types = list_category_types(db, include_deleted=False, include_unused=True)
+    
+    # 현재 타입의 인덱스 찾기
+    current_index = None
+    for i, item in enumerate(all_types):
+        if item.id == type_id:
+            current_index = i
+            break
+    
+    if current_index is None:
+        return None
+    
+    # 위로 이동
+    if direction == 'up':
+        if current_index == 0:
+            return t  # 이미 맨 위
+        target_index = current_index - 1
+    # 아래로 이동
+    elif direction == 'down':
+        if current_index == len(all_types) - 1:
+            return t  # 이미 맨 아래
+        target_index = current_index + 1
+    else:
+        raise ValueError("direction은 'up' 또는 'down'이어야 합니다.")
+    
+    # 정렬순서 교환
+    target_type = all_types[target_index]
+    t.sort_order, target_type.sort_order = target_type.sort_order, t.sort_order
+    
+    db.commit()
+    db.refresh(t)
+    return t

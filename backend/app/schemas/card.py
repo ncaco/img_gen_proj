@@ -58,11 +58,27 @@ class CardSaveRequestSchema(BaseModel):
     generatedImageUrl: Optional[str] = Field(None, description="생성된 이미지 URL")
 
 
+class CardUpdateRequestSchema(BaseModel):
+    """카드 업데이트 요청 스키마"""
+    cardData: Optional[CardDataSchema] = Field(None, description="카드 데이터")
+    characterImageUrl: Optional[str] = Field(None, description="캐릭터 이미지 URL")
+    backgroundImageUrl: Optional[str] = Field(None, description="배경 이미지 URL")
+    generatedPrompt: Optional[str] = Field(None, description="생성된 프롬프트")
+    generatedImageUrl: Optional[str] = Field(None, description="생성된 이미지 URL")
+
+
 class CardSaveResponseSchema(BaseModel):
     """카드 저장 응답 스키마"""
     success: bool = Field(..., description="성공 여부")
     message: str = Field(..., description="응답 메시지")
     cardSn: Optional[int] = Field(None, description="저장된 카드 일련번호")
+
+
+class CardUpdateResponseSchema(BaseModel):
+    """카드 업데이트 응답 스키마"""
+    success: bool = Field(..., description="성공 여부")
+    message: str = Field(..., description="응답 메시지")
+    cardSn: Optional[int] = Field(None, description="업데이트된 카드 일련번호")
 
 
 class CardResponseSchema(BaseModel):

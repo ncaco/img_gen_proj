@@ -1,7 +1,7 @@
 """
 카드 생성 관련 비즈니스 로직
 """
-from app.schemas.card import CardDataSchema, CardGenerationRequestSchema, CardSaveRequestSchema
+from app.schemas.card import CardDataSchema, CardGenerationRequestSchema, CardSaveRequestSchema, CardUpdateRequestSchema
 from app.database.models import Card
 from sqlalchemy.orm import Session
 from typing import Dict
@@ -360,6 +360,133 @@ class CardService:
         cards = query.order_by(Card.card_sn.desc()).offset(skip).limit(limit).all()
         
         return cards, total
+    
+    @staticmethod
+    def update_card(db: Session, card_sn: int, request: CardUpdateRequestSchema) -> Card | None:
+        """
+        카드 정보 업데이트
+        
+        Args:
+            db: 데이터베이스 세션
+            card_sn: 카드 일련번호
+            request: 카드 업데이트 요청 데이터
+            
+        Returns:
+            Card: 업데이트된 카드 객체 또는 None
+        """
+        from pathlib import Path
+        from app.core.config import settings
+        from app.utils.file_utils import get_file_path_from_url
+        import shutil
+        
+        # 카드 조회
+        card = db.query(Card).filter(Card.card_sn == card_sn).first()
+        if not card:
+            return None
+        
+        # 카드 데이터 업데이트 (제공된 필드만 업데이트)
+        if request.cardData:
+            card_data = request.cardData
+            card.card_name = card_data.cardName
+            card.card_number = card_data.cardNumber or card.card_number
+            card.type = card_data.type
+            card.attribute = card_data.attribute
+            card.rarity = card_data.rarity
+            card.gender = card_data.gender or card.gender
+            card.attack = card_data.attack or card.attack or "0"
+            card.health = card_data.health or card.health or "0"
+            card.skill1_name = card_data.skill1Name or card.skill1_name
+            card.skill1_description = card_data.skill1Description or card.skill1_description
+            card.skill2_name = card_data.skill2Name or card.skill2_name
+            card.skill2_description = card_data.skill2Description or card.skill2_description
+            card.flavor_text = card_data.flavorText or card.flavor_text
+            card.series = card_data.series or card.series
+        
+        # 이미지 URL 업데이트 (제공된 경우만)
+        if request.characterImageUrl is not None:
+            card.character_image_url = request.characterImageUrl
+        if request.backgroundImageUrl is not None:
+            card.background_image_url = request.backgroundImageUrl
+        if request.generatedImageUrl is not None:
+            card.generated_image_url = request.generatedImageUrl
+        if request.generatedPrompt is not None:
+            card.generated_prompt = request.generatedPrompt
+        
+        # 파일 재배치: 업데이트된 시리즈/번호에 맞춰 파일 이동
+        series_name = card.series or "default"
+        card_number = card.card_number or str(card.card_sn)
+        
+        # card_number에서 # 제거 및 특수문자 처리
+        clean_number = card_number.replace('#', '').strip()
+        safe_series = "".join(c for c in series_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_series = safe_series.replace(' ', '_') if safe_series else "default"
+        safe_number = "".join(c for c in clean_number if c.isalnum() or c in ('-', '_')).strip() or str(card.card_sn)
+        
+        target_dir = settings.upload_path / safe_series / safe_number
+        target_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 이미지 파일들을 새 경로로 이동 (URL이 변경된 경우만)
+        image_urls = [
+            (card.character_image_url, 'character_image_url'),
+            (card.background_image_url, 'background_image_url'),
+            (card.generated_image_url, 'generated_image_url'),
+        ]
+        
+        for image_url, field_name in image_urls:
+            if not image_url:
+                continue
+            
+            try:
+                old_path = get_file_path_from_url(image_url)
+                if not old_path or not old_path.exists():
+                    continue
+                
+                # 이미 올바른 위치에 있으면 스킵
+                try:
+                    if old_path.parent == target_dir:
+                        continue
+                except (OSError, ValueError):
+                    pass
+                
+                # 원본 파일명 추출
+                original_filename = old_path.name
+                new_path = target_dir / original_filename
+                
+                # 같은 파일명이 이미 존재하면 번호 추가
+                counter = 1
+                base_name = original_filename.rsplit('.', 1)[0] if '.' in original_filename else original_filename
+                extension = original_filename.rsplit('.', 1)[1] if '.' in original_filename else ''
+                
+                while new_path.exists():
+                    if extension:
+                        new_filename = f"{base_name}_{counter}.{extension}"
+                    else:
+                        new_filename = f"{base_name}_{counter}"
+                    new_path = target_dir / new_filename
+                    counter += 1
+                
+                # 파일 이동
+                if old_path != new_path:
+                    shutil.move(str(old_path), str(new_path))
+                    
+                    # 새 URL 경로 생성
+                    relative_path = new_path.relative_to(settings.upload_path.parent)
+                    new_url = f"/data/{relative_path.as_posix()}"
+                    
+                    # 카드 모델의 URL 업데이트
+                    setattr(card, field_name, new_url)
+            
+            except Exception as e:
+                # 파일 이동 실패해도 계속 진행
+                import traceback
+                print(f"파일 이동 실패 ({field_name}): {str(e)}")
+                print(traceback.format_exc())
+                continue
+        
+        db.commit()
+        db.refresh(card)
+        
+        return card
     
     @staticmethod
     def delete_card(db: Session, card_sn: int) -> bool:

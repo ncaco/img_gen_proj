@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { FiChevronDown, FiChevronRight, FiEdit2, FiTrash2, FiPlus, FiRefreshCw } from 'react-icons/fi';
+import { FiChevronDown, FiChevronRight, FiEdit2, FiTrash2, FiPlus, FiRefreshCw, FiArrowUp, FiArrowDown } from 'react-icons/fi';
 import {
   listTypesAdmin,
   listCategoriesAdmin,
@@ -10,10 +10,12 @@ import {
   updateType,
   softDeleteType,
   restoreType,
+  moveTypeOrder,
   createCategory,
   updateCategory,
   softDeleteCategory,
   restoreCategory,
+  moveCategoryOrder,
   type CategoryTypeItem,
   type Category,
 } from '@/app/lib/category';
@@ -32,6 +34,9 @@ type CategoryRowProps = {
   onRestore: (c: Category) => void;
   onAddUnderParent: (parentId: number, parentName: string, depth: number) => void;
   onToggleUsed: (c: Category) => void;
+  onMoveOrder: (c: Category, direction: 'up' | 'down') => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 };
 
 function CategoryRow({
@@ -46,6 +51,9 @@ function CategoryRow({
   onRestore,
   onAddUnderParent,
   onToggleUsed,
+  onMoveOrder,
+  canMoveUp,
+  canMoveDown,
 }: CategoryRowProps) {
   const children = getChildren(category.id);
   const canHaveChildren = depth < 2;
@@ -56,7 +64,7 @@ function CategoryRow({
   return (
     <div className="border-b border-gray-100 dark:border-gray-800 last:border-b-0">
       <div
-        className="grid grid-cols-[auto_1fr_4rem_4rem_4rem_8rem] gap-2 px-3 py-2 items-center cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-800/50"
+        className="grid grid-cols-[auto_1fr_4rem_4rem_4rem_12rem] gap-2 px-3 py-2 items-center cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-800/50"
         style={{ paddingLeft: `calc(0.75rem + ${depth * 1.5}rem)` }}
         onClick={() => canHaveChildren && onToggleExpand(category.id)}
       >
@@ -89,6 +97,12 @@ function CategoryRow({
         <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
           {!category.deletedAt && (
             <>
+              <button type="button" onClick={() => onMoveOrder(category, 'up')} disabled={!canMoveUp} className={`w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed`} title="위로 이동" aria-label="위로 이동">
+                <FiArrowUp className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={() => onMoveOrder(category, 'down')} disabled={!canMoveDown} className={`w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed`} title="아래로 이동" aria-label="아래로 이동">
+                <FiArrowDown className="w-4 h-4" />
+              </button>
               <button type="button" onClick={() => onEdit(category)} className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30" title="수정" aria-label="수정">
                 <FiEdit2 className="w-4 h-4" />
               </button>
@@ -116,22 +130,25 @@ function CategoryRow({
               등록된 {addChildLabel}가 없습니다.
             </div>
           ) : (
-            children.map((child) => (
-            <CategoryRow
-              key={child.id}
-              category={child}
-              depth={depth + 1}
-              expandedCategoryIds={expandedCategoryIds}
-              childrenByParentId={childrenByParentId}
-              getChildren={getChildren}
-              onToggleExpand={onToggleExpand}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onRestore={onRestore}
-              onAddUnderParent={onAddUnderParent}
-              onToggleUsed={onToggleUsed}
-            />
-          ))
+            children.map((child, idx) => (
+              <CategoryRow
+                key={child.id}
+                category={child}
+                depth={depth + 1}
+                expandedCategoryIds={expandedCategoryIds}
+                childrenByParentId={childrenByParentId}
+                getChildren={getChildren}
+                onToggleExpand={onToggleExpand}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onRestore={onRestore}
+                onAddUnderParent={onAddUnderParent}
+                onToggleUsed={onToggleUsed}
+                onMoveOrder={onMoveOrder}
+                canMoveUp={idx > 0}
+                canMoveDown={idx < children.length - 1}
+              />
+            ))
           )}
         </div>
       )}
@@ -322,6 +339,26 @@ export default function CategoryPage() {
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : '사용여부 변경에 실패했습니다.');
+    }
+  };
+
+  const handleMoveTypeOrder = async (t: CategoryTypeItem, direction: 'up' | 'down') => {
+    if (t.deletedAt) return;
+    try {
+      await moveTypeOrder(t.id, direction);
+      await fetchAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '정렬순서 변경에 실패했습니다.');
+    }
+  };
+
+  const handleMoveCategoryOrder = async (c: Category, direction: 'up' | 'down') => {
+    if (c.deletedAt) return;
+    try {
+      await moveCategoryOrder(c.id, direction);
+      await fetchAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '정렬순서 변경에 실패했습니다.');
     }
   };
 
@@ -544,7 +581,7 @@ export default function CategoryPage() {
       <LoadingMask isOpen={loading} message="목록 불러오는 중…" />
       {!loading && (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="grid grid-cols-[auto_1fr_4rem_4rem_4rem_8rem] gap-2 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-[auto_1fr_4rem_4rem_4rem_12rem] gap-2 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <span className="w-6" />
             <span>이름</span>
             <span>정렬</span>
@@ -559,7 +596,7 @@ export default function CategoryPage() {
               <div key={t.id} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
                 {/* 1뎁스 행 */}
                 <div
-                  className={`grid grid-cols-[auto_1fr_4rem_4rem_4rem_8rem] gap-2 px-3 py-2 items-center cursor-pointer select-none ${
+                  className={`grid grid-cols-[auto_1fr_4rem_4rem_4rem_12rem] gap-2 px-3 py-2 items-center cursor-pointer select-none ${
                     t.deletedAt ? 'bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400' : 'bg-gray-50 dark:bg-gray-800/80 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                   onClick={() => toggleExpanded(t.id)}
@@ -585,6 +622,12 @@ export default function CategoryPage() {
                   <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                     {!t.deletedAt && (
                       <>
+                        <button type="button" onClick={() => handleMoveTypeOrder(t, 'up')} disabled={types.findIndex(x => x.id === t.id) === 0} className={`w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed`} title="위로 이동" aria-label="위로 이동">
+                          <FiArrowUp className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => handleMoveTypeOrder(t, 'down')} disabled={types.findIndex(x => x.id === t.id) === types.length - 1} className={`w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed`} title="아래로 이동" aria-label="아래로 이동">
+                          <FiArrowDown className="w-4 h-4" />
+                        </button>
                         <button type="button" onClick={() => openTypeEdit(t)} className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30" title="수정" aria-label="수정">
                           <FiEdit2 className="w-4 h-4" />
                         </button>
@@ -609,7 +652,7 @@ export default function CategoryPage() {
                     {items.length === 0 ? (
                       <div className="pl-10 pr-3 py-4 text-sm text-gray-500 dark:text-gray-400">등록된 2뎁스가 없습니다.</div>
                     ) : (
-                      items.map((c) => (
+                      items.map((c, idx) => (
                         <CategoryRow
                           key={c.id}
                           category={c}
@@ -623,6 +666,9 @@ export default function CategoryPage() {
                           onRestore={openCategoryRestore}
                           onAddUnderParent={openCategoryAddUnderParent}
                           onToggleUsed={handleToggleCategoryUsed}
+                          onMoveOrder={handleMoveCategoryOrder}
+                          canMoveUp={idx > 0}
+                          canMoveDown={idx < items.length - 1}
                         />
                       ))
                     )}
