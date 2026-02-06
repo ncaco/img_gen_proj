@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import JSZip from 'jszip';
 import { listFlowCharacters, getFlowCharacter, generateFlowCards, listFlowCards, fetchLoreMapping, type FlowCharacter, type FlowCharacterDetail, type FlowCard } from '@/app/lib/flow';
 import { useCategoryOptions } from '../context/CategoryOptionsContext';
 import CardGrid from './CardGrid';
@@ -36,6 +37,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [regeneratingCharacter, setRegeneratingCharacter] = useState(false);
   const [generatingCardId, setGeneratingCardId] = useState<number | null>(null);
+  const [downloadingZip, setDownloadingZip] = useState(false);
   const categoryOptions = useCategoryOptions();
 
   // 캐릭터 목록 로드
@@ -194,6 +196,100 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
       }
     }
   };
+
+  const handleDownloadZip = useCallback(async () => {
+    if (cards.length === 0) {
+      alert('다운로드할 카드가 없습니다.');
+      return;
+    }
+
+    // 이미지가 있는 카드만 필터링
+    const cardsWithImages = cards.filter(card => card.imageUrl);
+    if (cardsWithImages.length === 0) {
+      alert('이미지가 있는 카드가 없습니다.');
+      return;
+    }
+
+    setDownloadingZip(true);
+    try {
+      const zip = new JSZip();
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+      
+      // 클래스 목록 생성: 2뎁스만 추출
+      const classList: string[] = [];
+      if (categoryOptions.classTree.length > 0) {
+        categoryOptions.classTree.forEach((level1) => {
+          if (level1.children && level1.children.length > 0) {
+            level1.children.forEach((level2) => {
+              // 2뎁스만 추가
+              classList.push(level2.name);
+            });
+          }
+        });
+      } else if (categoryOptions.class.length > 0) {
+        classList.push(...categoryOptions.class);
+      }
+      
+      // 각 카드의 이미지를 다운로드하여 zip에 추가
+      await Promise.all(
+        cardsWithImages.map(async (card) => {
+          try {
+            const imageUrl = card.imageUrl!;
+            const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${apiBase}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+            
+            const response = await fetch(fullUrl);
+            if (!response.ok) {
+              console.warn(`이미지 다운로드 실패: ${fullUrl}`);
+              return;
+            }
+            
+            const blob = await response.blob();
+            
+            // 순서 찾기 (인덱스 + 1, 1부터 시작, 2자리 포맷: 01, 02, ...)
+            const genderIndex = categoryOptions.gender.indexOf(card.gender);
+            const genderOrder = genderIndex >= 0 ? String(genderIndex + 1).padStart(2, '0') : '00';
+            
+            const attributeIndex = categoryOptions.attribute.indexOf(card.attribute);
+            const attributeOrder = attributeIndex >= 0 ? String(attributeIndex + 1).padStart(2, '0') : '00';
+            
+            const classIndex = classList.indexOf(card.type);
+            const classOrder = classIndex >= 0 ? String(classIndex + 1).padStart(2, '0') : '00';
+            
+            // 파일명 생성: 순서_성별_순서_속성_순서_클래스_id.{확장자}
+            const extension = blob.type.split('/')[1] || 'png';
+            const fileName = `${genderOrder}_${card.gender}_${attributeOrder}_${card.attribute}_${classOrder}_${card.type}_${card.id}.${extension}`;
+            
+            zip.file(fileName, blob);
+          } catch (error) {
+            console.error(`카드 ${card.id} 이미지 다운로드 실패:`, error);
+          }
+        })
+      );
+
+      // zip 파일명 생성: 캐릭터명_성별_속성_클래스_날짜.zip
+      const dateStr = new Date().toISOString().split('T')[0];
+      const genderFilterStr = genderFilter ? genderFilter : '전체';
+      const attributeFilterStr = attributeFilter ? attributeFilter : '전체';
+      const typeFilterStr = typeFilter ? typeFilter : '전체';
+      const zipFileName = `${selectedCharacterName || 'cards'}_${genderFilterStr}_${attributeFilterStr}_${typeFilterStr}_${dateStr}.zip`;
+      
+      // zip 파일 생성 및 다운로드
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = window.URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = zipFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('ZIP 다운로드 실패:', error);
+      alert('ZIP 다운로드 중 오류가 발생했습니다.');
+    } finally {
+      setDownloadingZip(false);
+    }
+  }, [cards, selectedCharacterName]);
 
   const handleRegenerateCharacter = useCallback(async () => {
     console.log('handleRegenerateCharacter 호출됨', {
@@ -385,26 +481,47 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
             </div>
             <div className="flex items-center gap-1">
               {viewMode === 'cards' && (
-                <button
-                  type="button"
-                  onClick={handleRegenerateCharacter}
-                  disabled={regeneratingCharacter || (!selectedCharacterId && !nodes.find((n) => n.id === CHARACTER_CONFIG_NODE_ID))}
-                  className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="캐릭터 설정 재생성"
-                  aria-label="캐릭터 설정 재생성"
-                >
-                  {regeneratingCharacter ? (
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  )}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleDownloadZip}
+                    disabled={downloadingZip || cards.length === 0 || !cards.some(card => card.imageUrl)}
+                    className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="카드 이미지 ZIP 다운로드"
+                    aria-label="카드 이미지 ZIP 다운로드"
+                  >
+                    {downloadingZip ? (
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateCharacter}
+                    disabled={regeneratingCharacter || (!selectedCharacterId && !nodes.find((n) => n.id === CHARACTER_CONFIG_NODE_ID))}
+                    className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="캐릭터 설정 재생성"
+                    aria-label="캐릭터 설정 재생성"
+                  >
+                    {regeneratingCharacter ? (
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                  </button>
+                </>
               )}
               <button
                 type="button"
