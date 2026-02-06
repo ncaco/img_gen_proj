@@ -2,14 +2,14 @@
 플로우용 Lore(세계관) 분석 서비스.
 이름·설명 → OpenAI 구조화 반환 (Fate/strange Fake 스타일).
 """
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from app.core.config import settings
 from app.schemas.lore import LoreMappingResult
 
 
-def run_lore_mapping(name: str, description: str = "") -> LoreMappingResult:
+async def run_lore_mapping(name: str, description: str = "") -> LoreMappingResult:
     """
     인물 이름·설명으로 세계관 설정 분석 후 구조화 반환.
     description: 인물/세계관에 대한 설명 (선택). 없으면 이름만으로 추론.
@@ -18,7 +18,7 @@ def run_lore_mapping(name: str, description: str = "") -> LoreMappingResult:
     if not api_key:
         raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다. .env에 OPENAI_API_KEY를 넣어주세요.")
 
-    client = OpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key)
 
     system_prompt = """
 You are a Fate/strange Fake and Fate/stay night lore analysis engine.
@@ -49,7 +49,7 @@ Analyze this character for Fate/strange Fake universe adaptation.
 Return all display values in "한국어(English)" format as specified.
 """
 
-    response = client.responses.parse(
+    response = await client.responses.parse(
         model="gpt-4o-mini",
         input=[
             {"role": "system", "content": system_prompt},

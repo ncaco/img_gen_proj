@@ -1,7 +1,7 @@
 """
 이미지 프롬프트 생성 서비스
 """
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from app.core.config import settings
@@ -62,7 +62,7 @@ def normalize_negative_prompt(negative: str) -> str:
     return normalized
 
 
-def run_image_prompt_generator(
+async def run_image_prompt_generator(
     lore: LoreMappingResult,
     gender: str,
     attribute: str,
@@ -73,7 +73,7 @@ def run_image_prompt_generator(
     if not api_key:
         raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
 
-    client = OpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key)
 
     system_prompt = """
 You are an anime illustration prompt engineer for Fate-style characters.
@@ -145,7 +145,7 @@ Make sure Gender, Attribute (elemental), Class, and Character Settings are clear
 The prompt should reflect the character's background, era, archetype, and achievements in the visual design.
 """
 
-    response = client.responses.parse(
+    response = await client.responses.parse(
         model="gpt-4o-mini",
         input=[
             {"role": "system", "content": system_prompt},

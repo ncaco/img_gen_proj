@@ -68,7 +68,7 @@ async def lore_mapping(
     description = (body.description or "").strip()
 
     try:
-        lore_result = run_lore_mapping(name=name, description=description)
+        lore_result = await run_lore_mapping(name=name, description=description)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -357,7 +357,7 @@ async def generate_image_prompt(
     
     try:
         # Image Prompt 생성
-        image_prompt, character_settings = run_image_prompt_generator(
+        image_prompt, character_settings = await run_image_prompt_generator(
             lore=lore,
             gender=request.gender,
             attribute=request.attribute,

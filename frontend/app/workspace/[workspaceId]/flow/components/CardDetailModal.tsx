@@ -14,9 +14,10 @@ interface CardDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdateNodes?: (updater: (nodes: Node[]) => Node[]) => void;
+  onGeneratingChange?: (cardId: number | null, isGenerating: boolean) => void;
 }
 
-export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateNodes }: CardDetailModalProps) {
+export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateNodes, onGeneratingChange }: CardDetailModalProps) {
   const params = useParams();
   const flowId = params?.flowId != null ? Number(params.flowId) : undefined;
   const [flowCard, setFlowCard] = useState<FlowCard | null>(null);
@@ -29,6 +30,16 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isImageFullscreen, setIsImageFullscreen] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+  // 모달이 닫히거나 다른 카드로 전환될 때 generating 상태 초기화
+  useEffect(() => {
+    if (!isOpen || !flowCardId) {
+      if (generating && onGeneratingChange) {
+        onGeneratingChange(null, false);
+      }
+      setGenerating(false);
+    }
+  }, [isOpen, flowCardId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ESC 키로 모달 닫기
   useEffect(() => {
@@ -217,6 +228,9 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
       alert('이미지 프롬프트 생성에 실패했습니다.');
     } finally {
       setGenerating(false);
+      if (onGeneratingChange && flowCardId) {
+        onGeneratingChange(flowCardId, false);
+      }
     }
   };
 

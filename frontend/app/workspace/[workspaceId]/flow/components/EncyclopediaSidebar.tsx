@@ -34,6 +34,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
   const [selectedFlowCardId, setSelectedFlowCardId] = useState<number | null>(null);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [regeneratingCharacter, setRegeneratingCharacter] = useState(false);
+  const [generatingCardId, setGeneratingCardId] = useState<number | null>(null);
   const categoryOptions = useCategoryOptions();
 
   // 캐릭터 목록 로드
@@ -164,6 +165,11 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
   const handleCloseCardModal = () => {
     setIsCardModalOpen(false);
     setSelectedFlowCardId(null);
+    setGeneratingCardId(null);
+  };
+
+  const handleGeneratingChange = (cardId: number | null, isGenerating: boolean) => {
+    setGeneratingCardId(isGenerating ? cardId : null);
   };
 
   const handleRegenerateCharacter = useCallback(async () => {
@@ -607,6 +613,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
                     allClasses={categoryOptions.class}
                     classTree={categoryOptions.classTree}
                     onCardClick={handleCardClick}
+                    generatingCardId={generatingCardId}
                   />
                 )}
               </div>
@@ -614,7 +621,13 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
           )}
         </div>
       </div>
-      <CardDetailModal flowCardId={selectedFlowCardId} isOpen={isCardModalOpen} onClose={handleCloseCardModal} onUpdateNodes={onUpdateNodes} />
+      <CardDetailModal 
+        flowCardId={selectedFlowCardId} 
+        isOpen={isCardModalOpen} 
+        onClose={handleCloseCardModal} 
+        onUpdateNodes={onUpdateNodes}
+        onGeneratingChange={handleGeneratingChange}
+      />
     </>
   );
 }
