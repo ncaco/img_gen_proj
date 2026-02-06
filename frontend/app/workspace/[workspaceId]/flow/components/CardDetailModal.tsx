@@ -28,6 +28,7 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
   const [copiedNegative, setCopiedNegative] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isImageFullscreen, setIsImageFullscreen] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   // ESC 키로 모달 닫기
   useEffect(() => {
@@ -205,6 +206,12 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
         const updatedCard = await getFlowCard(flowCardId);
         setFlowCard(updatedCard);
       }
+      
+      // 성공 알림 표시
+      setShowSuccessToast(true);
+      setTimeout(() => {
+        setShowSuccessToast(false);
+      }, 3000);
     } catch (error) {
       console.error('이미지 프롬프트 생성 실패:', error);
       alert('이미지 프롬프트 생성에 실패했습니다.');
@@ -579,6 +586,18 @@ ${negativePrompt}`;
             </div>
           </div>
         </>
+      )}
+
+      {/* 성공 토스트 알림 */}
+      {showSuccessToast && (
+        <div className="fixed bottom-4 right-4 z-[80] animate-in slide-in-from-bottom-5">
+          <div className="bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-sm font-medium">프롬프트 생성이 완료되었습니다!</span>
+          </div>
+        </div>
       )}
     </>
   );

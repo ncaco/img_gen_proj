@@ -125,22 +125,44 @@ export default function CardGrid({
               }
             : undefined;
 
-          // 이미지 URL 찾기 (flowCardId가 있으면 flowCards에서 찾기)
-          const cardImageUrl = flowCardId && flowCards.length > 0 
-            ? flowCards.find(card => card.id === flowCardId)?.imageUrl 
+          // 카드 데이터 찾기 (flowCardId가 있으면 flowCards에서 찾기)
+          const cardData = flowCardId && flowCards.length > 0 
+            ? flowCards.find(card => card.id === flowCardId)
             : undefined;
+          const cardImageUrl = cardData?.imageUrl;
+          const hasPrompt = cardData?.prompt ? true : false;
           
-          // 이미지가 있으면  5:7 비율
-          const aspectRatio = cardImageUrl ? 'aspect-[5/7]' : 'aspect-[5/7]';
+          // 이미지가 있으면 1:1 비율
+          const aspectRatio = cardImageUrl ? 'aspect-[1/1]' : 'aspect-[1/1]';
 
           return (
             <div
               key={itemKey}
               onClick={handleClick}
-              className={`${aspectRatio} w-full flex items-center justify-center border border-white/20 bg-white/5 rounded overflow-hidden ${
+              className={`${aspectRatio} w-full flex items-center justify-center border border-white/20 bg-white/5 rounded overflow-hidden relative ${
                 onCardClick ? 'cursor-pointer hover:bg-white/10 transition-colors' : ''
               }`}
             >
+              {/* 상태 아이콘들 */}
+              {(hasPrompt || cardImageUrl) && (
+                <div className="absolute top-1 right-1 flex items-center gap-1 z-10">
+                  {cardImageUrl && (
+                  <div className="w-3 h-3 rounded-full bg-blue-500 flex items-center justify-center">
+                    <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  )}
+                  {hasPrompt && (
+                    <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+                      <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {cardImageUrl ? (
                 <img 
                   src={`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'}${cardImageUrl}`}
