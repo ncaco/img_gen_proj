@@ -119,9 +119,10 @@ class FlowCardService:
         prompt: str | None = None,
         negative_prompt: str | None = None,
         image_url: str | None = None,
+        prompt_generation_status: str | None = None,
     ) -> FlowCard | None:
         """
-        FlowCard의 프롬프트, 네거티브 프롬프트, 이미지 URL 업데이트
+        FlowCard의 프롬프트, 네거티브 프롬프트, 이미지 URL, 프롬프트 생성 상태 업데이트
         
         Args:
             db: 데이터베이스 세션
@@ -129,6 +130,7 @@ class FlowCardService:
             prompt: 프롬프트 (선택)
             negative_prompt: 네거티브 프롬프트 (선택)
             image_url: 이미지 URL (선택)
+            prompt_generation_status: 프롬프트 생성 상태 (선택, null: 미요청, 'requested': 요청중, 'completed': 완료)
             
         Returns:
             FlowCard: 업데이트된 카드 또는 None
@@ -143,7 +145,41 @@ class FlowCardService:
             card.negative_prompt = negative_prompt
         if image_url is not None:
             card.image_url = image_url
+        if prompt_generation_status is not None:
+            card.prompt_generation_status = prompt_generation_status
 
         db.commit()
         db.refresh(card)
         return card
+
+    @staticmethod
+    def find_card_by_character_and_attributes(
+        db: Session,
+        character_id: int,
+        gender: str,
+        attribute: str,
+        type_val: str,
+    ) -> FlowCard | None:
+        """
+        캐릭터 ID와 속성 조합으로 FlowCard 찾기
+        
+        Args:
+            db: 데이터베이스 세션
+            character_id: 캐릭터 ID
+            gender: 성별
+            attribute: 속성
+            type_val: 클래스
+            
+        Returns:
+            FlowCard: 찾은 카드 또는 None
+        """
+        return (
+            db.query(FlowCard)
+            .filter(
+                FlowCard.character_id == character_id,
+                FlowCard.gender == gender,
+                FlowCard.attribute == attribute,
+                FlowCard.type == type_val,
+            )
+            .first()
+        )

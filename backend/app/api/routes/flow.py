@@ -267,6 +267,7 @@ async def get_flow_cards(
                 prompt=card.prompt,
                 negativePrompt=card.negative_prompt,
                 imageUrl=card.image_url,
+                promptGenerationStatus=card.prompt_generation_status,
                 createdAt=card.created_at.isoformat() if card.created_at else "",
                 updatedAt=card.updated_at.isoformat() if card.updated_at else "",
             )
@@ -312,6 +313,7 @@ async def get_flow_card(
         prompt=card.prompt,
         negativePrompt=card.negative_prompt,
         imageUrl=card.image_url,
+        promptGenerationStatus=card.prompt_generation_status,
         createdAt=card.created_at.isoformat() if card.created_at else "",
         updatedAt=card.updated_at.isoformat() if card.updated_at else "",
     )
@@ -327,6 +329,8 @@ async def generate_image_prompt(
     이미지 프롬프트 생성.
     캐릭터 설정 + 성별 + 속성 + 클래스를 기반으로 이미지 생성용 프롬프트를 생성합니다.
     """
+    from app.database.models import FlowCard
+    
     # 캐릭터 소유권 확인
     character = (
         db.query(FlowCharacter)
@@ -339,6 +343,23 @@ async def generate_image_prompt(
     
     if not character:
         raise HTTPException(status_code=404, detail="해당 캐릭터를 찾을 수 없습니다.")
+    
+    # 해당 조합의 FlowCard 찾기 및 상태를 'requested'로 설정
+    card = FlowCardService.find_card_by_character_and_attributes(
+        db=db,
+        character_id=request.characterId,
+        gender=request.gender,
+        attribute=request.attribute,
+        type_val=request.type,
+    )
+    
+    if card:
+        # 프롬프트 생성 요청 상태로 설정
+        FlowCardService.update_card(
+            db=db,
+            card_id=card.id,
+            prompt_generation_status='requested',
+        )
     
     # 캐릭터 정보를 LoreMappingResult로 변환
     # FlowCharacter의 정보를 사용하여 LoreMappingResult 생성
@@ -374,8 +395,22 @@ async def generate_image_prompt(
             characterSettings=final_character_settings,  # 캐릭터 설정 정보 포함
         )
     except ValueError as e:
+        # 에러 발생 시 상태를 null로 리셋
+        if card:
+            FlowCardService.update_card(
+                db=db,
+                card_id=card.id,
+                prompt_generation_status=None,
+            )
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        # 에러 발생 시 상태를 null로 리셋
+        if card:
+            FlowCardService.update_card(
+                db=db,
+                card_id=card.id,
+                prompt_generation_status=None,
+            )
         raise HTTPException(
             status_code=500,
             detail=f"이미지 프롬프트 생성 중 오류가 발생했습니다: {str(e)}",
@@ -411,12 +446,18 @@ async def update_flow_card(
     if not character:
         raise HTTPException(status_code=404, detail="해당 카드를 찾을 수 없습니다.")
     
+    # 프롬프트가 저장되는 경우 상태를 'completed'로 설정
+    prompt_generation_status = None
+    if request.prompt is not None:
+        prompt_generation_status = 'completed'
+    
     updated_card = FlowCardService.update_card(
         db=db,
         card_id=card_id,
         prompt=request.prompt,
         negative_prompt=request.negativePrompt,
         image_url=request.imageUrl,
+        prompt_generation_status=prompt_generation_status,
     )
     
     if not updated_card:

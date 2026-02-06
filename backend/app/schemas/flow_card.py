@@ -23,6 +23,7 @@ class FlowCardResponseSchema(BaseModel):
     prompt: Optional[str] = Field(None, description="프롬프트")
     negativePrompt: Optional[str] = Field(None, description="네거티브 프롬프트")
     imageUrl: Optional[str] = Field(None, description="카드 이미지 URL (16:9 비율)")
+    promptGenerationStatus: Optional[str] = Field(None, description="프롬프트 생성 상태 (null: 미요청, 'requested': 요청중, 'completed': 완료)")
     createdAt: str = Field(..., description="생성일시")
     updatedAt: str = Field(..., description="수정일시")
 
@@ -58,6 +59,7 @@ class FlowCardUpdateRequestSchema(BaseModel):
     prompt: str | None = Field(None, description="프롬프트")
     negativePrompt: str | None = Field(None, description="네거티브 프롬프트")
     imageUrl: str | None = Field(None, description="카드 이미지 URL")
+    promptGenerationStatus: str | None = Field(None, description="프롬프트 생성 상태 (null: 미요청, 'requested': 요청중, 'completed': 완료)")
 
 
 class FlowCardUpdateResponseSchema(BaseModel):

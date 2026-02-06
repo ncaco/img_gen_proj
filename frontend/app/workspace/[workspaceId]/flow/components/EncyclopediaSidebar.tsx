@@ -31,6 +31,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
   const [loading, setLoading] = useState(false);
   const [genderFilter, setGenderFilter] = useState<string | null>(null);
   const [attributeFilter, setAttributeFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [selectedFlowCardId, setSelectedFlowCardId] = useState<number | null>(null);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [regeneratingCharacter, setRegeneratingCharacter] = useState(false);
@@ -61,6 +62,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
       characterId: selectedCharacterId,
       gender: genderFilter ?? undefined,
       attribute: attributeFilter ?? undefined,
+      type: typeFilter ?? undefined,
     })
       .then((res) => {
         setCards(res.cards);
@@ -71,7 +73,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
       .finally(() => {
         setLoading(false);
       });
-  }, [viewMode, selectedCharacterId, genderFilter, attributeFilter]);
+  }, [viewMode, selectedCharacterId, genderFilter, attributeFilter, typeFilter]);
 
   useEffect(() => {
     loadCards();
@@ -84,6 +86,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
     setIsCharacterDetailOpen(false);
     setGenderFilter(null);
     setAttributeFilter(null);
+    setTypeFilter(null);
     setViewMode('cards');
     
     // 클래스 목록 생성: 2뎁스만 추출
@@ -146,6 +149,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
     setSelectedCharacterName('');
     setGenderFilter(null);
     setAttributeFilter(null);
+    setTypeFilter(null);
     setCards([]);
   };
 
@@ -157,6 +161,10 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
     setAttributeFilter(attribute);
   };
 
+  const handleTypeFilterChange = (type: string | null) => {
+    setTypeFilter(type);
+  };
+
   const handleCardClick = (flowCardId: number | null) => {
     setSelectedFlowCardId(flowCardId);
     setIsCardModalOpen(true);
@@ -165,11 +173,26 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
   const handleCloseCardModal = () => {
     setIsCardModalOpen(false);
     setSelectedFlowCardId(null);
+    // 진행 중인 프롬프트 생성이 있으면 generatingCardId는 유지 (백그라운드 작업 계속)
+    // 완료되면 handlePromptGenerated에서 초기화됨
+  };
+
+  const handlePromptGenerated = (cardId: number) => {
+    // 프롬프트 생성 완료 시 목록 새로고침 및 로딩 상태 초기화
     setGeneratingCardId(null);
+    loadCards();
   };
 
   const handleGeneratingChange = (cardId: number | null, isGenerating: boolean) => {
-    setGeneratingCardId(isGenerating ? cardId : null);
+    if (isGenerating) {
+      setGeneratingCardId(cardId);
+    } else {
+      // 생성 완료 또는 에러 발생 시 로딩 상태 초기화
+      // 단, 프롬프트 생성 완료는 handlePromptGenerated에서 처리
+      if (generatingCardId === cardId) {
+        setGeneratingCardId(null);
+      }
+    }
   };
 
   const handleRegenerateCharacter = useCallback(async () => {
@@ -533,65 +556,124 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
             /* 카드 필터링 페이지 */
             <div className="h-full flex flex-col">
               {/* 필터 탭 */}
-              <div className="border-b border-white/10">
-                {/* 성별 탭 */}
-                <div className="px-4 py-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => handleGenderFilterChange(null)}
-                      className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                        genderFilter === null
-                          ? 'bg-white/20 text-white border border-white/30'
-                          : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      전체
-                    </button>
-                    {categoryOptions.gender.map((gender) => (
+              <div className="border-b border-white/10 px-4 py-2">
+                <div className="flex items-center gap-4 flex-wrap">
+                  {/* 성별 필터 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-white/60 font-medium whitespace-nowrap">성별</span>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
-                        key={gender}
                         type="button"
-                        onClick={() => handleGenderFilterChange(gender)}
+                        onClick={() => handleGenderFilterChange(null)}
                         className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                          genderFilter === gender
+                          genderFilter === null
                             ? 'bg-white/20 text-white border border-white/30'
                             : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
                         }`}
                       >
-                        {gender}
+                        전체
                       </button>
-                    ))}
+                      {categoryOptions.gender.map((gender) => (
+                        <button
+                          key={gender}
+                          type="button"
+                          onClick={() => handleGenderFilterChange(gender)}
+                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                            genderFilter === gender
+                              ? 'bg-white/20 text-white border border-white/30'
+                              : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                          }`}
+                        >
+                          {gender}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                {/* 속성 탭 */}
-                <div className="px-4 py-2 border-t border-white/10">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => handleAttributeFilterChange(null)}
-                      className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                        attributeFilter === null
-                          ? 'bg-white/20 text-white border border-white/30'
-                          : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      전체
-                    </button>
-                    {categoryOptions.attribute.map((attribute) => (
+                  
+                  {/* 구분선 */}
+                  <div className="h-6 w-px bg-white/10" />
+                  
+                  {/* 속성 필터 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-white/60 font-medium whitespace-nowrap">속성</span>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
-                        key={attribute}
                         type="button"
-                        onClick={() => handleAttributeFilterChange(attribute)}
+                        onClick={() => handleAttributeFilterChange(null)}
                         className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                          attributeFilter === attribute
+                          attributeFilter === null
                             ? 'bg-white/20 text-white border border-white/30'
                             : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
                         }`}
                       >
-                        {attribute}
+                        전체
                       </button>
-                    ))}
+                      {categoryOptions.attribute.map((attribute) => (
+                        <button
+                          key={attribute}
+                          type="button"
+                          onClick={() => handleAttributeFilterChange(attribute)}
+                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                            attributeFilter === attribute
+                              ? 'bg-white/20 text-white border border-white/30'
+                              : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                          }`}
+                        >
+                          {attribute}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* 구분선 */}
+                  <div className="h-6 w-px bg-white/10" />
+                  
+                  {/* 클래스 필터 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-white/60 font-medium whitespace-nowrap">클래스</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleTypeFilterChange(null)}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          typeFilter === null
+                            ? 'bg-white/20 text-white border border-white/30'
+                            : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        전체
+                      </button>
+                      {(() => {
+                        // 클래스 목록 생성: 2뎁스만 추출
+                        const classList: string[] = [];
+                        if (categoryOptions.classTree.length > 0) {
+                          categoryOptions.classTree.forEach((level1) => {
+                            if (level1.children && level1.children.length > 0) {
+                              level1.children.forEach((level2) => {
+                                // 2뎁스만 추가
+                                classList.push(level2.name);
+                              });
+                            }
+                          });
+                        } else if (categoryOptions.class.length > 0) {
+                          classList.push(...categoryOptions.class);
+                        }
+                        return classList.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => handleTypeFilterChange(type)}
+                            className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                              typeFilter === type
+                                ? 'bg-white/20 text-white border border-white/30'
+                                : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                            }`}
+                          >
+                            {type}
+                          </button>
+                        ));
+                      })()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -607,7 +689,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
                     flowCards={cards}
                     genderFilter={genderFilter}
                     attributeFilter={attributeFilter}
-                    typeFilter={null}
+                    typeFilter={typeFilter}
                     allGenders={categoryOptions.gender}
                     allAttributes={categoryOptions.attribute}
                     allClasses={categoryOptions.class}
@@ -627,6 +709,14 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
         onClose={handleCloseCardModal} 
         onUpdateNodes={onUpdateNodes}
         onGeneratingChange={handleGeneratingChange}
+        onImageUploaded={loadCards}
+        onPromptGenerated={handlePromptGenerated}
+        isGenerating={
+          selectedFlowCardId !== null && (
+            generatingCardId === selectedFlowCardId ||
+            cards.find(card => card.id === selectedFlowCardId)?.promptGenerationStatus === 'requested'
+          )
+        }
       />
     </>
   );

@@ -15,9 +15,12 @@ interface CardDetailModalProps {
   onClose: () => void;
   onUpdateNodes?: (updater: (nodes: Node[]) => Node[]) => void;
   onGeneratingChange?: (cardId: number | null, isGenerating: boolean) => void;
+  onImageUploaded?: () => void;
+  onPromptGenerated?: (cardId: number) => void;
+  isGenerating?: boolean;
 }
 
-export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateNodes, onGeneratingChange }: CardDetailModalProps) {
+export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateNodes, onGeneratingChange, onImageUploaded, onPromptGenerated, isGenerating: externalIsGenerating }: CardDetailModalProps) {
   const params = useParams();
   const flowId = params?.flowId != null ? Number(params.flowId) : undefined;
   const [flowCard, setFlowCard] = useState<FlowCard | null>(null);
@@ -31,15 +34,17 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
   const [isImageFullscreen, setIsImageFullscreen] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
-  // 모달이 닫히거나 다른 카드로 전환될 때 generating 상태 초기화
+  // 모달이 열릴 때 외부에서 전달된 isGenerating 상태와 카드의 promptGenerationStatus와 동기화
   useEffect(() => {
-    if (!isOpen || !flowCardId) {
-      if (generating && onGeneratingChange) {
-        onGeneratingChange(null, false);
-      }
+    if (isOpen && flowCardId) {
+      // 외부 isGenerating 또는 카드의 promptGenerationStatus가 'requested'인 경우 로딩 상태
+      const shouldBeGenerating = externalIsGenerating || flowCard?.promptGenerationStatus === 'requested';
+      setGenerating(shouldBeGenerating || false);
+    } else if (!isOpen || !flowCardId) {
+      // 모달이 닫히면 내부 상태만 초기화 (외부 generatingCardId는 유지)
       setGenerating(false);
     }
-  }, [isOpen, flowCardId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, flowCardId, externalIsGenerating, flowCard?.promptGenerationStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ESC 키로 모달 닫기
   useEffect(() => {
@@ -120,7 +125,8 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
   }, [isOpen, flowCardId]);
 
   const handleRun = async () => {
-    if (!flowCard || !character || generating) return;
+    // 진행 중이거나 요청 중 상태면 실행 불가
+    if (!flowCard || !character || generating || flowCard.promptGenerationStatus === 'requested') return;
     
     setGenerating(true);
     try {
@@ -207,15 +213,21 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
         );
       }
       
-      // FlowCard에 프롬프트 저장
+      // FlowCard에 프롬프트 저장 (상태를 'completed'로 설정)
       if (flowCardId) {
         await updateFlowCard(flowCardId, {
           prompt: result.prompt,
           negativePrompt: result.negativePrompt,
+          promptGenerationStatus: 'completed',
         });
         // FlowCard 데이터 갱신
         const updatedCard = await getFlowCard(flowCardId);
         setFlowCard(updatedCard);
+        
+        // 프롬프트 생성 완료 콜백 호출 (목록 새로고침)
+        if (onPromptGenerated) {
+          onPromptGenerated(flowCardId);
+        }
       }
       
       // 성공 알림 표시
@@ -226,6 +238,19 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
     } catch (error) {
       console.error('이미지 프롬프트 생성 실패:', error);
       alert('이미지 프롬프트 생성에 실패했습니다.');
+      // 에러 발생 시 상태를 null로 리셋
+      if (flowCardId) {
+        try {
+          await updateFlowCard(flowCardId, {
+            promptGenerationStatus: null,
+          });
+          // FlowCard 데이터 갱신
+          const updatedCard = await getFlowCard(flowCardId);
+          setFlowCard(updatedCard);
+        } catch (updateError) {
+          console.error('상태 업데이트 실패:', updateError);
+        }
+      }
     } finally {
       setGenerating(false);
       if (onGeneratingChange && flowCardId) {
@@ -297,6 +322,10 @@ ${negativePrompt}`;
       const updatedCard = await getFlowCard(flowCardId);
       setFlowCard(updatedCard);
       alert('이미지가 업로드되었습니다.');
+      // 이미지 업로드 완료 콜백 호출 (목록 새로고침)
+      if (onImageUploaded) {
+        onImageUploaded();
+      }
     } catch (error) {
       console.error('이미지 업로드 실패:', error);
       alert('이미지 업로드에 실패했습니다.');
@@ -336,7 +365,7 @@ ${negativePrompt}`;
               <button
                 type="button"
                 onClick={handleRun}
-                disabled={!flowCard || !character || generating}
+                disabled={!flowCard || !character || generating || flowCard.promptGenerationStatus === 'requested'}
                 className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="이미지 프롬프트 생성"
                 aria-label="이미지 프롬프트 생성"

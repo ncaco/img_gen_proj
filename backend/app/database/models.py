@@ -341,6 +341,7 @@ class FlowCard(Base):
     prompt = Column(Text, nullable=True, comment="프롬프트 (초기 생성 시 null)")
     negative_prompt = Column(Text, nullable=True, comment="네거티브 프롬프트 (초기 생성 시 null)")
     image_url = Column(Text, nullable=True, comment="카드 이미지 URL (16:9 비율)")
+    prompt_generation_status = Column(String(20), nullable=True, comment="프롬프트 생성 상태 (null: 미요청, 'requested': 요청중, 'completed': 완료)")
     
     created_at = Column(
         DateTime(timezone=True),

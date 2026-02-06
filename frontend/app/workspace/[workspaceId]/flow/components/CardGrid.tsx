@@ -133,7 +133,11 @@ export default function CardGrid({
             : undefined;
           const cardImageUrl = cardData?.imageUrl;
           const hasPrompt = cardData?.prompt ? true : false;
-          const isGenerating = flowCardId !== null && generatingCardId === flowCardId;
+          // 로딩 상태: generatingCardId와 일치하거나 promptGenerationStatus가 'requested'인 경우
+          const isGenerating = flowCardId !== null && (
+            generatingCardId === flowCardId || 
+            cardData?.promptGenerationStatus === 'requested'
+          );
           
           // 이미지가 있으면 1:1 비율
           const aspectRatio = cardImageUrl ? 'aspect-[1/1]' : 'aspect-[1/1]';

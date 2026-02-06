@@ -90,6 +90,7 @@ CRITICAL REQUIREMENTS:
 - Gender should be clearly reflected in the character's appearance and design.
 - Attribute (Fire/Water/Wind/Earth/Light/Dark/etc. - elemental attributes) should influence the visual style, color scheme, aura, and atmosphere. For example, Fire attribute should show flames, red/orange colors, and fiery effects. Water attribute should show blue colors, water effects, and fluid elements.
 - Class (Saber/Archer/Lancer/etc.) should be reflected in the character's pose, weapons, and overall design.
+- SPECIAL CLASS REQUIREMENT: If the class is Rider, the prompt MUST include at least one phantasmal beast, mythical creature, or mount. Rider class characters must be depicted with their mount/beast companion. This is MANDATORY for Rider class.
 - These three elements (Gender, Attribute, Class) are MANDATORY and must be prominently featured in the prompt.
 
 STRICT RULES:
@@ -138,6 +139,7 @@ IMPORTANT: The generated prompt MUST explicitly and clearly include:
    - Dark: dark colors, shadow effects, mysterious atmosphere
    The attribute should be prominently featured in the visual style, color scheme, aura, and atmosphere.
 3. The class ({type}) - reflected in pose, weapons, equipment, and overall character design
+{f"   CRITICAL CLASS REQUIREMENT FOR RIDER: The prompt MUST include at least one phantasmal beast, mythical creature, or mount. The Rider class character must be shown with their mount/beast companion. This is MANDATORY - Rider class characters always have mounts or phantasmal beasts. Include descriptions like 'riding a mythical beast', 'with phantasmal mount', 'accompanied by a legendary creature', etc." if type.lower() in ["rider", "라이더"] else ""}
 4. Character settings information - incorporate the character's historical/mythical background, era, archetype, legend rank, mystery level, divinity potential, and key achievements into the visual design and atmosphere
 
 Generate a Fate-style anime illustration prompt for this Servant in landscape (16:9) format.

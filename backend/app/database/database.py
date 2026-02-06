@@ -157,6 +157,12 @@ def init_db(force_recreate: bool = False):
                 conn.execute(text("ALTER TABLE flow_cards ADD COLUMN image_url TEXT"))
                 conn.commit()
             print("✅ flow_cards 테이블에 image_url 컬럼을 추가했습니다.")
+        
+        if "prompt_generation_status" not in flow_card_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE flow_cards ADD COLUMN prompt_generation_status VARCHAR(20)"))
+                conn.commit()
+            print("✅ flow_cards 테이블에 prompt_generation_status 컬럼을 추가했습니다.")
 
     # flow_characters 테이블 마이그레이션
     if "flow_characters" in inspector.get_table_names():

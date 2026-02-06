@@ -148,6 +148,7 @@ export interface FlowCard {
   prompt?: string | null;
   negativePrompt?: string | null;
   imageUrl?: string | null;
+  promptGenerationStatus?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -244,6 +245,7 @@ export interface FlowCardUpdateRequest {
   prompt?: string | null;
   negativePrompt?: string | null;
   imageUrl?: string | null;
+  promptGenerationStatus?: string | null;
 }
 
 /** FlowCard 이미지 업로드. 로그인 필요. */
