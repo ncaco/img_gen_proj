@@ -96,6 +96,10 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
 
     prevSourceDataRef.current = currentSourceDataStr;
 
+    // "부모 · 하위" 형식에서 2뎁스 클래스(하위)만 추출
+    const typeParts = sourceData.type.split(' · ');
+    const typeVal = typeParts.length > 1 ? typeParts[1] : sourceData.type;
+
     // flowCardId가 변경되었을 때만 업데이트
     setNodes((nodes) =>
       nodes.map((n) =>
@@ -108,7 +112,7 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
                 characterId: sourceData.characterId,
                 gender: sourceData.gender || '',
                 attribute: sourceData.attribute || '',
-                type: sourceData.type || '',
+                type: typeVal || '',
                 // 카드명은 나중에 캐릭터 이름으로 설정됨
               } as CardOptionNodeData,
             }

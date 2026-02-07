@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useRef, useMemo } from 'react';
+import { memo, useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } from '@xyflow/react';
 import type { CardOptionNodeData } from './CardOptionNode';
 import { buildPrompt } from '@/app/lib/promptBuilder';
@@ -15,6 +15,34 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
   const nodes = useNodes();
   const edges = useEdges();
   const prevSourceDataRef = useRef<string>('');
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyToClipboard = useCallback(async () => {
+    if (!data.prompt) return;
+    
+    try {
+      await navigator.clipboard.writeText(data.prompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('클립보드 복사 실패:', error);
+      // 폴백: 텍스트 영역을 생성하여 복사
+      const textArea = document.createElement('textarea');
+      textArea.value = data.prompt;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('폴백 복사 실패:', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }, [data.prompt]);
 
   // CardOptionNode에서 카드 데이터 가져오기
   useEffect(() => {
@@ -71,10 +99,14 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
 
     prevSourceDataRef.current = currentSourceDataStr;
 
+    // "부모 · 하위" 형식에서 2뎁스 클래스(하위)만 추출
+    const typeParts = sourceData.type.split(' · ');
+    const typeVal = typeParts.length > 1 ? typeParts[1] : sourceData.type;
+
     // 카드 생성 프롬프트 양식으로 프롬프트 생성
     try {
       const generatedPrompt = buildPrompt({
-        type: sourceData.type || '',
+        type: typeVal || '',
         rarity: sourceData.rarity || '',
         cardName: sourceData.cardName || '',
         attribute: sourceData.attribute || '',
@@ -126,15 +158,32 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
   return (
     <div className="rounded-xl min-w-[500px] max-w-[800px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
       <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-white/40" />
-      <div className="px-3 py-2 border-b border-white/10 bg-white/5">
+      <div className="px-3 py-2 border-b border-white/10 bg-white/5 flex items-center justify-between">
         <span className="text-xs font-medium text-white/90">카드 생성 프롬프트</span>
+        {data.prompt && (
+          <button
+            onClick={handleCopyToClipboard}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors text-white/70 hover:text-white"
+            title="클립보드에 복사"
+          >
+            {copied ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
       <div className="p-4">
         {/* 프롬프트 */}
         <div>
           <label className="block text-xs text-white/70 mb-2 font-semibold">프롬프트</label>
           {data.prompt ? (
-            <div className="rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/15 text-white whitespace-pre-wrap break-words max-h-[600px] overflow-y-auto font-mono">
+            <div className="rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/15 text-white whitespace-pre-wrap break-words font-mono">
               {data.prompt}
             </div>
           ) : (

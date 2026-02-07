@@ -1,11 +1,12 @@
 'use client';
 
-import { memo, useEffect, useState, useRef } from 'react';
+import { memo, useEffect, useState, useRef, useCallback } from 'react';
 import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } from '@xyflow/react';
 import { getFlowCard, type FlowCard } from '@/app/lib/flow';
 import CardPreview from '@/app/components/CardPreview';
 import { API_BASE } from '@/app/lib/auth';
 import type { CardOptionNodeData } from './CardOptionNode';
+import { toPng } from 'html-to-image';
 
 export type CardPreviewNodeData = {
   flowCardId: number | null;
@@ -31,7 +32,9 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
   const edges = useEdges();
   const [flowCard, setFlowCard] = useState<FlowCard | null>(null);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const prevSourceDataRef = useRef<string>('');
+  const cardPreviewRef = useRef<HTMLDivElement>(null);
 
   // 이전 노드(CardOptionNode)에서 데이터 가져오기
   useEffect(() => {
@@ -225,14 +228,108 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
     series: data.series,
   };
 
+  // 이미지 로드 대기 함수
+  const waitForImages = useCallback((element: HTMLElement): Promise<void> => {
+    return new Promise((resolve) => {
+      const images: HTMLImageElement[] = [];
+      element.querySelectorAll('img').forEach((img) => images.push(img as HTMLImageElement));
+      const bgDivs = element.querySelectorAll('div[style*="background-image"]');
+      bgDivs.forEach((div) => {
+        const style = window.getComputedStyle(div);
+        const bgImage = style.backgroundImage;
+        if (bgImage && bgImage !== 'none') {
+          const urlMatch = bgImage.match(/url\(["']?([^"']+)["']?\)/);
+          if (urlMatch) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.src = urlMatch[1];
+            images.push(img);
+          }
+        }
+      });
+      if (images.length === 0) {
+        setTimeout(resolve, 200);
+        return;
+      }
+      let loadedCount = 0;
+      const totalImages = images.length;
+      const checkComplete = () => {
+        loadedCount++;
+        if (loadedCount === totalImages) setTimeout(resolve, 300);
+      };
+      images.forEach((img) => {
+        if (img.complete) checkComplete();
+        else {
+          img.onload = checkComplete;
+          img.onerror = checkComplete;
+        }
+      });
+    });
+  }, []);
+
+  // 카드 이미지 다운로드
+  const handleDownload = useCallback(async () => {
+    if (!cardPreviewRef.current || !data.cardName) return;
+
+    setDownloading(true);
+    try {
+      const cardElement = cardPreviewRef.current.querySelector('div[data-card-preview="true"]') as HTMLElement | null;
+      if (!cardElement) {
+        alert('카드 미리보기를 찾을 수 없습니다.');
+        return;
+      }
+
+      await waitForImages(cardElement);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const dataUrl = await toPng(cardElement, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: 'transparent',
+        skipFonts: true,
+      });
+
+      // 다운로드
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `${data.cardName || 'card'}_${data.cardNumber || Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('이미지 다운로드 실패:', error);
+      alert('이미지 다운로드에 실패했습니다.');
+    } finally {
+      setDownloading(false);
+    }
+  }, [data.cardName, data.cardNumber, waitForImages]);
+
   return (
     <div className="rounded-xl min-w-[420px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
       <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-white/40" />
       <Handle type="source" position={Position.Right} id="prompt" className="!w-2.5 !h-2.5 !bg-white/40" />
-      <div className="px-3 py-2 border-b border-white/10 bg-white/5">
+      <div className="px-3 py-2 border-b border-white/10 bg-white/5 flex items-center justify-between">
         <span className="text-xs font-medium text-white/90">카드 미리보기</span>
+        {!loading && data.flowCardId && data.cardName && (
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors text-white/70 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            title="카드 이미지 다운로드"
+          >
+            {downloading ? (
+              <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
-      <div className="p-4">
+      <div className="p-4" ref={cardPreviewRef}>
         {loading && (
           <div className="flex items-center justify-center h-64 text-white/50">
             이미지 로드 중...

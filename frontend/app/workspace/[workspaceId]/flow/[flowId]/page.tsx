@@ -21,6 +21,8 @@ import {
   type Node,
   type Edge,
   type NodeTypes,
+  getNodesBounds,
+  getViewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { getFlow, updateFlow } from '@/app/lib/workspace';
@@ -252,6 +254,52 @@ function FlowEditorInner() {
     (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
     [setEdges]
   );
+
+  // 노드 삭제 핸들러
+  const onNodesDelete = useCallback(
+    (deleted: Node[]) => {
+      // 연결된 엣지도 함께 삭제
+      setEdges((eds) => {
+        const deletedNodeIds = new Set(deleted.map((n) => n.id));
+        return eds.filter((e) => !deletedNodeIds.has(e.source) && !deletedNodeIds.has(e.target));
+      });
+    },
+    [setEdges]
+  );
+
+  // 키보드 단축키: Delete/Backspace로 선택된 노드 삭제
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // 입력 필드에 포커스가 있으면 삭제하지 않음
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
+      // Delete 또는 Backspace 키
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        const selectedNodes = nodes.filter((node) => node.selected);
+        if (selectedNodes.length > 0) {
+          event.preventDefault();
+          // 선택된 노드 삭제
+          const remainingNodes = nodes.filter((node) => !node.selected);
+          setNodes(remainingNodes);
+          
+          // 연결된 엣지도 삭제
+          const deletedNodeIds = new Set(selectedNodes.map((n) => n.id));
+          setEdges((eds) => eds.filter((e) => !deletedNodeIds.has(e.source) && !deletedNodeIds.has(e.target)));
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [nodes, edges, setNodes, setEdges]);
 
   const handleRefresh = useCallback(() => {
     if (Number.isNaN(workspaceId) || Number.isNaN(flowId)) return;
@@ -539,8 +587,10 @@ function FlowEditorInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodesDelete={onNodesDelete}
         nodeTypes={nodeTypes}
         zoomOnScroll
+        deleteKeyCode={['Delete', 'Backspace']}
         defaultEdgeOptions={{
           style: { stroke: '#ffffff', strokeWidth: 1.5 },
           type: 'smoothstep',
