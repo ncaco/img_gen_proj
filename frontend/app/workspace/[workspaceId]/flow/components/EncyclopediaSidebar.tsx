@@ -38,6 +38,10 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
   const [regeneratingCharacter, setRegeneratingCharacter] = useState(false);
   const [generatingCardId, setGeneratingCardId] = useState<number | null>(null);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [registerName, setRegisterName] = useState('');
+  const [registerDescription, setRegisterDescription] = useState('');
+  const [registering, setRegistering] = useState(false);
   const categoryOptions = useCategoryOptions();
 
   // 캐릭터 목록 로드
@@ -55,6 +59,22 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
         setLoading(false);
       });
   }, [isOpen, viewMode]);
+
+  // ESC 키로 등록 모달 닫기
+  useEffect(() => {
+    if (!isRegisterModalOpen) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleCloseRegisterModal();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isRegisterModalOpen]);
 
   // 카드 목록 로드 (필터 변경 시)
   const loadCards = useCallback(() => {
@@ -291,6 +311,48 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
     }
   }, [cards, selectedCharacterName]);
 
+  const handleOpenRegisterModal = () => {
+    setIsRegisterModalOpen(true);
+    setRegisterName('');
+    setRegisterDescription('');
+  };
+
+  const handleCloseRegisterModal = () => {
+    setIsRegisterModalOpen(false);
+    setRegisterName('');
+    setRegisterDescription('');
+  };
+
+  const handleRegisterCharacter = useCallback(async () => {
+    const name = registerName.trim();
+    if (!name) {
+      alert('이름을 입력하세요.');
+      return;
+    }
+
+    setRegistering(true);
+    try {
+      await fetchLoreMapping({
+        name,
+        description: registerDescription.trim() || undefined,
+        flowId,
+      });
+      
+      // 등록 성공 후 목록 새로고침
+      const res = await listFlowCharacters();
+      setCharacters(res.characters);
+      
+      handleCloseRegisterModal();
+      alert('캐릭터가 등록되었습니다.');
+    } catch (error) {
+      console.error('캐릭터 등록 실패:', error);
+      const message = error instanceof Error ? error.message : '캐릭터 등록에 실패했습니다.';
+      alert(`캐릭터 등록에 실패했습니다: ${message}`);
+    } finally {
+      setRegistering(false);
+    }
+  }, [registerName, registerDescription, flowId]);
+
   const handleRegenerateCharacter = useCallback(async () => {
     console.log('handleRegenerateCharacter 호출됨', {
       selectedCharacterId,
@@ -480,6 +542,19 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
               </h2>
             </div>
             <div className="flex items-center gap-1">
+              {viewMode === 'characters' && (
+                <button
+                  type="button"
+                  onClick={handleOpenRegisterModal}
+                  className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                  title="캐릭터 설정 등록"
+                  aria-label="캐릭터 설정 등록"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              )}
               {viewMode === 'cards' && (
                 <>
                   <button
@@ -839,6 +914,96 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
           setSelectedFlowCardId(flowCardId);
         }}
       />
+      {/* 캐릭터 등록 모달 */}
+      {isRegisterModalOpen && (
+        <>
+          {/* 오버레이 */}
+          <div
+            className="fixed inset-0 bg-black/70 z-[60] transition-opacity"
+            onClick={handleCloseRegisterModal}
+            aria-hidden="true"
+          />
+          {/* 모달 */}
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
+            <div
+              className="bg-[#1a1a1f] border border-white/20 rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 헤더 */}
+              <div className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
+                <h3 className="text-lg font-medium text-white">캐릭터 설정 등록</h3>
+                <button
+                  type="button"
+                  onClick={handleCloseRegisterModal}
+                  className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                  title="닫기"
+                  aria-label="닫기"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* 컨텐츠 */}
+              <div className="px-6 py-4 space-y-4">
+                <div>
+                  <label className="block text-sm text-white/70 mb-2">이름 *</label>
+                  <input
+                    type="text"
+                    value={registerName}
+                    onChange={(e) => setRegisterName(e.target.value)}
+                    placeholder="캐릭터 이름 입력"
+                    className="w-full rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-white/30"
+                    disabled={registering}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-white/70 mb-2">설명</label>
+                  <textarea
+                    value={registerDescription}
+                    onChange={(e) => setRegisterDescription(e.target.value)}
+                    placeholder="인물·세계관 설명 (선택)"
+                    rows={4}
+                    className="w-full rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-white/30 resize-y min-h-[100px]"
+                    disabled={registering}
+                  />
+                </div>
+              </div>
+              
+              {/* 푸터 */}
+              <div className="border-t border-white/10 px-6 py-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseRegisterModal}
+                  disabled={registering}
+                  className="px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRegisterCharacter}
+                  disabled={registering || !registerName.trim()}
+                  className="px-4 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {registering ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>등록 중...</span>
+                    </>
+                  ) : (
+                    <span>등록</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }
