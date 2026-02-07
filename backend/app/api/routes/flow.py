@@ -30,11 +30,24 @@ from app.schemas.image_prompt import (
     ImagePromptRequest,
     ImagePromptResponse,
 )
+from app.schemas.flow import (
+    NoblePhantasmGenerateRequest,
+    NoblePhantasmGenerateResponse,
+    FlavorTextGenerateRequest,
+    FlavorTextGenerateResponse,
+    CardDataGenerateRequest,
+    CardDataGenerateResponse,
+)
 from app.services.lore_service import run_lore_mapping
 from app.services.flow_card_service import FlowCardService
 from app.services.image_prompt_service import (
     run_image_prompt_generator,
     run_prompt_postprocess,
+)
+from app.services.noble_phantasm_service import (
+    generate_noble_phantasm,
+    generate_flavor_text,
+    generate_card_data,
 )
 
 router = APIRouter(prefix="/flow", tags=["flow"])
@@ -526,4 +539,186 @@ async def upload_flow_card_image(
         raise HTTPException(
             status_code=500,
             detail=f"이미지 업로드 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.post("/noble-phantasm/generate", response_model=NoblePhantasmGenerateResponse)
+async def generate_noble_phantasm_endpoint(
+    request: NoblePhantasmGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_required),
+):
+    """
+    보구 생성.
+    캐릭터의 세계관 설정과 카드 설정을 기반으로 보구명과 진명개방을 생성합니다.
+    """
+    # 캐릭터 소유권 확인
+    character = (
+        db.query(FlowCharacter)
+        .filter(
+            FlowCharacter.id == request.characterId,
+            FlowCharacter.user_id == current_user.id,
+        )
+        .first()
+    )
+    
+    if not character:
+        raise HTTPException(status_code=404, detail="해당 캐릭터를 찾을 수 없습니다.")
+    
+    # 캐릭터 정보를 LoreMappingResult로 변환
+    lore = LoreMappingResult(
+        name=character.name,
+        historical_or_mythical=character.historical_or_mythical or "역사(Historical)",
+        origin_country=character.origin_country,
+        era=character.era or "현대(Modern)",
+        main_archetype=character.main_archetype or "영령(Heroic Spirit)",
+        legend_rank=character.legend_rank or "중간(Medium)",
+        mystery_level=character.mystery_level or "현대(Modern)",
+        divinity_potential=character.divinity_potential or "없음(None)",
+        noble_phantasms=character.noble_phantasms or [],
+        key_achievements=character.key_achievements or [],
+    )
+    
+    try:
+        # 보구 생성
+        result = await generate_noble_phantasm(
+            lore=lore,
+            gender=request.gender,
+            attribute=request.attribute,
+            type=request.type,
+            exclude_noble_phantasms=request.excludeNoblePhantasms,
+        )
+        
+        return NoblePhantasmGenerateResponse(
+            success=True,
+            보구명=result.보구명,
+            진명개방=result.진명개방,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"보구 생성 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.post("/flavor-text/generate", response_model=FlavorTextGenerateResponse)
+async def generate_flavor_text_endpoint(
+    request: FlavorTextGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_required),
+):
+    """
+    플레이버 텍스트 생성.
+    캐릭터의 세계관 설정과 카드 설정을 기반으로 캐릭터의 말투를 반영한 대사를 생성합니다.
+    """
+    # 캐릭터 소유권 확인
+    character = (
+        db.query(FlowCharacter)
+        .filter(
+            FlowCharacter.id == request.characterId,
+            FlowCharacter.user_id == current_user.id,
+        )
+        .first()
+    )
+    
+    if not character:
+        raise HTTPException(status_code=404, detail="해당 캐릭터를 찾을 수 없습니다.")
+    
+    # 캐릭터 정보를 LoreMappingResult로 변환
+    lore = LoreMappingResult(
+        name=character.name,
+        historical_or_mythical=character.historical_or_mythical or "역사(Historical)",
+        origin_country=character.origin_country,
+        era=character.era or "현대(Modern)",
+        main_archetype=character.main_archetype or "영령(Heroic Spirit)",
+        legend_rank=character.legend_rank or "중간(Medium)",
+        mystery_level=character.mystery_level or "현대(Modern)",
+        divinity_potential=character.divinity_potential or "없음(None)",
+        noble_phantasms=character.noble_phantasms or [],
+        key_achievements=character.key_achievements or [],
+    )
+    
+    try:
+        # 플레이버 텍스트 생성
+        result = await generate_flavor_text(
+            lore=lore,
+            gender=request.gender,
+            attribute=request.attribute,
+            type=request.type,
+        )
+        
+        return FlavorTextGenerateResponse(
+            success=True,
+            flavorText=result.flavorText,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"플레이버 텍스트 생성 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.post("/card-data/generate", response_model=CardDataGenerateResponse)
+async def generate_card_data_endpoint(
+    request: CardDataGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_required),
+):
+    """
+    카드 데이터 일괄 생성 (보구1, 보구2, 플레이버 텍스트).
+    한 번에 모든 데이터를 생성합니다.
+    """
+    # 캐릭터 소유권 확인
+    character = (
+        db.query(FlowCharacter)
+        .filter(
+            FlowCharacter.id == request.characterId,
+            FlowCharacter.user_id == current_user.id,
+        )
+        .first()
+    )
+    
+    if not character:
+        raise HTTPException(status_code=404, detail="해당 캐릭터를 찾을 수 없습니다.")
+    
+    # 캐릭터 정보를 LoreMappingResult로 변환
+    lore = LoreMappingResult(
+        name=character.name,
+        historical_or_mythical=character.historical_or_mythical or "역사(Historical)",
+        origin_country=character.origin_country,
+        era=character.era or "현대(Modern)",
+        main_archetype=character.main_archetype or "영령(Heroic Spirit)",
+        legend_rank=character.legend_rank or "중간(Medium)",
+        mystery_level=character.mystery_level or "현대(Modern)",
+        divinity_potential=character.divinity_potential or "없음(None)",
+        noble_phantasms=character.noble_phantasms or [],
+        key_achievements=character.key_achievements or [],
+    )
+    
+    try:
+        # 카드 데이터 일괄 생성
+        result = await generate_card_data(
+            lore=lore,
+            gender=request.gender,
+            attribute=request.attribute,
+            type=request.type,
+            exclude_noble_phantasms=request.excludeNoblePhantasms,
+        )
+        
+        return CardDataGenerateResponse(
+            success=True,
+            noblePhantasm1=result["noblePhantasm1"],
+            noblePhantasm2=result["noblePhantasm2"],
+            flavorText=result["flavorText"],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"카드 데이터 생성 중 오류가 발생했습니다: {str(e)}",
         )

@@ -20,6 +20,10 @@ function NodeAddPanelComponent({ onAddNode }: NodeAddPanelProps) {
     onAddNode('cardPreview');
   }, [onAddNode]);
 
+  const handleAddPromptBox = useCallback(() => {
+    onAddNode('promptBox');
+  }, [onAddNode]);
+
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
       <div className="bg-[#1a1a1f] border border-white/15 rounded-xl shadow-2xl p-3 flex gap-2">
@@ -46,6 +50,14 @@ function NodeAddPanelComponent({ onAddNode }: NodeAddPanelProps) {
           title="카드 미리보기 박스 추가"
         >
           카드 미리보기 박스
+        </button>
+        <button
+          type="button"
+          onClick={handleAddPromptBox}
+          className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors border border-white/10"
+          title="프롬프트 박스 추가"
+        >
+          프롬프트 박스
         </button>
       </div>
     </div>

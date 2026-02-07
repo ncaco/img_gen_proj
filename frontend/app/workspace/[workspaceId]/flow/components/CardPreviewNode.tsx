@@ -16,11 +16,13 @@ export type CardPreviewNodeData = {
   rarity: string;
   attack: string;
   health: string;
-  skill1: { name: string; description: string };
-  skill2: { name: string; description: string };
+  noblePhantasm1: { name: string; description: string };
+  noblePhantasm2: { name: string; description: string };
   flavorText: string;
   cardNumber: string;
   series: string;
+  prompt: string | null;
+  negativePrompt: string | null;
 };
 
 function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & CardPreviewNodeData>) {
@@ -52,11 +54,13 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
                     rarity: '',
                     attack: '',
                     health: '',
-                    skill1: { name: '', description: '' },
-                    skill2: { name: '', description: '' },
+                    noblePhantasm1: { name: '', description: '' },
+                    noblePhantasm2: { name: '', description: '' },
                     flavorText: '',
                     cardNumber: '',
                     series: '',
+                    prompt: null,
+                    negativePrompt: null,
                   } as CardPreviewNodeData,
                 }
               : n
@@ -83,10 +87,10 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
       rarity: sourceData.rarity,
       attack: sourceData.attack,
       health: sourceData.health,
-      skill1Name: sourceData.skill1Name,
-      skill1Description: sourceData.skill1Description,
-      skill2Name: sourceData.skill2Name,
-      skill2Description: sourceData.skill2Description,
+      noblePhantasm1Name: sourceData.noblePhantasm1Name,
+      noblePhantasm1TrueName: sourceData.noblePhantasm1TrueName,
+      noblePhantasm2Name: sourceData.noblePhantasm2Name,
+      noblePhantasm2TrueName: sourceData.noblePhantasm2TrueName,
       flavorText: sourceData.flavorText,
       cardNumber: sourceData.cardNumber,
       series: sourceData.series,
@@ -99,7 +103,7 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
 
     prevSourceDataRef.current = currentSourceDataStr;
 
-    // 데이터 업데이트
+    // 데이터 업데이트 (prompt와 negativePrompt는 FlowCard 로드 시 설정되므로 유지)
     setNodes((nodes) =>
       nodes.map((n) =>
         n.id === id
@@ -114,17 +118,21 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
                 rarity: sourceData.rarity || '',
                 attack: sourceData.attack || '',
                 health: sourceData.health || '',
-                skill1: {
-                  name: sourceData.skill1Name || '',
-                  description: sourceData.skill1Description || '',
+                // noblePhantasm1Name에는 보구명이, noblePhantasm1TrueName에는 진명개방이 저장됨
+                noblePhantasm1: {
+                  name: sourceData.noblePhantasm1Name || '', // 보구명
+                  description: sourceData.noblePhantasm1TrueName || '', // 진명개방
                 },
-                skill2: {
-                  name: sourceData.skill2Name || '',
-                  description: sourceData.skill2Description || '',
+                noblePhantasm2: {
+                  name: sourceData.noblePhantasm2Name || '', // 보구명
+                  description: sourceData.noblePhantasm2TrueName || '', // 진명개방
                 },
                 flavorText: sourceData.flavorText || '',
                 cardNumber: sourceData.cardNumber || '',
                 series: sourceData.series || '',
+                // prompt와 negativePrompt는 FlowCard 로드 시 설정되므로 기존 값 유지
+                prompt: (n.data as CardPreviewNodeData).prompt ?? null,
+                negativePrompt: (n.data as CardPreviewNodeData).negativePrompt ?? null,
               } as CardPreviewNodeData,
             }
           : n
@@ -150,7 +158,17 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
         setFlowCard(card);
         setNodes((nodes) =>
           nodes.map((n) =>
-            n.id === id ? { ...n, data: { ...n.data, imageUrl: card.imageUrl || null } as CardPreviewNodeData } : n
+            n.id === id
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    imageUrl: card.imageUrl || null,
+                    prompt: card.prompt || null,
+                    negativePrompt: card.negativePrompt || null,
+                  } as CardPreviewNodeData,
+                }
+              : n
           )
         );
       })
@@ -158,7 +176,17 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
         setFlowCard(null);
         setNodes((nodes) =>
           nodes.map((n) =>
-            n.id === id ? { ...n, data: { ...n.data, imageUrl: null } as CardPreviewNodeData } : n
+            n.id === id
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    imageUrl: null,
+                    prompt: null,
+                    negativePrompt: null,
+                  } as CardPreviewNodeData,
+                }
+              : n
           )
         );
       })
@@ -190,8 +218,8 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
     rarity: data.rarity,
     attack: data.attack,
     health: data.health,
-    skill1: data.skill1,
-    skill2: data.skill2,
+    skill1: data.noblePhantasm1,
+    skill2: data.noblePhantasm2,
     flavorText: data.flavorText,
     cardNumber: data.cardNumber,
     series: data.series,
@@ -200,6 +228,7 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
   return (
     <div className="rounded-xl min-w-[420px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
       <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-white/40" />
+      <Handle type="source" position={Position.Right} id="prompt" className="!w-2.5 !h-2.5 !bg-white/40" />
       <div className="px-3 py-2 border-b border-white/10 bg-white/5">
         <span className="text-xs font-medium text-white/90">카드 미리보기</span>
       </div>

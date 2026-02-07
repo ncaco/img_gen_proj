@@ -41,6 +41,7 @@ import EncyclopediaSidebar from '../components/EncyclopediaSidebar';
 import { CharacterBoxNode, type CharacterBoxNodeData } from '../components/CharacterBoxNode';
 import { CardOptionNode, type CardOptionNodeData } from '../components/CardOptionNode';
 import { CardPreviewNode, type CardPreviewNodeData } from '../components/CardPreviewNode';
+import { PromptBoxNode, type PromptBoxNodeData } from '../components/PromptBoxNode';
 import { NodeAddPanel } from '../components/NodeAddPanel';
 import ConfirmModal from '@/app/components/ConfirmModal';
 
@@ -58,6 +59,7 @@ const nodeTypes = {
   characterBox: CharacterBoxNode,
   cardOption: CardOptionNode,
   cardPreview: CardPreviewNode,
+  promptBox: PromptBoxNode,
 } as NodeTypes;
 
 /** 기존 단일 입력 노드 (호환용) */
@@ -321,10 +323,10 @@ function FlowEditorInner() {
               rarity: '',
               attack: '',
               health: '',
-              skill1Name: '',
-              skill1Description: '',
-              skill2Name: '',
-              skill2Description: '',
+              noblePhantasm1Name: '',
+              noblePhantasm1TrueName: '',
+              noblePhantasm2Name: '',
+              noblePhantasm2TrueName: '',
               flavorText: '',
               cardNumber: '',
               series: '',
@@ -345,12 +347,25 @@ function FlowEditorInner() {
               rarity: '',
               attack: '',
               health: '',
-              skill1: { name: '', description: '' },
-              skill2: { name: '', description: '' },
+              noblePhantasm1: { name: '', description: '' },
+              noblePhantasm2: { name: '', description: '' },
               flavorText: '',
               cardNumber: '',
               series: '',
+              prompt: null,
+              negativePrompt: null,
             } as CardPreviewNodeData,
+          };
+          break;
+        case 'promptBox':
+          newNode = {
+            id: nodeId,
+            type: 'promptBox',
+            position: { ...position, y: position.y + 750 },
+            data: {
+              prompt: null,
+              negativePrompt: null,
+            } as PromptBoxNodeData,
           };
           break;
         default:

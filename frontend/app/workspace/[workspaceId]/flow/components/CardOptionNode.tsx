@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useState, useRef } from 'react';
 import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } from '@xyflow/react';
-import { getFlowCard, getFlowCharacter, type FlowCard } from '@/app/lib/flow';
+import { getFlowCard, getFlowCharacter, generateCardData, generateNoblePhantasm, generateFlavorText, type FlowCard } from '@/app/lib/flow';
 import type { CharacterBoxNodeData } from './CharacterBoxNode';
 
 export type CardOptionNodeData = {
@@ -17,10 +17,10 @@ export type CardOptionNodeData = {
   rarity: string;
   attack: string;
   health: string;
-  skill1Name: string;
-  skill1Description: string;
-  skill2Name: string;
-  skill2Description: string;
+  noblePhantasm1Name: string;
+  noblePhantasm1TrueName: string;
+  noblePhantasm2Name: string;
+  noblePhantasm2TrueName: string;
   flavorText: string;
   cardNumber: string;
   series: string;
@@ -40,6 +40,10 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
   const [flowCard, setFlowCard] = useState<FlowCard | null>(null);
   const [characterName, setCharacterName] = useState<string>('');
   const prevSourceDataRef = useRef<string>('');
+  const [generatingCardData, setGeneratingCardData] = useState(false);
+  const [generatingNoblePhantasm1, setGeneratingNoblePhantasm1] = useState(false);
+  const [generatingNoblePhantasm2, setGeneratingNoblePhantasm2] = useState(false);
+  const [generatingFlavorText, setGeneratingFlavorText] = useState(false);
 
   // 이전 노드(CharacterBoxNode)에서 flowCardId 가져오기
   useEffect(() => {
@@ -172,6 +176,174 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
     },
     [id, setNodes]
   );
+
+  // 보구 1 생성
+  const handleGenerateNoblePhantasm1 = useCallback(async () => {
+    if (!data.characterId || !data.gender || !data.attribute || !data.type) {
+      alert('캐릭터 정보가 필요합니다.');
+      return;
+    }
+
+    setGeneratingNoblePhantasm1(true);
+    try {
+      // 기존 보구 목록 수집
+      // 주의: noblePhantasm1Name에는 보구명이, noblePhantasm1TrueName에는 진명개방이 저장됨
+      const excludeList: Array<{ 보구명: string; 진명개방: string }> = [];
+      
+      // 보구1이 있으면 제외 목록에 추가
+      if (data.noblePhantasm1Name) {
+        excludeList.push({
+          보구명: data.noblePhantasm1Name, // 보구명은 Name 필드에 있음
+          진명개방: data.noblePhantasm1TrueName || '', // 진명개방은 TrueName 필드에 있음
+        });
+      }
+      
+      // 보구2가 있으면 제외 목록에 추가
+      if (data.noblePhantasm2Name) {
+        excludeList.push({
+          보구명: data.noblePhantasm2Name, // 보구명은 Name 필드에 있음
+          진명개방: data.noblePhantasm2TrueName || '', // 진명개방은 TrueName 필드에 있음
+        });
+      }
+
+      const result = await generateNoblePhantasm({
+        characterId: data.characterId,
+        gender: data.gender,
+        attribute: data.attribute,
+        type: data.type,
+        excludeNoblePhantasms: excludeList.length > 0 ? excludeList : undefined,
+      });
+
+      // 보구명을 보구명 필드에, 진명개방을 보구설명(진명개방) 필드에 할당
+      updateData('noblePhantasm1Name', result.보구명);
+      updateData('noblePhantasm1TrueName', result.진명개방);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '보구 생성에 실패했습니다.');
+    } finally {
+      setGeneratingNoblePhantasm1(false);
+    }
+  }, [data.characterId, data.gender, data.attribute, data.type, data.noblePhantasm1Name, data.noblePhantasm1TrueName, data.noblePhantasm2Name, data.noblePhantasm2TrueName, updateData]);
+
+  // 보구 2 생성
+  const handleGenerateNoblePhantasm2 = useCallback(async () => {
+    if (!data.characterId || !data.gender || !data.attribute || !data.type) {
+      alert('캐릭터 정보가 필요합니다.');
+      return;
+    }
+
+    setGeneratingNoblePhantasm2(true);
+    try {
+      // 기존 보구 목록 수집
+      // 주의: noblePhantasm1Name에는 보구명이, noblePhantasm1TrueName에는 진명개방이 저장됨
+      const excludeList: Array<{ 보구명: string; 진명개방: string }> = [];
+      
+      // 보구1이 있으면 제외 목록에 추가
+      if (data.noblePhantasm1Name) {
+        excludeList.push({
+          보구명: data.noblePhantasm1Name, // 보구명은 Name 필드에 있음
+          진명개방: data.noblePhantasm1TrueName || '', // 진명개방은 TrueName 필드에 있음
+        });
+      }
+      
+      // 보구2가 있으면 제외 목록에 추가
+      if (data.noblePhantasm2Name) {
+        excludeList.push({
+          보구명: data.noblePhantasm2Name, // 보구명은 Name 필드에 있음
+          진명개방: data.noblePhantasm2TrueName || '', // 진명개방은 TrueName 필드에 있음
+        });
+      }
+
+      const result = await generateNoblePhantasm({
+        characterId: data.characterId,
+        gender: data.gender,
+        attribute: data.attribute,
+        type: data.type,
+        excludeNoblePhantasms: excludeList.length > 0 ? excludeList : undefined,
+      });
+
+      // 보구명을 보구명 필드에, 진명개방을 보구설명(진명개방) 필드에 할당
+      updateData('noblePhantasm2Name', result.보구명);
+      updateData('noblePhantasm2TrueName', result.진명개방);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '보구 생성에 실패했습니다.');
+    } finally {
+      setGeneratingNoblePhantasm2(false);
+    }
+  }, [data.characterId, data.gender, data.attribute, data.type, data.noblePhantasm1Name, data.noblePhantasm1TrueName, data.noblePhantasm2Name, data.noblePhantasm2TrueName, updateData]);
+
+  // 플레이버 텍스트 생성
+  const handleGenerateFlavorText = useCallback(async () => {
+    if (!data.characterId || !data.gender || !data.attribute || !data.type) {
+      alert('캐릭터 정보가 필요합니다.');
+      return;
+    }
+
+    setGeneratingFlavorText(true);
+    try {
+      const result = await generateFlavorText({
+        characterId: data.characterId,
+        gender: data.gender,
+        attribute: data.attribute,
+        type: data.type,
+      });
+
+      updateData('flavorText', result.flavorText);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '플레이버 텍스트 생성에 실패했습니다.');
+    } finally {
+      setGeneratingFlavorText(false);
+    }
+  }, [data.characterId, data.gender, data.attribute, data.type, updateData]);
+
+  // 카드 데이터 일괄 생성 (보구1, 보구2, 플레이버 텍스트)
+  const handleGenerateCardData = useCallback(async () => {
+    if (!data.characterId || !data.gender || !data.attribute || !data.type) {
+      alert('캐릭터 정보가 필요합니다.');
+      return;
+    }
+
+    setGeneratingCardData(true);
+    try {
+      // 기존 보구 목록 수집
+      // 주의: noblePhantasm1Name에는 보구명이, noblePhantasm1TrueName에는 진명개방이 저장됨
+      const excludeList: Array<{ 보구명: string; 진명개방: string }> = [];
+      
+      // 보구1이 있으면 제외 목록에 추가
+      if (data.noblePhantasm1Name) {
+        excludeList.push({
+          보구명: data.noblePhantasm1Name, // 보구명은 Name 필드에 있음
+          진명개방: data.noblePhantasm1TrueName || '', // 진명개방은 TrueName 필드에 있음
+        });
+      }
+      
+      // 보구2가 있으면 제외 목록에 추가
+      if (data.noblePhantasm2Name) {
+        excludeList.push({
+          보구명: data.noblePhantasm2Name, // 보구명은 Name 필드에 있음
+          진명개방: data.noblePhantasm2TrueName || '', // 진명개방은 TrueName 필드에 있음
+        });
+      }
+
+      const result = await generateCardData({
+        characterId: data.characterId,
+        gender: data.gender,
+        attribute: data.attribute,
+        type: data.type,
+        excludeNoblePhantasms: excludeList.length > 0 ? excludeList : undefined,
+      });
+
+      // 보구명을 보구명 필드에, 진명개방을 보구설명(진명개방) 필드에 할당
+      updateData('noblePhantasm1Name', result.noblePhantasm1.보구명);
+      updateData('noblePhantasm1TrueName', result.noblePhantasm1.진명개방);
+      updateData('noblePhantasm2Name', result.noblePhantasm2.보구명);
+      updateData('noblePhantasm2TrueName', result.noblePhantasm2.진명개방);
+      updateData('flavorText', result.flavorText);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '카드 데이터 생성에 실패했습니다.');
+    } finally {
+      setGeneratingCardData(false);
+    }
+  }, [data.characterId, data.gender, data.attribute, data.type, data.noblePhantasm1Name, data.noblePhantasm1TrueName, data.noblePhantasm2Name, data.noblePhantasm2TrueName, updateData]);
 
   return (
     <div className="rounded-xl min-w-[280px] max-w-[400px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
@@ -331,43 +503,75 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
           </div>
         </div>
 
-        {/* 스킬 1 */}
+        {/* 보구 1 */}
         <div className="border-t border-white/10 pt-3">
-          <div className="text-xs font-semibold text-white/90 mb-2">스킬 1</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold text-white/90">보구 1</div>
+            <button
+              onClick={handleGenerateNoblePhantasm1}
+              disabled={generatingNoblePhantasm1 || !data.characterId}
+              className="text-yellow-400 hover:text-yellow-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
+              title="보구 자동 생성"
+            >
+              {generatingNoblePhantasm1 ? (
+                <span className="text-xs">생성 중...</span>
+              ) : (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              )}
+            </button>
+          </div>
           <div className="space-y-2">
             <input
               type="text"
-              value={data.skill1Name ?? ''}
-              onChange={(e) => updateData('skill1Name', e.target.value)}
+              value={data.noblePhantasm1Name ?? ''}
+              onChange={(e) => updateData('noblePhantasm1Name', e.target.value)}
               className={inputClass}
-              placeholder="스킬명"
+              placeholder="보구명"
             />
             <textarea
-              value={data.skill1Description ?? ''}
-              onChange={(e) => updateData('skill1Description', e.target.value)}
+              value={data.noblePhantasm1TrueName ?? ''}
+              onChange={(e) => updateData('noblePhantasm1TrueName', e.target.value)}
               className={`${inputClass} resize-y min-h-[60px]`}
-              placeholder="효과 설명"
+              placeholder="진명개방"
               rows={2}
             />
           </div>
         </div>
 
-        {/* 스킬 2 */}
+        {/* 보구 2 */}
         <div className="border-t border-white/10 pt-3">
-          <div className="text-xs font-semibold text-white/90 mb-2">스킬 2</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold text-white/90">보구 2</div>
+            <button
+              onClick={handleGenerateNoblePhantasm2}
+              disabled={generatingNoblePhantasm2 || !data.characterId}
+              className="text-yellow-400 hover:text-yellow-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
+              title="보구 자동 생성"
+            >
+              {generatingNoblePhantasm2 ? (
+                <span className="text-xs">생성 중...</span>
+              ) : (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              )}
+            </button>
+          </div>
           <div className="space-y-2">
             <input
               type="text"
-              value={data.skill2Name ?? ''}
-              onChange={(e) => updateData('skill2Name', e.target.value)}
+              value={data.noblePhantasm2Name ?? ''}
+              onChange={(e) => updateData('noblePhantasm2Name', e.target.value)}
               className={inputClass}
-              placeholder="스킬명"
+              placeholder="보구명"
             />
             <textarea
-              value={data.skill2Description ?? ''}
-              onChange={(e) => updateData('skill2Description', e.target.value)}
+              value={data.noblePhantasm2TrueName ?? ''}
+              onChange={(e) => updateData('noblePhantasm2TrueName', e.target.value)}
               className={`${inputClass} resize-y min-h-[60px]`}
-              placeholder="효과 설명"
+              placeholder="진명개방"
               rows={2}
             />
           </div>
@@ -375,7 +579,23 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
 
         {/* 플레이버 텍스트 */}
         <div className="border-t border-white/10 pt-3">
-          <label className="block text-xs text-white/70 mb-1">설명/플레이버 텍스트</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs text-white/70">설명/플레이버 텍스트</label>
+            <button
+              onClick={handleGenerateFlavorText}
+              disabled={generatingFlavorText || !data.characterId}
+              className="text-yellow-400 hover:text-yellow-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
+              title="플레이버 텍스트 자동 생성"
+            >
+              {generatingFlavorText ? (
+                <span className="text-xs">생성 중...</span>
+              ) : (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              )}
+            </button>
+          </div>
           <textarea
             value={data.flavorText ?? ''}
             onChange={(e) => updateData('flavorText', e.target.value)}
@@ -383,6 +603,33 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
             placeholder="카드의 배경 스토리나 캐릭터 설명을 입력하세요"
             rows={3}
           />
+        </div>
+
+        {/* 카드 데이터 일괄 생성 버튼 */}
+        <div className="border-t border-white/10 pt-3">
+          <button
+            onClick={handleGenerateCardData}
+            disabled={generatingCardData || !data.characterId}
+            className="w-full py-2 px-4 bg-yellow-400/20 hover:bg-yellow-400/30 disabled:bg-gray-500/20 disabled:cursor-not-allowed text-yellow-400 hover:text-yellow-300 disabled:text-gray-500 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+            title="보구1, 보구2, 플레이버 텍스트 자동 생성"
+          >
+            {generatingCardData ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>생성 중...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                <span>카드 데이터 자동 생성</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

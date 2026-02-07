@@ -290,3 +290,92 @@ export async function updateFlowCard(
   }
   return res.json();
 }
+
+export interface NoblePhantasmGenerateRequest {
+  characterId: number;
+  gender: string;
+  attribute: string;
+  type: string;
+  excludeNoblePhantasms?: Array<{ 보구명: string; 진명개방: string }>;
+}
+
+export interface NoblePhantasmGenerateResponse {
+  success: boolean;
+  보구명: string;
+  진명개방: string;
+}
+
+/** 보구 생성. 로그인 필요. */
+export async function generateNoblePhantasm(
+  request: NoblePhantasmGenerateRequest
+): Promise<NoblePhantasmGenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/flow/noble-phantasm/generate`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '보구 생성에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export interface FlavorTextGenerateRequest {
+  characterId: number;
+  gender: string;
+  attribute: string;
+  type: string;
+}
+
+export interface FlavorTextGenerateResponse {
+  success: boolean;
+  flavorText: string;
+}
+
+/** 플레이버 텍스트 생성. 로그인 필요. */
+export async function generateFlavorText(
+  request: FlavorTextGenerateRequest
+): Promise<FlavorTextGenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/flow/flavor-text/generate`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '플레이버 텍스트 생성에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export interface CardDataGenerateRequest {
+  characterId: number;
+  gender: string;
+  attribute: string;
+  type: string;
+  excludeNoblePhantasms?: Array<{ 보구명: string; 진명개방: string }>;
+}
+
+export interface CardDataGenerateResponse {
+  success: boolean;
+  noblePhantasm1: { 보구명: string; 진명개방: string };
+  noblePhantasm2: { 보구명: string; 진명개방: string };
+  flavorText: string;
+}
+
+/** 카드 데이터 일괄 생성 (보구1, 보구2, 플레이버 텍스트). 로그인 필요. */
+export async function generateCardData(
+  request: CardDataGenerateRequest
+): Promise<CardDataGenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/flow/card-data/generate`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '카드 데이터 생성에 실패했습니다.');
+  }
+  return res.json();
+}
