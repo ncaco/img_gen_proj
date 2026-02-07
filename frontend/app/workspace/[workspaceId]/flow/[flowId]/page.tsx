@@ -38,6 +38,11 @@ import { CharacterConfigNode, CHARACTER_CONFIG_NODE_ID, type CharacterConfigNode
 import { CategorySelectNode, CATEGORY_SELECT_NODE_ID, type CategorySelectNodeData } from '../components/CategorySelectNode';
 import { CategoryOptionsProvider, useCategoryOptions, type CategoryOptions } from '../context/CategoryOptionsContext';
 import EncyclopediaSidebar from '../components/EncyclopediaSidebar';
+import { CharacterBoxNode, type CharacterBoxNodeData } from '../components/CharacterBoxNode';
+import { CardOptionNode, type CardOptionNodeData } from '../components/CardOptionNode';
+import { CardPreviewNode, type CardPreviewNodeData } from '../components/CardPreviewNode';
+import { NodeAddPanel } from '../components/NodeAddPanel';
+import ConfirmModal from '@/app/components/ConfirmModal';
 
 const nodeTypes = {
   inputParams: InputParamsNode,
@@ -50,6 +55,9 @@ const nodeTypes = {
   promptTextarea: PromptTextareaNode,
   characterConfig: CharacterConfigNode,
   categorySelect: CategorySelectNode,
+  characterBox: CharacterBoxNode,
+  cardOption: CardOptionNode,
+  cardPreview: CardPreviewNode,
 } as NodeTypes;
 
 /** 기존 단일 입력 노드 (호환용) */
@@ -147,6 +155,7 @@ function FlowEditorInner() {
   const [flowNeedsInitialGraph, setFlowNeedsInitialGraph] = useState(false);
   const builtWithOptions = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
     if (Number.isNaN(workspaceId) || Number.isNaN(flowId)) return;
@@ -167,7 +176,7 @@ function FlowEditorInner() {
         } else {
           setNodes([]);
           setEdges([]);
-          setFlowNeedsInitialGraph(true);
+          setFlowNeedsInitialGraph(false); // 초기 그래프 생성 비활성화
           builtWithOptions.current = false;
         }
       })
@@ -175,20 +184,21 @@ function FlowEditorInner() {
       .finally(() => setLoading(false));
   }, [workspaceId, flowId, router, setNodes, setEdges]);
 
-  useEffect(() => {
-    if (!flowNeedsInitialGraph) return;
-    const hasOptions = (options.gender?.length ?? 0) > 0 || (options.attribute?.length ?? 0) > 0;
-    if (nodes.length > 0 && builtWithOptions.current) return;
-    if (nodes.length > 0 && !hasOptions) return;
-    const { nodes: builtNodes, edges: builtEdges } = buildDefaultFlowGraph(options);
-    if (builtNodes.length === 0) return;
-    setNodes(builtNodes);
-    setEdges(builtEdges);
-    if (hasOptions) {
-      setFlowNeedsInitialGraph(false);
-      builtWithOptions.current = true;
-    }
-  }, [flowNeedsInitialGraph, options.gender, options.attribute, options.classTree, nodes.length, setNodes, setEdges]);
+  // 초기 노드 생성 비활성화 - 빈 그래프로 시작
+  // useEffect(() => {
+  //   if (!flowNeedsInitialGraph) return;
+  //   const hasOptions = (options.gender?.length ?? 0) > 0 || (options.attribute?.length ?? 0) > 0;
+  //   if (nodes.length > 0 && builtWithOptions.current) return;
+  //   if (nodes.length > 0 && !hasOptions) return;
+  //   const { nodes: builtNodes, edges: builtEdges } = buildDefaultFlowGraph(options);
+  //   if (builtNodes.length === 0) return;
+  //   setNodes(builtNodes);
+  //   setEdges(builtEdges);
+  //   if (hasOptions) {
+  //     setFlowNeedsInitialGraph(false);
+  //     builtWithOptions.current = true;
+  //   }
+  // }, [flowNeedsInitialGraph, options.gender, options.attribute, options.classTree, nodes.length, setNodes, setEdges]);
 
   const saveTitle = useCallback(() => {
     const trimmed = titleInput.trim();
@@ -256,13 +266,100 @@ function FlowEditorInner() {
         } else {
           setNodes([]);
           setEdges([]);
-          setFlowNeedsInitialGraph(true);
+          setFlowNeedsInitialGraph(false); // 초기 그래프 생성 비활성화
           builtWithOptions.current = false;
         }
       })
       .catch(() => setError('플로우를 불러오지 못했습니다.'))
       .finally(() => setLoading(false));
   }, [workspaceId, flowId, setNodes, setEdges]);
+
+  const handleAddNode = useCallback(
+    (type: string) => {
+      // 기존 노드가 있으면 마지막 노드 옆에 추가, 없으면 중앙에 추가
+      let position = { x: 400, y: 300 }; // 기본 중앙 위치
+      
+      if (nodes.length > 0) {
+        // 마지막 노드의 위치를 기준으로 오른쪽에 추가
+        const lastNode = nodes[nodes.length - 1];
+        position = {
+          x: lastNode.position.x + 350,
+          y: lastNode.position.y,
+        };
+      }
+
+      let newNode: Node;
+      const nodeId = `${type}-${Date.now()}`;
+
+      switch (type) {
+        case 'characterBox':
+          newNode = {
+            id: nodeId,
+            type: 'characterBox',
+            position,
+            data: {
+              characterId: null,
+              gender: '',
+              attribute: '',
+              type: '',
+              flowCardId: null,
+            } as CharacterBoxNodeData,
+          };
+          break;
+        case 'cardOption':
+          newNode = {
+            id: nodeId,
+            type: 'cardOption',
+            position: { ...position, y: position.y + 250 },
+            data: {
+              flowCardId: null,
+              gender: '',
+              attribute: '',
+              type: '',
+              cardName: '',
+              rarity: '',
+              attack: '',
+              health: '',
+              skill1Name: '',
+              skill1Description: '',
+              skill2Name: '',
+              skill2Description: '',
+              flavorText: '',
+              cardNumber: '',
+              series: '',
+            } as CardOptionNodeData,
+          };
+          break;
+        case 'cardPreview':
+          newNode = {
+            id: nodeId,
+            type: 'cardPreview',
+            position: { ...position, y: position.y + 500 },
+            data: {
+              flowCardId: null,
+              imageUrl: null,
+              cardName: '',
+              type: '',
+              attribute: '',
+              rarity: '',
+              attack: '',
+              health: '',
+              skill1: { name: '', description: '' },
+              skill2: { name: '', description: '' },
+              flavorText: '',
+              cardNumber: '',
+              series: '',
+            } as CardPreviewNodeData,
+          };
+          break;
+        default:
+          return;
+      }
+
+      setNodes((nds) => [...nds, newNode]);
+    },
+    [setNodes, nodes]
+  );
 
   const handleRegenerateCharacter = useCallback(async () => {
     const characterConfigNode = nodes.find((n) => n.id === CHARACTER_CONFIG_NODE_ID);
@@ -316,6 +413,12 @@ function FlowEditorInner() {
       );
     }
   }, [nodes, flowId, setNodes]);
+
+  const handleResetFlow = useCallback(() => {
+    setNodes([]);
+    setEdges([]);
+    setShowResetConfirm(false);
+  }, [setNodes, setEdges]);
 
   if (loading) {
     return (
@@ -400,6 +503,17 @@ function FlowEditorInner() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </button>
+          <button
+            type="button"
+            onClick={() => setShowResetConfirm(true)}
+            className="w-9 h-9 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            title="플로우 초기화"
+            aria-label="플로우 초기화"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
         </div>
       </div>
       <div className="h-full w-full bg-[#0c0c0f] flex-1 min-h-0 relative">
@@ -430,6 +544,17 @@ function FlowEditorInner() {
         nodes={nodes}
         flowId={flowId}
         onRegenerateCharacter={handleRegenerateCharacter}
+      />
+      <NodeAddPanel onAddNode={handleAddNode} />
+      <ConfirmModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={handleResetFlow}
+        title="플로우 초기화"
+        message="모든 노드를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        confirmText="초기화"
+        cancelText="취소"
+        variant="danger"
       />
     </>
   );
