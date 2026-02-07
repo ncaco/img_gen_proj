@@ -1,9 +1,10 @@
 'use client';
 
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState, useRef } from 'react';
 import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } from '@xyflow/react';
 import { getFlowCard, type FlowCard } from '@/app/lib/flow';
 import CardPreview from '@/app/components/CardPreview';
+import { API_BASE } from '@/app/lib/auth';
 import type { CardOptionNodeData } from './CardOptionNode';
 
 export type CardPreviewNodeData = {
@@ -28,6 +29,7 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
   const edges = useEdges();
   const [flowCard, setFlowCard] = useState<FlowCard | null>(null);
   const [loading, setLoading] = useState(false);
+  const prevSourceDataRef = useRef<string>('');
 
   // 이전 노드(CardOptionNode)에서 데이터 가져오기
   useEffect(() => {
@@ -61,6 +63,7 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
           )
         );
       }
+      prevSourceDataRef.current = '';
       return;
     }
 
@@ -69,7 +72,32 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
     if (!sourceNode || sourceNode.type !== 'cardOption') return;
 
     const sourceData = sourceNode.data as CardOptionNodeData;
-    const newFlowCardId = sourceData.flowCardId;
+    
+    // 소스 데이터의 변경 여부 확인 (JSON 문자열로 비교)
+    const currentSourceDataStr = JSON.stringify({
+      flowCardId: sourceData.flowCardId,
+      characterId: sourceData.characterId,
+      cardName: sourceData.cardName,
+      type: sourceData.type,
+      attribute: sourceData.attribute,
+      rarity: sourceData.rarity,
+      attack: sourceData.attack,
+      health: sourceData.health,
+      skill1Name: sourceData.skill1Name,
+      skill1Description: sourceData.skill1Description,
+      skill2Name: sourceData.skill2Name,
+      skill2Description: sourceData.skill2Description,
+      flavorText: sourceData.flavorText,
+      cardNumber: sourceData.cardNumber,
+      series: sourceData.series,
+    });
+
+    // 데이터가 변경되지 않았으면 업데이트하지 않음
+    if (prevSourceDataRef.current === currentSourceDataStr) {
+      return;
+    }
+
+    prevSourceDataRef.current = currentSourceDataStr;
 
     // 데이터 업데이트
     setNodes((nodes) =>
@@ -79,7 +107,7 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
               ...n,
               data: {
                 ...n.data,
-                flowCardId: newFlowCardId,
+                flowCardId: sourceData.flowCardId,
                 cardName: sourceData.cardName || '',
                 type: sourceData.type || '',
                 attribute: sourceData.attribute || '',
@@ -102,7 +130,7 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
           : n
       )
     );
-  }, [edges, nodes, id, data.flowCardId, data.cardName, data.type, setNodes]);
+  }, [edges, nodes, id, setNodes]);
 
   // FlowCard 이미지 로드
   useEffect(() => {
@@ -139,11 +167,25 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
       });
   }, [data.flowCardId, id, setNodes]);
 
+  // type에서 2뎁스만 추출
+  const typeDisplay = data.type
+    ? data.type.includes(' · ')
+      ? data.type.split(' · ')[1]
+      : data.type
+    : '';
+
+  // FlowCard의 imageUrl을 올바른 URL로 변환
+  const characterImageUrl = data.imageUrl
+    ? data.imageUrl.startsWith('http')
+      ? data.imageUrl
+      : `${API_BASE}${data.imageUrl}`
+    : undefined;
+
   const cardData = {
-    characterImage: data.imageUrl || undefined,
+    characterImage: characterImageUrl,
     backgroundImage: undefined, // FlowCard에는 배경 이미지가 없음
     cardName: data.cardName,
-    type: data.type,
+    type: typeDisplay,
     attribute: data.attribute,
     rarity: data.rarity,
     attack: data.attack,
@@ -157,7 +199,7 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
 
   return (
     <div className="rounded-xl min-w-[420px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
-      <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-white/40" />
+      <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-white/40" />
       <div className="px-3 py-2 border-b border-white/10 bg-white/5">
         <span className="text-xs font-medium text-white/90">카드 미리보기</span>
       </div>

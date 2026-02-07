@@ -313,6 +313,7 @@ function FlowEditorInner() {
             position: { ...position, y: position.y + 250 },
             data: {
               flowCardId: null,
+              characterId: null,
               gender: '',
               attribute: '',
               type: '',

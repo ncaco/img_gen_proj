@@ -28,12 +28,12 @@ function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & 
   const attributeList = options.attribute ?? [];
   const classTree = options.classTree ?? [];
 
-  // 클래스 옵션 생성 (2뎁스만)
+  // 클래스 옵션 생성 (value는 "부모 · 하위" 형식, label은 2뎁스만 표시)
   const classOptions: { value: string; label: string }[] = [];
   classTree.forEach((two) => {
     (two.children ?? []).forEach((three) => {
       const value = `${two.name} · ${three.name}`;
-      classOptions.push({ value, label: value });
+      classOptions.push({ value, label: three.name }); // label은 2뎁스만 표시
     });
   });
 
@@ -63,12 +63,16 @@ function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & 
       return;
     }
 
+    // "부모 · 하위" 형식에서 2뎁스 클래스(하위)만 추출
+    const typeParts = data.type.split(' · ');
+    const typeVal = typeParts.length > 1 ? typeParts[1] : data.type;
+
     setLoadingFlowCard(true);
     listFlowCards({
       characterId: data.characterId,
       gender: data.gender,
       attribute: data.attribute,
-      type: data.type,
+      type: typeVal,
     })
       .then((res) => {
         const flowCard = res.cards?.[0];
@@ -111,7 +115,7 @@ function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & 
 
   return (
     <div className="rounded-xl min-w-[240px] max-w-[320px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-white/40" />
+      <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-white/40" />
       <div className="px-3 py-2 border-b border-white/10 bg-white/5">
         <span className="text-xs font-medium text-white/90">캐릭터 박스</span>
       </div>
