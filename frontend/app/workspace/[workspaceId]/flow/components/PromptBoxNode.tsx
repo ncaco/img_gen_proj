@@ -179,6 +179,7 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
   return (
     <div className="rounded-xl min-w-[500px] max-w-[800px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
       <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-white/40" />
+      <Handle type="source" position={Position.Right} id="prompt" className="!w-2.5 !h-2.5 !bg-white/40" />
       <div className="px-3 py-2 border-b border-white/10 bg-white/5 flex items-center justify-between">
         <span className="text-xs font-medium text-white/90">카드 생성 프롬프트</span>
         {data.prompt && (
@@ -219,7 +220,7 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
         <div>
           <label className="block text-xs text-white/70 mb-2 font-semibold">프롬프트</label>
           {data.prompt ? (
-            <div className="rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/15 text-white whitespace-pre-wrap break-words font-mono">
+            <div className="rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/15 text-white whitespace-pre-wrap break-words font-mono max-h-64 overflow-y-auto">
               {data.prompt}
             </div>
           ) : (

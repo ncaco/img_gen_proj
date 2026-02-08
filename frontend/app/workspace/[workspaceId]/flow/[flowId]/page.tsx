@@ -44,6 +44,7 @@ import { CharacterBoxNode, type CharacterBoxNodeData } from '../components/Chara
 import { CardOptionNode, type CardOptionNodeData } from '../components/CardOptionNode';
 import { CardPreviewNode, type CardPreviewNodeData } from '../components/CardPreviewNode';
 import { PromptBoxNode, type PromptBoxNodeData } from '../components/PromptBoxNode';
+import { GeneratedImageNode, type GeneratedImageNodeData } from '../components/GeneratedImageNode';
 import { NodeAddPanel } from '../components/NodeAddPanel';
 import ConfirmModal from '@/app/components/ConfirmModal';
 
@@ -62,6 +63,7 @@ const nodeTypes = {
   cardOption: CardOptionNode,
   cardPreview: CardPreviewNode,
   promptBox: PromptBoxNode,
+  generatedImage: GeneratedImageNode,
 } as NodeTypes;
 
 /** 기존 단일 입력 노드 (호환용) */
@@ -414,6 +416,19 @@ function FlowEditorInner() {
               prompt: null,
               negativePrompt: null,
             } as PromptBoxNodeData,
+          };
+          break;
+        case 'generatedImage':
+          newNode = {
+            id: nodeId,
+            type: 'generatedImage',
+            position: { ...position, y: position.y + 1000 },
+            data: {
+              flowCardId: null,
+              imageUrl: null,
+              sourceNodeId: null,
+              localImageUrl: null,
+            } as GeneratedImageNodeData,
           };
           break;
         default:
