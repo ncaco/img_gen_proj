@@ -175,6 +175,24 @@ def init_db(force_recreate: bool = False):
                 conn.commit()
             print("✅ flow_characters 테이블에 noble_phantasms 컬럼을 추가했습니다.")
 
+    # flows 테이블 마이그레이션 (deleted_at, last_accessed_at 컬럼 추가)
+    if "flows" in inspector.get_table_names():
+        flow_columns = [c["name"] for c in inspector.get_columns("flows")]
+        
+        # deleted_at 컬럼이 없으면 추가 (소프트 삭제용)
+        if "deleted_at" not in flow_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE flows ADD COLUMN deleted_at DATETIME"))
+                conn.commit()
+            print("✅ flows 테이블에 deleted_at 컬럼을 추가했습니다.")
+        
+        # last_accessed_at 컬럼이 없으면 추가 (마지막 접속 시간)
+        if "last_accessed_at" not in flow_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE flows ADD COLUMN last_accessed_at DATETIME"))
+                conn.commit()
+            print("✅ flows 테이블에 last_accessed_at 컬럼을 추가했습니다.")
+
     print(f"✅ 데이터베이스 테이블이 초기화되었습니다: {settings.database_url}")
 
 

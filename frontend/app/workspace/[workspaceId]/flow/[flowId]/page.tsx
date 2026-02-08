@@ -40,13 +40,16 @@ import { CharacterConfigNode, CHARACTER_CONFIG_NODE_ID, type CharacterConfigNode
 import { CategorySelectNode, CATEGORY_SELECT_NODE_ID, type CategorySelectNodeData } from '../components/CategorySelectNode';
 import { CategoryOptionsProvider, useCategoryOptions, type CategoryOptions } from '../context/CategoryOptionsContext';
 import EncyclopediaSidebar from '../components/EncyclopediaSidebar';
+import FlowSidebar from '../components/FlowSidebar';
 import { CharacterBoxNode, type CharacterBoxNodeData } from '../components/CharacterBoxNode';
 import { CardOptionNode, type CardOptionNodeData } from '../components/CardOptionNode';
 import { CardPreviewNode, type CardPreviewNodeData } from '../components/CardPreviewNode';
 import { PromptBoxNode, type PromptBoxNodeData } from '../components/PromptBoxNode';
 import { GeneratedImageNode, type GeneratedImageNodeData } from '../components/GeneratedImageNode';
+import { CardConfirmNode, type CardConfirmNodeData } from '../components/CardConfirmNode';
 import { NodeAddPanel } from '../components/NodeAddPanel';
 import ConfirmModal from '@/app/components/ConfirmModal';
+import { isCardConfirmed, isNodeConnectedToConfirmedCard } from '../utils/cardConfirm';
 
 const nodeTypes = {
   inputParams: InputParamsNode,
@@ -64,6 +67,7 @@ const nodeTypes = {
   cardPreview: CardPreviewNode,
   promptBox: PromptBoxNode,
   generatedImage: GeneratedImageNode,
+  cardConfirm: CardConfirmNode,
 } as NodeTypes;
 
 /** 기존 단일 입력 노드 (호환용) */
@@ -126,6 +130,182 @@ function buildDefaultFlowGraph(_options: CategoryOptions): { nodes: Node[]; edge
   return { nodes, edges };
 }
 
+/** 플로우 생성 시 기본 카드 생성 노드들 생성 */
+function buildDefaultCardFlowGraph(): { nodes: Node[]; edges: Edge[] } {
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
+
+  const START_X = 100;
+  const START_Y = 200;
+  const NODE_GAP = 350; // 노드 간 간격
+  const PREVIEW_OFFSET_X = 150; // 카드미리보기 오른쪽 이동량
+  const PROMPT_OFFSET_X = 150; // 프롬프트박스 오른쪽 이동량
+  const PROMPT_OFFSET_Y = 600; // 프롬프트박스 아래쪽 추가 이동량
+  const IMAGE_OFFSET_X = 400; // 생성이미지첨부 오른쪽 이동량
+  const CONFIRM_OFFSET_X = 600; // 카드확정 오른쪽 이동량
+
+  // 1. 캐릭터박스
+  const characterBoxId = 'characterBox-1';
+  nodes.push({
+    id: characterBoxId,
+    type: 'characterBox',
+    position: { x: START_X, y: START_Y },
+    data: {
+      characterId: null,
+      gender: '',
+      attribute: '',
+      type: '',
+      flowCardId: null,
+    } as CharacterBoxNodeData,
+  });
+
+  // 2. 카드옵션박스
+  const cardOptionId = 'cardOption-1';
+  nodes.push({
+    id: cardOptionId,
+    type: 'cardOption',
+    position: { x: START_X + NODE_GAP, y: START_Y },
+    data: {
+      flowCardId: null,
+      characterId: null,
+      gender: '',
+      attribute: '',
+      type: '',
+      cardName: '',
+      rarity: '',
+      attack: '',
+      health: '',
+      noblePhantasm1Name: '',
+      noblePhantasm1TrueName: '',
+      noblePhantasm2Name: '',
+      noblePhantasm2TrueName: '',
+      flavorText: '',
+      cardNumber: '',
+      series: '',
+    } as CardOptionNodeData,
+  });
+
+  // 3. 카드 미리보기박스 (위쪽, 더 오른쪽)
+  const cardPreviewId = 'cardPreview-1';
+  nodes.push({
+    id: cardPreviewId,
+    type: 'cardPreview',
+    position: { x: START_X + NODE_GAP * 2 + PREVIEW_OFFSET_X, y: START_Y },
+    data: {
+      flowCardId: null,
+      imageUrl: null,
+      cardName: '',
+      type: '',
+      attribute: '',
+      rarity: '',
+      attack: '',
+      health: '',
+      noblePhantasm1: { name: '', description: '' },
+      noblePhantasm2: { name: '', description: '' },
+      flavorText: '',
+      cardNumber: '',
+      series: '',
+      prompt: null,
+      negativePrompt: null,
+    } as CardPreviewNodeData,
+  });
+
+  // 4. 프롬프트박스 (아래쪽, 더 오른쪽, 더 아래쪽)
+  const promptBoxId = 'promptBox-1';
+  nodes.push({
+    id: promptBoxId,
+    type: 'promptBox',
+    position: { x: START_X + NODE_GAP * 2 + PROMPT_OFFSET_X, y: START_Y + 300 + PROMPT_OFFSET_Y },
+    data: {
+      prompt: null,
+      negativePrompt: null,
+    } as PromptBoxNodeData,
+  });
+
+  // 5. 생성이미지첨부박스 (더 오른쪽)
+  const generatedImageId = 'generatedImage-1';
+  nodes.push({
+    id: generatedImageId,
+    type: 'generatedImage',
+    position: { x: START_X + NODE_GAP * 3 + IMAGE_OFFSET_X, y: START_Y },
+    data: {
+      flowCardId: null,
+      imageUrl: null,
+      sourceNodeId: null,
+      localImageUrl: null,
+    } as GeneratedImageNodeData,
+  });
+
+  // 6. 카드확정박스 (더 오른쪽)
+  const cardConfirmId = 'cardConfirm-1';
+  nodes.push({
+    id: cardConfirmId,
+    type: 'cardConfirm',
+    position: { x: START_X + NODE_GAP * 4 + CONFIRM_OFFSET_X, y: START_Y },
+    data: {
+      cardData: null,
+      imageUrl: null,
+      prompt: null,
+      sourceNodeId: null,
+      previewImageUrl: null,
+      cardPreviewNodeId: null,
+    } as CardConfirmNodeData,
+  });
+
+  // 연결 설정
+  // 캐릭터박스 → 카드옵션박스
+  edges.push({
+    id: `e-${characterBoxId}-${cardOptionId}`,
+    source: characterBoxId,
+    target: cardOptionId,
+    style: edgeStyle,
+  });
+
+  // 카드옵션박스 → 프롬프트박스
+  edges.push({
+    id: `e-${cardOptionId}-${promptBoxId}`,
+    source: cardOptionId,
+    target: promptBoxId,
+    style: edgeStyle,
+  });
+
+  // 카드옵션박스 → 카드미리보기박스
+  edges.push({
+    id: `e-${cardOptionId}-${cardPreviewId}`,
+    source: cardOptionId,
+    target: cardPreviewId,
+    style: edgeStyle,
+  });
+
+  // 프롬프트박스 → 생성이미지 첨부박스
+  edges.push({
+    id: `e-${promptBoxId}-${generatedImageId}`,
+    source: promptBoxId,
+    sourceHandle: 'prompt',
+    target: generatedImageId,
+    style: edgeStyle,
+  });
+
+  // 카드미리보기박스 → 생성이미지 첨부박스
+  edges.push({
+    id: `e-${cardPreviewId}-${generatedImageId}`,
+    source: cardPreviewId,
+    sourceHandle: 'prompt',
+    target: generatedImageId,
+    style: edgeStyle,
+  });
+
+  // 생성이미지 첨부박스 → 카드확정박스
+  edges.push({
+    id: `e-${generatedImageId}-${cardConfirmId}`,
+    source: generatedImageId,
+    target: cardConfirmId,
+    style: edgeStyle,
+  });
+
+  return { nodes, edges };
+}
+
 const defaultNodes: Node[] = [];
 const defaultEdges: Edge[] = [];
 
@@ -161,6 +341,7 @@ function FlowEditorInner() {
   const [flowNeedsInitialGraph, setFlowNeedsInitialGraph] = useState(false);
   const builtWithOptions = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [flowSidebarOpen, setFlowSidebarOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
@@ -180,10 +361,16 @@ function FlowEditorInner() {
           setFlowNeedsInitialGraph(false);
           builtWithOptions.current = true;
         } else {
-          setNodes([]);
-          setEdges([]);
-          setFlowNeedsInitialGraph(false); // 초기 그래프 생성 비활성화
-          builtWithOptions.current = false;
+          // 노드가 없으면 기본 카드 생성 노드들 생성
+          const { nodes: defaultNodes, edges: defaultEdges } = buildDefaultCardFlowGraph();
+          setNodes(defaultNodes);
+          setEdges(defaultEdges);
+          setFlowNeedsInitialGraph(false);
+          builtWithOptions.current = true;
+          // 기본 노드들을 서버에 저장
+          updateFlow(workspaceId, flowId, {
+            flowData: { nodes: defaultNodes, edges: defaultEdges },
+          }).catch(() => {});
         }
       })
       .catch(() => setError('플로우를 불러오지 못했습니다.'))
@@ -257,19 +444,16 @@ function FlowEditorInner() {
     [setEdges]
   );
 
-  // 노드 삭제 핸들러
+  // 노드 삭제 핸들러 - 모든 노드 삭제 방지
   const onNodesDelete = useCallback(
     (deleted: Node[]) => {
-      // 연결된 엣지도 함께 삭제
-      setEdges((eds) => {
-        const deletedNodeIds = new Set(deleted.map((n) => n.id));
-        return eds.filter((e) => !deletedNodeIds.has(e.source) && !deletedNodeIds.has(e.target));
-      });
+      // 모든 노드 삭제 방지
+      alert('노드는 삭제할 수 없습니다.');
     },
-    [setEdges]
+    []
   );
 
-  // 키보드 단축키: Delete/Backspace로 선택된 노드 삭제
+  // 키보드 단축키: Delete/Backspace로 선택된 노드 삭제 방지
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // 입력 필드에 포커스가 있으면 삭제하지 않음
@@ -281,18 +465,12 @@ function FlowEditorInner() {
         return;
       }
 
-      // Delete 또는 Backspace 키
+      // Delete 또는 Backspace 키로 노드 삭제 방지
       if (event.key === 'Delete' || event.key === 'Backspace') {
         const selectedNodes = nodes.filter((node) => node.selected);
         if (selectedNodes.length > 0) {
           event.preventDefault();
-          // 선택된 노드 삭제
-          const remainingNodes = nodes.filter((node) => !node.selected);
-          setNodes(remainingNodes);
-          
-          // 연결된 엣지도 삭제
-          const deletedNodeIds = new Set(selectedNodes.map((n) => n.id));
-          setEdges((eds) => eds.filter((e) => !deletedNodeIds.has(e.source) && !deletedNodeIds.has(e.target)));
+          alert('노드는 삭제할 수 없습니다.');
         }
       }
     };
@@ -301,7 +479,7 @@ function FlowEditorInner() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [nodes, edges, setNodes, setEdges]);
+  }, [nodes]);
 
   const handleRefresh = useCallback(() => {
     if (Number.isNaN(workspaceId) || Number.isNaN(flowId)) return;
@@ -431,6 +609,21 @@ function FlowEditorInner() {
             } as GeneratedImageNodeData,
           };
           break;
+        case 'cardConfirm':
+          newNode = {
+            id: nodeId,
+            type: 'cardConfirm',
+            position: { ...position, y: position.y + 1250 },
+            data: {
+              cardData: null,
+              imageUrl: null,
+              prompt: null,
+              sourceNodeId: null,
+              previewImageUrl: null,
+              cardPreviewNodeId: null,
+            } as CardConfirmNodeData,
+          };
+          break;
         default:
           return;
       }
@@ -520,6 +713,18 @@ function FlowEditorInner() {
   return (
     <>
       <div className="flex items-center gap-3 px-4 py-2 border-b border-white/10 bg-[#0c0c0f]/95">
+        {/* 플로우 사이드바 열기 버튼 (왼쪽) */}
+        <button
+          type="button"
+          onClick={() => setFlowSidebarOpen(!flowSidebarOpen)}
+          className="w-9 h-9 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors shrink-0"
+          title="플로우 목록"
+          aria-label="플로우 목록"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
         {editingTitle ? (
           <input
             ref={titleInputRef}
@@ -605,7 +810,7 @@ function FlowEditorInner() {
         onNodesDelete={onNodesDelete}
         nodeTypes={nodeTypes}
         zoomOnScroll
-        deleteKeyCode={['Delete', 'Backspace']}
+        deleteKeyCode={null}
         defaultEdgeOptions={{
           style: { stroke: '#ffffff', strokeWidth: 1.5 },
           type: 'smoothstep',
@@ -618,6 +823,15 @@ function FlowEditorInner() {
         <Controls className="!bg-[#1a1a1f] !border-white/10 !rounded-lg" />
       </ReactFlow>
       </div>
+      <FlowSidebar
+        isOpen={flowSidebarOpen}
+        onClose={() => setFlowSidebarOpen(false)}
+        workspaceId={workspaceId}
+        currentFlowId={flowId}
+        onFlowSelect={(newFlowId) => {
+          // 플로우 선택 시 페이지 리로드는 router.push에서 처리됨
+        }}
+      />
       <EncyclopediaSidebar 
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)}

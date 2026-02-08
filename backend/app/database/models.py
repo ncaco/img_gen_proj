@@ -183,7 +183,7 @@ class Workspace(Base):
 
 class Flow(Base):
     """
-    플로우 모델 (react-flow 노드/엣지 저장)
+    플로우 모델 (react-flow 노드/엣지 저장). 소프트 삭제(deleted_at) 지원.
     """
     __tablename__ = "flows"
 
@@ -191,6 +191,16 @@ class Flow(Base):
     workspace_id = Column(Integer, ForeignKey("workspaces.id"), nullable=False, index=True, comment="워크스페이스 ID (FK)")
     name = Column(String(200), nullable=False, default="새 플로우", comment="플로우 이름")
     flow_data = Column(JSON, nullable=True, comment="react-flow nodes/edges JSON")
+    deleted_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="소프트 삭제 시각 (NULL이면 미삭제)",
+    )
+    last_accessed_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="마지막 접속 시각",
+    )
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

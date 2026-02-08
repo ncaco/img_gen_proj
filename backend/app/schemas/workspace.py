@@ -50,6 +50,7 @@ class FlowResponseSchema(BaseModel):
     workspaceId: int = Field(..., description="워크스페이스 ID")
     name: str = Field(..., description="플로우 이름")
     flowData: Optional[dict[str, Any]] = Field(None, description="react-flow 데이터")
+    lastAccessedAt: Optional[str] = Field(None, description="마지막 접속 시각")
     createdAt: str = Field(..., description="생성일시")
     updatedAt: str = Field(..., description="수정일시")
 

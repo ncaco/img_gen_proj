@@ -5,6 +5,7 @@ import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } fr
 import type { CardOptionNodeData } from './CardOptionNode';
 import { buildPrompt } from '@/app/lib/promptBuilder';
 import { PROMPT_TEMPLATES, type TemplateId } from '@/app/lib/promptTemplate';
+import { isNodeConnectedToConfirmedCard } from '../utils/cardConfirm';
 
 export type PromptBoxNodeData = {
   prompt: string | null;
@@ -19,6 +20,34 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
   const prevSourceDataRef = useRef<string>('');
   const [copied, setCopied] = useState(false);
   const selectedTemplateId = data.templateId || 'basic';
+  
+  // 카드 확정 상태 확인
+  const isConfirmed = isNodeConnectedToConfirmedCard(id, nodes, edges);
+  
+  // 연결된 카드옵션 박스의 모든 필드가 작성되었는지 확인
+  const isCardOptionComplete = useMemo(() => {
+    const incomingEdges = edges.filter((e) => e.target === id);
+    if (incomingEdges.length === 0) return false;
+    
+    const sourceNodeId = incomingEdges[0].source;
+    const sourceNode = nodes.find((n) => n.id === sourceNodeId);
+    if (!sourceNode || sourceNode.type !== 'cardOption') return false;
+    
+    const sourceData = sourceNode.data as CardOptionNodeData;
+    return !!(
+      sourceData.cardName &&
+      sourceData.rarity &&
+      sourceData.attack &&
+      sourceData.health &&
+      sourceData.noblePhantasm1Name &&
+      sourceData.noblePhantasm1TrueName &&
+      sourceData.noblePhantasm2Name &&
+      sourceData.noblePhantasm2TrueName &&
+      sourceData.flavorText &&
+      sourceData.cardNumber &&
+      sourceData.series
+    );
+  }, [edges, nodes, id]);
 
   const handleCopyToClipboard = useCallback(async () => {
     if (!data.prompt) return;
@@ -27,6 +56,27 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
       await navigator.clipboard.writeText(data.prompt);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      
+      // 연결된 GeneratedImageNode에 프롬프트 복사 플래그 설정
+      const outgoingEdges = edges.filter((e) => e.source === id);
+      for (const edge of outgoingEdges) {
+        const targetNode = nodes.find((n) => n.id === edge.target && n.type === 'generatedImage');
+        if (targetNode) {
+          setNodes((nodes) =>
+            nodes.map((n) =>
+              n.id === targetNode.id
+                ? {
+                    ...n,
+                    data: {
+                      ...n.data,
+                      promptCopied: true,
+                    },
+                  }
+                : n
+            )
+          );
+        }
+      }
     } catch (error) {
       console.error('클립보드 복사 실패:', error);
       // 폴백: 텍스트 영역을 생성하여 복사
@@ -40,12 +90,33 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
         document.execCommand('copy');
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+        
+        // 연결된 GeneratedImageNode에 프롬프트 복사 플래그 설정
+        const outgoingEdges = edges.filter((e) => e.source === id);
+        for (const edge of outgoingEdges) {
+          const targetNode = nodes.find((n) => n.id === edge.target && n.type === 'generatedImage');
+          if (targetNode) {
+            setNodes((nodes) =>
+              nodes.map((n) =>
+                n.id === targetNode.id
+                  ? {
+                      ...n,
+                      data: {
+                        ...n.data,
+                        promptCopied: true,
+                      },
+                    }
+                  : n
+              )
+            );
+          }
+        }
       } catch (err) {
         console.error('폴백 복사 실패:', err);
       }
       document.body.removeChild(textArea);
     }
-  }, [data.prompt]);
+  }, [data.prompt, edges, nodes, id, setNodes]);
 
   // CardOptionNode에서 카드 데이터 가져오기
   useEffect(() => {
@@ -185,8 +256,9 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
         {data.prompt && (
           <button
             onClick={handleCopyToClipboard}
-            className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors text-white/70 hover:text-white"
-            title="클립보드에 복사"
+            disabled={!isCardOptionComplete}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors text-white/70 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            title={isCardOptionComplete ? "클립보드에 복사" : "카드옵션을 전부 작성해야 복사할 수 있습니다"}
           >
             {copied ? (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -201,13 +273,14 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
         )}
       </div>
       <div className="p-4">
-        {/* 템플릿 선택 */}
-        <div className="mb-4">
+        {/* 템플릿 선택 - 숨김 */}
+        <div className="mb-4 hidden">
           <label className="block text-xs text-white/70 mb-2 font-semibold">프롬프트 템플릿</label>
           <select
             value={selectedTemplateId}
             onChange={handleTemplateChange}
-            className="w-full rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/15 text-white focus:outline-none focus:ring-1 focus:ring-white/30"
+            disabled={isConfirmed}
+            className={`w-full rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/15 text-white focus:outline-none focus:ring-1 focus:ring-white/30 ${isConfirmed ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {Object.values(PROMPT_TEMPLATES).map((template) => (
               <option key={template.id} value={template.id} className="bg-[#1a1a1f]">

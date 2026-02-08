@@ -28,6 +28,10 @@ function NodeAddPanelComponent({ onAddNode }: NodeAddPanelProps) {
     onAddNode('generatedImage');
   }, [onAddNode]);
 
+  const handleAddCardConfirm = useCallback(() => {
+    onAddNode('cardConfirm');
+  }, [onAddNode]);
+
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
       <div className="bg-[#1a1a1f] border border-white/15 rounded-xl shadow-2xl p-3 flex gap-2">
@@ -100,6 +104,20 @@ function NodeAddPanelComponent({ onAddNode }: NodeAddPanelProps) {
           </button>
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-black/90 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
             생성 이미지 첨부 박스 추가
+          </div>
+        </div>
+        <div className="group relative">
+          <button
+            type="button"
+            onClick={handleAddCardConfirm}
+            className="w-10 h-10 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/10"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-black/90 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            카드 확정 박스 추가
           </div>
         </div>
       </div>

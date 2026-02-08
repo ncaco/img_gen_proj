@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
 import { FiClipboard, FiPlus, FiTrash2, FiDownload, FiUpload } from 'react-icons/fi';
 import { buildPrompt } from '../../lib/promptBuilder';
+import { getStoredToken } from '../../lib/auth';
 import ConfirmModal from '../../components/ConfirmModal';
 import LoadingMask from '../../components/LoadingMask';
 
@@ -331,11 +332,20 @@ export default function CardPage() {
     if (!deleteModal.card) return;
 
     const card = deleteModal.card;
+    const token = getStoredToken();
+
+    if (!token) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
 
     try {
       setIsDeleting(true);
       const response = await fetch(`http://localhost:8000/api/v1/cards/${card.cardSn}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) {
@@ -350,6 +360,9 @@ export default function CardPage() {
       if (selectedCard?.cardSn === card.cardSn) {
         handleCloseSlide();
       }
+
+      // 모달 닫기
+      setDeleteModal({ isOpen: false, card: null });
     } catch (err) {
       alert(err instanceof Error ? err.message : '카드 삭제 중 오류가 발생했습니다.');
       // 에러 발생 시 모달은 유지
@@ -441,12 +454,21 @@ export default function CardPage() {
       return;
     }
 
+    const token = getStoredToken();
+    if (!token) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
     try {
       setIsDeletingGenImage(true);
       const response = await fetch(
         `http://localhost:8000/api/v1/cards/${selectedCard.cardSn}/generated-image`,
         {
           method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
       );
 

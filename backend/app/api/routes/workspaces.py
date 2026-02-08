@@ -29,6 +29,7 @@ from app.services.workspace_service import (
     create_flow,
     update_flow,
     delete_flow,
+    get_latest_flow_by_workspace,
 )
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
@@ -73,6 +74,22 @@ def get_workspace(
     if not w:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="워크스페이스를 찾을 수 없습니다.")
     return workspace_to_response(w)
+
+
+@router.get("/{workspace_id}/flows/latest", response_model=FlowResponseSchema)
+def get_latest_flow(
+    workspace_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_required),
+):
+    """워크스페이스 내 가장 최근에 접속한 플로우 조회"""
+    w = get_workspace_by_id(db, workspace_id, current_user.id)
+    if not w:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="워크스페이스를 찾을 수 없습니다.")
+    f = get_latest_flow_by_workspace(db, workspace_id)
+    if not f:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="플로우를 찾을 수 없습니다.")
+    return flow_to_response(f)
 
 
 @router.patch("/{workspace_id}", response_model=WorkspaceResponseSchema)
@@ -147,13 +164,15 @@ def get_flow(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user_required),
 ):
-    """플로우 단건 조회"""
+    """플로우 단건 조회 (조회 시 마지막 접속 시간 업데이트)"""
     w = get_workspace_by_id(db, workspace_id, current_user.id)
     if not w:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="워크스페이스를 찾을 수 없습니다.")
     f = get_flow_by_id(db, flow_id, workspace_id)
     if not f:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="플로우를 찾을 수 없습니다.")
+    # 마지막 접속 시간 업데이트
+    f = update_flow(db, f, update_last_accessed=True)
     return flow_to_response(f)
 
 

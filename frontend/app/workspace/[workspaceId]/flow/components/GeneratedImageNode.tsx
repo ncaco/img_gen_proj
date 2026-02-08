@@ -6,12 +6,15 @@ import { uploadFlowCardImage, getFlowCard, type FlowCard } from '@/app/lib/flow'
 import { API_BASE } from '@/app/lib/auth';
 import type { CardPreviewNodeData } from './CardPreviewNode';
 import type { PromptBoxNodeData } from './PromptBoxNode';
+import { isNodeConnectedToConfirmedCard } from '../utils/cardConfirm';
 
 export type GeneratedImageNodeData = {
   flowCardId: number | null;
   imageUrl: string | null;
   sourceNodeId: string | null;
   localImageUrl: string | null; // 로컬에서 선택한 이미지 (base64 또는 blob URL)
+  cardPreviewDownloaded?: boolean; // 카드미리보기 다운로드 버튼 클릭 여부
+  promptCopied?: boolean; // 프롬프트 복사 버튼 클릭 여부
 };
 
 function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } & GeneratedImageNodeData>) {
@@ -23,6 +26,12 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const prevSourceDataRef = useRef<string>('');
+  
+  // 카드 확정 상태 확인
+  const isConfirmed = isNodeConnectedToConfirmedCard(id, nodes, edges);
+  
+  // 이미지 선택 버튼 활성화 여부 확인 (카드미리보기 다운로드 + 프롬프트 복사 모두 완료)
+  const canSelectImage = data.cardPreviewDownloaded === true && data.promptCopied === true;
 
   // 연결된 노드에서 이미지 URL 가져오기
   useEffect(() => {
@@ -153,6 +162,15 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files || e.target.files.length === 0) return;
+      
+      // 확정된 카드는 수정 불가
+      if (isNodeConnectedToConfirmedCard(id, nodes, edges)) {
+        alert('확정된 카드는 수정할 수 없습니다.');
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
 
       const file = e.target.files[0];
       if (!file.type.startsWith('image/')) {
@@ -214,7 +232,7 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
         fileInputRef.current.value = '';
       }
     },
-    [data.flowCardId, id, setNodes]
+    [data.flowCardId, id, setNodes, nodes, edges]
   );
 
   // 이미지 URL 생성 (로컬 이미지 우선, 없으면 서버 이미지)
@@ -229,6 +247,7 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
   return (
     <div className="rounded-xl min-w-[320px] max-w-[480px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
       <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-white/40" />
+      <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-white/40" />
       <div className="px-3 py-2 border-b border-white/10 bg-white/5 flex items-center justify-between">
         <span className="text-xs font-medium text-white/90">생성 이미지 첨부</span>
       </div>
@@ -249,13 +268,19 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
             <button
               type="button"
               onClick={handleFileSelect}
-              disabled={uploading}
+              disabled={isConfirmed || uploading || !canSelectImage}
               className="w-full px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-              <span>이미지 선택</span>
+              <span>
+                {isConfirmed 
+                  ? '확정된 카드는 수정할 수 없습니다' 
+                  : !canSelectImage 
+                    ? '카드미리보기 다운로드와 프롬프트 복사를 먼저 해주세요' 
+                    : '이미지 선택'}
+              </span>
             </button>
             <input
               ref={fileInputRef}
@@ -278,7 +303,7 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
             <button
               type="button"
               onClick={handleFileSelect}
-              disabled={uploading}
+              disabled={isConfirmed || uploading || !canSelectImage}
               className="w-full px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {uploading ? (
@@ -293,7 +318,13 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                   </svg>
-                  <span>{data.flowCardId ? '이미지 변경' : '이미지 변경'}</span>
+                  <span>
+                    {isConfirmed 
+                      ? '확정된 카드는 수정할 수 없습니다' 
+                      : !canSelectImage 
+                        ? '카드미리보기 다운로드와 프롬프트 복사를 먼저 해주세요' 
+                        : (data.flowCardId ? '이미지 변경' : '이미지 변경')}
+                  </span>
                 </>
               )}
             </button>
@@ -317,7 +348,7 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
             <button
               type="button"
               onClick={handleFileSelect}
-              disabled={uploading}
+              disabled={isConfirmed || uploading || !canSelectImage}
               className="w-full px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {uploading ? (
@@ -332,7 +363,13 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                   </svg>
-                  <span>이미지 업로드</span>
+                  <span>
+                    {isConfirmed 
+                      ? '확정된 카드는 수정할 수 없습니다' 
+                      : !canSelectImage 
+                        ? '카드미리보기 다운로드와 프롬프트 복사를 먼저 해주세요' 
+                        : '이미지 업로드'}
+                  </span>
                 </>
               )}
             </button>

@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useState, useRef, useCallback } from 'react';
+import { memo, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } from '@xyflow/react';
 import { getFlowCard, type FlowCard } from '@/app/lib/flow';
 import CardPreview from '@/app/components/CardPreview';
@@ -35,6 +35,31 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
   const [downloading, setDownloading] = useState(false);
   const prevSourceDataRef = useRef<string>('');
   const cardPreviewRef = useRef<HTMLDivElement>(null);
+
+  // 연결된 카드옵션 박스의 모든 필드가 작성되었는지 확인
+  const isCardOptionComplete = useMemo(() => {
+    const incomingEdges = edges.filter((e) => e.target === id);
+    if (incomingEdges.length === 0) return false;
+    
+    const sourceNodeId = incomingEdges[0].source;
+    const sourceNode = nodes.find((n) => n.id === sourceNodeId);
+    if (!sourceNode || sourceNode.type !== 'cardOption') return false;
+    
+    const sourceData = sourceNode.data as CardOptionNodeData;
+    return !!(
+      sourceData.cardName &&
+      sourceData.rarity &&
+      sourceData.attack &&
+      sourceData.health &&
+      sourceData.noblePhantasm1Name &&
+      sourceData.noblePhantasm1TrueName &&
+      sourceData.noblePhantasm2Name &&
+      sourceData.noblePhantasm2TrueName &&
+      sourceData.flavorText &&
+      sourceData.cardNumber &&
+      sourceData.series
+    );
+  }, [edges, nodes, id]);
 
   // 이전 노드(CardOptionNode)에서 데이터 가져오기
   useEffect(() => {
@@ -296,13 +321,34 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      // 연결된 GeneratedImageNode에 다운로드 플래그 설정
+      const outgoingEdges = edges.filter((e) => e.source === id);
+      for (const edge of outgoingEdges) {
+        const targetNode = nodes.find((n) => n.id === edge.target && n.type === 'generatedImage');
+        if (targetNode) {
+          setNodes((nodes) =>
+            nodes.map((n) =>
+              n.id === targetNode.id
+                ? {
+                    ...n,
+                    data: {
+                      ...n.data,
+                      cardPreviewDownloaded: true,
+                    },
+                  }
+                : n
+            )
+          );
+        }
+      }
     } catch (error) {
       console.error('이미지 다운로드 실패:', error);
       alert('이미지 다운로드에 실패했습니다.');
     } finally {
       setDownloading(false);
     }
-  }, [data.cardName, data.cardNumber, waitForImages]);
+  }, [data.cardName, data.cardNumber, waitForImages, edges, nodes, id, setNodes]);
 
   return (
     <div className="rounded-xl min-w-[420px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
@@ -313,9 +359,9 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
         {!loading && data.flowCardId && data.cardName && (
           <button
             onClick={handleDownload}
-            disabled={downloading}
+            disabled={downloading || !isCardOptionComplete}
             className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors text-white/70 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            title="카드 이미지 다운로드"
+            title={isCardOptionComplete ? "카드 이미지 다운로드" : "카드옵션을 전부 작성해야 다운로드할 수 있습니다"}
           >
             {downloading ? (
               <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">

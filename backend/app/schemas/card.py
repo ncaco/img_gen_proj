@@ -139,6 +139,11 @@ class CardGeneratedImageListResponseSchema(BaseModel):
     images: list[str] = Field(default_factory=list, description="합성이미지 URL 목록 (등록 순서)")
 
 
+class CardExistsResponseSchema(BaseModel):
+    """카드 존재 여부 응답 스키마"""
+    exists: bool = Field(..., description="카드 존재 여부")
+
+
 class RootResponseSchema(BaseModel):
     """루트 엔드포인트 응답 스키마"""
     message: str = Field(..., description="서버 메시지")

@@ -1,9 +1,10 @@
 'use client';
 
 import { memo, useCallback, useEffect, useState } from 'react';
-import { Handle, type NodeProps, Position, useReactFlow } from '@xyflow/react';
+import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } from '@xyflow/react';
 import { useCategoryOptions } from '../context/CategoryOptionsContext';
 import { listFlowCharacters, listFlowCards, type FlowCharacter } from '@/app/lib/flow';
+import { isNodeConnectedToConfirmedCard } from '../utils/cardConfirm';
 
 export type CharacterBoxNodeData = {
   characterId: number | null;
@@ -19,10 +20,15 @@ const optionStyle = { backgroundColor: '#2a2a32', color: '#fff' };
 
 function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & CharacterBoxNodeData>) {
   const { setNodes } = useReactFlow();
+  const nodes = useNodes();
+  const edges = useEdges();
   const options = useCategoryOptions();
   const [characters, setCharacters] = useState<FlowCharacter[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingFlowCard, setLoadingFlowCard] = useState(false);
+  
+  // 카드 확정 상태 확인
+  const isConfirmed = isNodeConnectedToConfirmedCard(id, nodes, edges);
 
   const genderList = options.gender ?? [];
   const attributeList = options.attribute ?? [];
@@ -126,8 +132,8 @@ function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & 
           <select
             value={data.characterId ?? ''}
             onChange={(e) => updateData('characterId', e.target.value ? Number(e.target.value) : null)}
-            className={selectClass}
-            disabled={loading}
+            className={`${selectClass} ${isConfirmed ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={isConfirmed || loading}
             aria-label="캐릭터 선택"
           >
             <option value="" style={optionStyle}>선택</option>
@@ -145,7 +151,8 @@ function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & 
           <select
             value={data.gender ?? ''}
             onChange={(e) => updateData('gender', e.target.value)}
-            className={selectClass}
+            className={`${selectClass} ${isConfirmed ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={isConfirmed}
             aria-label="성별 선택"
           >
             <option value="" style={optionStyle}>선택</option>
@@ -163,7 +170,8 @@ function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & 
           <select
             value={data.attribute ?? ''}
             onChange={(e) => updateData('attribute', e.target.value)}
-            className={selectClass}
+            className={`${selectClass} ${isConfirmed ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={isConfirmed}
             aria-label="속성 선택"
           >
             <option value="" style={optionStyle}>선택</option>
@@ -181,7 +189,8 @@ function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & 
           <select
             value={data.type ?? ''}
             onChange={(e) => updateData('type', e.target.value)}
-            className={selectClass}
+            className={`${selectClass} ${isConfirmed ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={isConfirmed}
             aria-label="클래스 선택"
           >
             <option value="" style={optionStyle}>선택</option>

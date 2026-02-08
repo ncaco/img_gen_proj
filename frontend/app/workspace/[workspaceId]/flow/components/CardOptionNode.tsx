@@ -1,9 +1,10 @@
 'use client';
 
-import { memo, useCallback, useEffect, useState, useRef } from 'react';
+import { memo, useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } from '@xyflow/react';
 import { getFlowCard, getFlowCharacter, generateCardData, generateNoblePhantasm, generateFlavorText, type FlowCard } from '@/app/lib/flow';
 import type { CharacterBoxNodeData } from './CharacterBoxNode';
+import { isNodeConnectedToConfirmedCard } from '../utils/cardConfirm';
 
 export type CardOptionNodeData = {
   flowCardId: number | null;
@@ -44,6 +45,27 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
   const [generatingNoblePhantasm1, setGeneratingNoblePhantasm1] = useState(false);
   const [generatingNoblePhantasm2, setGeneratingNoblePhantasm2] = useState(false);
   const [generatingFlavorText, setGeneratingFlavorText] = useState(false);
+  
+  // 카드 확정 상태 확인
+  const isConfirmed = isNodeConnectedToConfirmedCard(id, nodes, edges);
+  
+  // 연결된 캐릭터 박스의 모든 정보가 선택되었는지 확인
+  const isCharacterBoxComplete = useMemo(() => {
+    const incomingEdges = edges.filter((e) => e.target === id);
+    if (incomingEdges.length === 0) return false;
+    
+    const sourceNodeId = incomingEdges[0].source;
+    const sourceNode = nodes.find((n) => n.id === sourceNodeId);
+    if (!sourceNode || sourceNode.type !== 'characterBox') return false;
+    
+    const sourceData = sourceNode.data as CharacterBoxNodeData;
+    return !!(
+      sourceData.characterId &&
+      sourceData.gender &&
+      sourceData.attribute &&
+      sourceData.type
+    );
+  }, [edges, nodes, id]);
 
   // 이전 노드(CharacterBoxNode)에서 flowCardId 가져오기
   useEffect(() => {
@@ -388,7 +410,9 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
 
         {!data.flowCardId && (
           <div className="text-xs text-yellow-400/70 pb-3 border-b border-white/10">
-            캐릭터 박스에서 FlowCard를 선택하세요.
+            {!isCharacterBoxComplete 
+              ? '캐릭터 박스에서 모든 정보(캐릭터, 성별, 속성, 클래스)를 선택하세요.'
+              : '캐릭터 박스에서 FlowCard를 선택하세요.'}
           </div>
         )}
 
@@ -439,7 +463,8 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
             <select
               value={data.rarity ?? ''}
               onChange={(e) => updateData('rarity', e.target.value)}
-              className={selectClass}
+              disabled={isConfirmed || !isCharacterBoxComplete}
+              className={`${selectClass} ${isConfirmed || !isCharacterBoxComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <option value="" style={optionStyle}>등급 선택</option>
               <option value="⭐" style={optionStyle}>⭐ 노말</option>
@@ -459,7 +484,8 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
               type="number"
               value={data.attack ?? ''}
               onChange={(e) => updateData('attack', e.target.value)}
-              className={inputClass}
+              disabled={isConfirmed || !isCharacterBoxComplete}
+              className={`${inputClass} ${isConfirmed || !isCharacterBoxComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
               placeholder="0"
               min="0"
             />
@@ -470,7 +496,8 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
               type="number"
               value={data.health ?? ''}
               onChange={(e) => updateData('health', e.target.value)}
-              className={inputClass}
+              disabled={isConfirmed || !isCharacterBoxComplete}
+              className={`${inputClass} ${isConfirmed || !isCharacterBoxComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
               placeholder="0"
               min="0"
             />
@@ -490,7 +517,8 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
                   const value = e.target.value.replace(/^#+/, '').replace(/[^0-9]/g, '');
                   updateData('cardNumber', value ? `#${value}` : '');
                 }}
-                className={`${inputClass} pl-6`}
+                disabled={isConfirmed || !isCharacterBoxComplete}
+                className={`${inputClass} pl-6 ${isConfirmed || !isCharacterBoxComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
                 placeholder="001"
               />
             </div>
@@ -501,7 +529,8 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
               type="text"
               value={data.series ?? ''}
               onChange={(e) => updateData('series', e.target.value)}
-              className={inputClass}
+              disabled={isConfirmed || !isCharacterBoxComplete}
+              className={`${inputClass} ${isConfirmed || !isCharacterBoxComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
               placeholder="시리즈명 또는 제작자명"
             />
           </div>
@@ -513,7 +542,7 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
             <div className="text-xs font-semibold text-white/90">보구 1</div>
             <button
               onClick={handleGenerateNoblePhantasm1}
-              disabled={generatingNoblePhantasm1 || !data.characterId}
+              disabled={isConfirmed || generatingNoblePhantasm1 || !data.characterId || !isCharacterBoxComplete}
               className="text-yellow-400 hover:text-yellow-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
               title="보구 자동 생성"
             >
@@ -531,13 +560,15 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
               type="text"
               value={data.noblePhantasm1Name ?? ''}
               onChange={(e) => updateData('noblePhantasm1Name', e.target.value)}
-              className={inputClass}
+              disabled={isConfirmed || !isCharacterBoxComplete}
+              className={`${inputClass} ${isConfirmed || !isCharacterBoxComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
               placeholder="보구명"
             />
             <textarea
               value={data.noblePhantasm1TrueName ?? ''}
               onChange={(e) => updateData('noblePhantasm1TrueName', e.target.value)}
-              className={`${inputClass} resize-y min-h-[60px]`}
+              disabled={isConfirmed || !isCharacterBoxComplete}
+              className={`${inputClass} resize-y min-h-[60px] ${isConfirmed || !isCharacterBoxComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
               placeholder="진명개방"
               rows={2}
             />
@@ -550,7 +581,7 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
             <div className="text-xs font-semibold text-white/90">보구 2</div>
             <button
               onClick={handleGenerateNoblePhantasm2}
-              disabled={generatingNoblePhantasm2 || !data.characterId}
+              disabled={isConfirmed || generatingNoblePhantasm2 || !data.characterId || !isCharacterBoxComplete}
               className="text-yellow-400 hover:text-yellow-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
               title="보구 자동 생성"
             >
@@ -568,13 +599,15 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
               type="text"
               value={data.noblePhantasm2Name ?? ''}
               onChange={(e) => updateData('noblePhantasm2Name', e.target.value)}
-              className={inputClass}
+              disabled={isConfirmed || !isCharacterBoxComplete}
+              className={`${inputClass} ${isConfirmed || !isCharacterBoxComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
               placeholder="보구명"
             />
             <textarea
               value={data.noblePhantasm2TrueName ?? ''}
               onChange={(e) => updateData('noblePhantasm2TrueName', e.target.value)}
-              className={`${inputClass} resize-y min-h-[60px]`}
+              disabled={isConfirmed || !isCharacterBoxComplete}
+              className={`${inputClass} resize-y min-h-[60px] ${isConfirmed || !isCharacterBoxComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
               placeholder="진명개방"
               rows={2}
             />
@@ -587,7 +620,7 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
             <label className="block text-xs text-white/70">설명/플레이버 텍스트</label>
             <button
               onClick={handleGenerateFlavorText}
-              disabled={generatingFlavorText || !data.characterId}
+              disabled={isConfirmed || generatingFlavorText || !data.characterId || !isCharacterBoxComplete}
               className="text-yellow-400 hover:text-yellow-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
               title="플레이버 텍스트 자동 생성"
             >
@@ -603,7 +636,8 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
           <textarea
             value={data.flavorText ?? ''}
             onChange={(e) => updateData('flavorText', e.target.value)}
-            className={`${inputClass} resize-y min-h-[80px]`}
+            disabled={isConfirmed || !isCharacterBoxComplete}
+            className={`${inputClass} resize-y min-h-[80px] ${isConfirmed || !isCharacterBoxComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
             placeholder="카드의 배경 스토리나 캐릭터 설명을 입력하세요"
             rows={3}
           />
@@ -613,7 +647,7 @@ function CardOptionNodeComponent({ data, id }: NodeProps<{ label?: string } & Ca
         <div className="border-t border-white/10 pt-3">
           <button
             onClick={handleGenerateCardData}
-            disabled={generatingCardData || !data.characterId}
+            disabled={isConfirmed || generatingCardData || !data.characterId || !isCharacterBoxComplete}
             className="w-full py-2 px-4 bg-yellow-400/20 hover:bg-yellow-400/30 disabled:bg-gray-500/20 disabled:cursor-not-allowed text-yellow-400 hover:text-yellow-300 disabled:text-gray-500 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
             title="보구1, 보구2, 플레이버 텍스트 자동 생성"
           >

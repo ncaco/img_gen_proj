@@ -18,6 +18,7 @@ from app.schemas.card import (
     CardGeneratedImageUploadResponseSchema,
     CardGeneratedImageDeleteResponseSchema,
     CardGeneratedImageListResponseSchema,
+    CardExistsResponseSchema,
 )
 from app.services.card_service import CardService
 from app.database.database import get_db
@@ -428,6 +429,26 @@ async def list_card_generated_images(
         raise HTTPException(
             status_code=500,
             detail=f"합성이미지 목록 조회 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/{card_sn}/exists", response_model=CardExistsResponseSchema)
+async def check_card_exists(
+    card_sn: int,
+    db: Session = Depends(get_db),
+):
+    """
+    카드 존재 여부를 확인합니다. (로그인 불필요)
+    
+    - **card_sn**: 확인할 카드의 일련번호
+    """
+    try:
+        card = db.query(Card).filter(Card.card_sn == card_sn).first()
+        return CardExistsResponseSchema(exists=card is not None)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"카드 존재 여부 확인 중 오류가 발생했습니다: {str(e)}"
         )
 
 

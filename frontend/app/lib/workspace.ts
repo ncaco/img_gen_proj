@@ -16,6 +16,7 @@ export interface FlowItem {
   workspaceId: number;
   name: string;
   flowData: { nodes?: unknown[]; edges?: unknown[] } | null;
+  lastAccessedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,6 +66,19 @@ export async function listFlows(workspaceId: number): Promise<{ success: boolean
   return res.json();
 }
 
+export async function createFlow(workspaceId: number, name?: string): Promise<FlowItem> {
+  const res = await fetch(`${API_BASE}/api/v1/workspaces/${workspaceId}/flows`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '플로우 생성에 실패했습니다.');
+  }
+  return res.json();
+}
+
 export async function getFlow(workspaceId: number, flowId: number): Promise<FlowItem> {
   const res = await fetch(`${API_BASE}/api/v1/workspaces/${workspaceId}/flows/${flowId}`, { headers: authHeaders() });
   if (!res.ok) throw new Error('플로우를 불러올 수 없습니다.');
@@ -82,6 +96,23 @@ export async function updateFlow(
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('플로우 저장에 실패했습니다.');
+  return res.json();
+}
+
+export async function deleteFlow(workspaceId: number, flowId: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/workspaces/${workspaceId}/flows/${flowId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '플로우 삭제에 실패했습니다.');
+  }
+}
+
+export async function getLatestFlow(workspaceId: number): Promise<FlowItem> {
+  const res = await fetch(`${API_BASE}/api/v1/workspaces/${workspaceId}/flows/latest`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('최근 플로우를 불러올 수 없습니다.');
   return res.json();
 }
 

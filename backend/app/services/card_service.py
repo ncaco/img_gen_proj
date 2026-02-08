@@ -282,10 +282,10 @@ class CardService:
                     new_path = target_dir / new_filename
                     counter += 1
                 
-                # 파일 이동
+                # 파일 복사 (원본 파일은 유지)
                 if old_path != new_path:
-                    shutil.move(str(old_path), str(new_path))
-                    print(f"파일 이동 완료: {new_path}")
+                    shutil.copy2(str(old_path), str(new_path))
+                    print(f"파일 복사 완료: {old_path} -> {new_path}")
                 else:
                     print(f"파일이 이미 올바른 위치에 있음: {new_path}")
                 
@@ -465,9 +465,9 @@ class CardService:
                     new_path = target_dir / new_filename
                     counter += 1
                 
-                # 파일 이동
+                # 파일 복사 (원본 파일은 유지)
                 if old_path != new_path:
-                    shutil.move(str(old_path), str(new_path))
+                    shutil.copy2(str(old_path), str(new_path))
                     
                     # 새 URL 경로 생성
                     relative_path = new_path.relative_to(settings.upload_path.parent)
