@@ -1,4 +1,4 @@
-import { PROMPT_TEMPLATE } from './promptTemplate';
+import { PROMPT_TEMPLATE, PROMPT_TEMPLATES, type TemplateId } from './promptTemplate';
 
 export type PromptInput = {
   type?: string;
@@ -24,7 +24,7 @@ const truncate = (value: string, max: number) => {
   return `${value.slice(0, max - 3)}...`;
 };
 
-export const buildPrompt = (input: PromptInput) => {
+export const buildPrompt = (input: PromptInput, templateId: TemplateId = 'basic') => {
   const typeStr = input.type?.trim() ? input.type : '[타입]';
   const rarityStr = input.rarity?.trim() ? input.rarity : '[등급]';
   const cardNameStr = input.cardName?.trim() ? input.cardName : '카드명';
@@ -123,7 +123,8 @@ export const buildPrompt = (input: PromptInput) => {
     '{{cardDataJson}}': JSON.stringify(cardData, null, 2),
   };
 
-  let prompt = PROMPT_TEMPLATE;
+  const selectedTemplate = PROMPT_TEMPLATES[templateId] || PROMPT_TEMPLATES.basic;
+  let prompt = selectedTemplate.template;
   Object.entries(replacements).forEach(([key, value]) => {
     prompt = prompt.split(key).join(value);
   });

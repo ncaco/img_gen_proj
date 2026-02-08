@@ -25,7 +25,12 @@ export default function WorkspacePage() {
     }
     listWorkspaces()
       .then((data) => {
-        setWorkspaces(data.workspaces ?? []);
+        // name이 없는 워크스페이스에 기본값 제공
+        const workspaces = (data.workspaces ?? []).map((w) => ({
+          ...w,
+          name: w.name?.trim() || '새 워크스페이스',
+        }));
+        setWorkspaces(workspaces);
       })
       .catch(() => setWorkspaces([]))
       .finally(() => setLoading(false));
@@ -115,7 +120,7 @@ export default function WorkspacePage() {
                 className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/10 transition-colors group"
               >
                 <Link href={`/workspace/${w.id}`} className="flex-1 min-w-0 font-medium">
-                  {w.name}
+                  {w.name || '새 워크스페이스'}
                 </Link>
                 <button
                   type="button"

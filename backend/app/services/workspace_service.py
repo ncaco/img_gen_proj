@@ -11,9 +11,11 @@ from app.database.models import Workspace, Flow, User
 
 def workspace_to_response(w: Workspace) -> dict:
     """Workspace 모델 → API 응답 dict (camelCase)"""
+    # name이 None이거나 빈 문자열인 경우 기본값 제공
+    name = w.name if w.name and w.name.strip() else "새 워크스페이스"
     return {
         "id": w.id,
-        "name": w.name,
+        "name": name,
         "userId": w.user_id,
         "createdAt": w.created_at.isoformat() if w.created_at else "",
         "updatedAt": w.updated_at.isoformat() if w.updated_at else "",
@@ -34,12 +36,13 @@ def flow_to_response(f: Flow) -> dict:
 
 def list_workspaces_by_user(db: Session, user_id: int) -> list[Workspace]:
     """사용자 소유 워크스페이스 목록 (최신순, 소프트 삭제 제외)"""
-    return (
+    workspaces = (
         db.query(Workspace)
         .filter(Workspace.user_id == user_id, Workspace.deleted_at.is_(None))
         .order_by(desc(Workspace.updated_at))
         .all()
     )
+    return workspaces
 
 
 def get_workspace_by_id(db: Session, workspace_id: int, user_id: int | None = None) -> Workspace | None:

@@ -4,10 +4,12 @@ import { memo, useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } from '@xyflow/react';
 import type { CardOptionNodeData } from './CardOptionNode';
 import { buildPrompt } from '@/app/lib/promptBuilder';
+import { PROMPT_TEMPLATES, type TemplateId } from '@/app/lib/promptTemplate';
 
 export type PromptBoxNodeData = {
   prompt: string | null;
   negativePrompt: string | null;
+  templateId?: TemplateId;
 };
 
 function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & PromptBoxNodeData>) {
@@ -16,6 +18,7 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
   const edges = useEdges();
   const prevSourceDataRef = useRef<string>('');
   const [copied, setCopied] = useState(false);
+  const selectedTemplateId = data.templateId || 'basic';
 
   const handleCopyToClipboard = useCallback(async () => {
     if (!data.prompt) return;
@@ -75,7 +78,7 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
 
     const sourceData = sourceNode.data as CardOptionNodeData;
 
-    // 소스 데이터의 변경 여부 확인
+    // 소스 데이터의 변경 여부 확인 (템플릿 ID 포함)
     const currentSourceDataStr = JSON.stringify({
       cardName: sourceData.cardName,
       type: sourceData.type,
@@ -90,6 +93,7 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
       flavorText: sourceData.flavorText,
       cardNumber: sourceData.cardNumber,
       series: sourceData.series,
+      templateId: selectedTemplateId,
     });
 
     // 데이터가 변경되지 않았으면 업데이트하지 않음
@@ -119,7 +123,7 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
         skill2Description: sourceData.noblePhantasm2TrueName || '',
         flavorText: sourceData.flavorText || '',
         series: sourceData.series || '',
-      });
+      }, selectedTemplateId);
 
       // 데이터 업데이트
       setNodes((nodes) =>
@@ -153,7 +157,24 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
         )
       );
     }
-  }, [edges, nodes, id, setNodes, data.prompt, data.negativePrompt]);
+  }, [edges, nodes, id, setNodes, data.prompt, data.negativePrompt, selectedTemplateId]);
+
+  const handleTemplateChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newTemplateId = e.target.value as TemplateId;
+    setNodes((nodes) =>
+      nodes.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                templateId: newTemplateId,
+              } as PromptBoxNodeData,
+            }
+          : n
+      )
+    );
+  }, [id, setNodes]);
 
   return (
     <div className="rounded-xl min-w-[500px] max-w-[800px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
@@ -179,6 +200,21 @@ function PromptBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & Pro
         )}
       </div>
       <div className="p-4">
+        {/* 템플릿 선택 */}
+        <div className="mb-4">
+          <label className="block text-xs text-white/70 mb-2 font-semibold">프롬프트 템플릿</label>
+          <select
+            value={selectedTemplateId}
+            onChange={handleTemplateChange}
+            className="w-full rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/15 text-white focus:outline-none focus:ring-1 focus:ring-white/30"
+          >
+            {Object.values(PROMPT_TEMPLATES).map((template) => (
+              <option key={template.id} value={template.id} className="bg-[#1a1a1f]">
+                {template.name}
+              </option>
+            ))}
+          </select>
+        </div>
         {/* 프롬프트 */}
         <div>
           <label className="block text-xs text-white/70 mb-2 font-semibold">프롬프트</label>
