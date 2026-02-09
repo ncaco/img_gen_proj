@@ -56,6 +56,8 @@ export default function CardPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
   const [generatedImageUrls, setGeneratedImageUrls] = useState<string[]>([]);
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  const [isDownloadingCardZip, setIsDownloadingCardZip] = useState(false);
   const generatedImageInputRef = useRef<HTMLInputElement>(null);
   const imageScrollRef = useRef<HTMLDivElement>(null);
 
@@ -289,6 +291,62 @@ export default function CardPage() {
       setIsFullscreen(false);
       setFullscreenIndex(0);
     }, 300);
+  };
+
+  const handleDownloadCardZip = async () => {
+    if (!selectedCard) return;
+
+    try {
+      setIsDownloadingCardZip(true);
+      const response = await fetch(
+        `http://localhost:8000/api/v1/cards/${selectedCard.cardSn}/download-zip`,
+      );
+
+      if (!response.ok) {
+        throw new Error('카드 ZIP 다운로드에 실패했습니다.');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `card_${selectedCard.cardSn}_pk.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '카드 ZIP 다운로드 중 오류가 발생했습니다.');
+      console.error('카드 ZIP 다운로드 오류:', err);
+    } finally {
+      setIsDownloadingCardZip(false);
+    }
+  };
+
+  const handleDownloadAllZip = async () => {
+    try {
+      setIsDownloadingZip(true);
+      const response = await fetch('http://localhost:8000/api/v1/cards/download-zip');
+
+      if (!response.ok) {
+        throw new Error('카드 ZIP 다운로드에 실패했습니다.');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'cards_pk.zip';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '카드 ZIP 다운로드 중 오류가 발생했습니다.');
+      console.error('카드 ZIP 다운로드 오류:', err);
+    } finally {
+      setIsDownloadingZip(false);
+    }
   };
 
   const handleDownloadCard = async () => {
@@ -579,7 +637,16 @@ export default function CardPage() {
   }, [isFullscreen, isSlideOpen, selectedCard, selectedImageIndex]);
 
   const actionBar = (
-    <div className="flex justify-end gap-2">
+    <div className="flex justify-end gap-2 mb-4">
+      <button
+        type="button"
+        onClick={handleDownloadAllZip}
+        disabled={isDownloadingZip}
+        className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+      >
+        <FiDownload className="h-4 w-4" />
+        {isDownloadingZip ? 'ZIP 생성 중...' : '카드 전체 ZIP 다운로드'}
+      </button>
       <Link
         href="/"
         className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
@@ -698,6 +765,16 @@ export default function CardPage() {
                   카드 상세 정보
                 </h2>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDownloadCardZip}
+                    disabled={isDownloadingCardZip}
+                    className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                    aria-label="카드 ZIP 다운로드"
+                    title="카드 ZIP 다운로드"
+                  >
+                    <FiDownload className="w-4 h-4" />
+                    <span>ZIP</span>
+                  </button>
                   <button
                     onClick={handleDownloadCard}
                     className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"

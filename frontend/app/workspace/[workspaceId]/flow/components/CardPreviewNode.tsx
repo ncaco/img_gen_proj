@@ -11,6 +11,7 @@ import { toPng } from 'html-to-image';
 export type CardPreviewNodeData = {
   flowCardId: number | null;
   imageUrl: string | null;
+  cardPreviewImageUrl: string | null; // 카드 전체 미리보기 캡처 이미지 (data URL)
   cardName: string;
   type: string;
   attribute: string;
@@ -76,6 +77,7 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
                     ...n.data,
                     flowCardId: null,
                     imageUrl: null,
+                    cardPreviewImageUrl: null,
                     cardName: '',
                     type: '',
                     attribute: '',
@@ -192,6 +194,7 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
                   data: {
                     ...n.data,
                     imageUrl: card.imageUrl || null,
+                    // 카드 전체 미리보기 이미지는 다운로드/캡처 시에만 설정
                     prompt: card.prompt || null,
                     negativePrompt: card.negativePrompt || null,
                   } as CardPreviewNodeData,
@@ -232,7 +235,7 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
 
   // FlowCard의 imageUrl을 올바른 URL로 변환
   const characterImageUrl = data.imageUrl
-    ? data.imageUrl.startsWith('http')
+    ? data.imageUrl.startsWith('http') || data.imageUrl.startsWith('blob:') || data.imageUrl.startsWith('data:')
       ? data.imageUrl
       : `${API_BASE}${data.imageUrl}`
     : undefined;
@@ -321,6 +324,21 @@ function CardPreviewNodeComponent({ data, id }: NodeProps<{ label?: string } & C
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      // 자신의 노드 데이터에 카드 미리보기 캡처 이미지(data URL) 저장
+      setNodes((nodes) =>
+        nodes.map((n) =>
+          n.id === id
+            ? {
+                ...n,
+                data: {
+                  ...(n.data as CardPreviewNodeData),
+                  cardPreviewImageUrl: dataUrl,
+                } as CardPreviewNodeData,
+              }
+            : n
+        )
+      );
       
       // 연결된 GeneratedImageNode에 다운로드 플래그 설정
       const outgoingEdges = edges.filter((e) => e.source === id);

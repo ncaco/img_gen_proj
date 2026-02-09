@@ -5,6 +5,7 @@ import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } fr
 import { useCategoryOptions } from '../context/CategoryOptionsContext';
 import { listFlowCharacters, listFlowCards, type FlowCharacter } from '@/app/lib/flow';
 import { isNodeConnectedToConfirmedCard } from '../utils/cardConfirm';
+import { useFlowUI } from '../context/FlowUIContext';
 
 export type CharacterBoxNodeData = {
   characterId: number | null;
@@ -23,6 +24,7 @@ function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & 
   const nodes = useNodes();
   const edges = useEdges();
   const options = useCategoryOptions();
+  const { openEncyclopedia, setEncyclopediaSelection } = useFlowUI();
   const [characters, setCharacters] = useState<FlowCharacter[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingFlowCard, setLoadingFlowCard] = useState(false);
@@ -119,11 +121,94 @@ function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & 
     [id, setNodes]
   );
 
+  const isAllSelected =
+    !!data.characterId && !!data.gender && !!data.attribute && !!data.type;
+  const canOpenEncyclopedia = isAllSelected && !!data.flowCardId && !loadingFlowCard;
+
+  const handleRandomSelect = useCallback(() => {
+    if (isConfirmed || loading || loadingFlowCard) return;
+
+    const randomFrom = <T,>(arr: T[]): T | null => {
+      if (!arr.length) return null;
+      const idx = Math.floor(Math.random() * arr.length);
+      return arr[idx] ?? null;
+    };
+
+    const randomCharacter = randomFrom(characters);
+    const randomGender = randomFrom(genderList);
+    const randomAttribute = randomFrom(attributeList);
+    const randomClass = randomFrom(classOptions);
+
+    setNodes((nodes) =>
+      nodes.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              data: {
+                ...(n.data as CharacterBoxNodeData),
+                characterId: randomCharacter?.id ?? null,
+                gender: randomGender ?? '',
+                attribute: randomAttribute ?? '',
+                type: randomClass?.value ?? '',
+              },
+            }
+          : n
+      )
+    );
+  }, [
+    isConfirmed,
+    loading,
+    loadingFlowCard,
+    characters,
+    genderList,
+    attributeList,
+    classOptions,
+    id,
+    setNodes,
+  ]);
+
+  const handleOpenEncyclopediaWithFilters = useCallback(() => {
+    if (!canOpenEncyclopedia || !data.characterId) return;
+
+    // "부모 · 하위" 형식에서 2뎁스 클래스(하위)만 추출
+    const typeParts = data.type.split(' · ');
+    const typeVal = typeParts.length > 1 ? typeParts[1] : data.type;
+
+    setEncyclopediaSelection({
+      characterId: data.characterId,
+      gender: data.gender || null,
+      attribute: data.attribute || null,
+      type: typeVal || null,
+    });
+    openEncyclopedia();
+  }, [canOpenEncyclopedia, data.characterId, data.gender, data.attribute, data.type, setEncyclopediaSelection, openEncyclopedia]);
+
   return (
     <div className="rounded-xl min-w-[240px] max-w-[320px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
       <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-white/40" />
-      <div className="px-3 py-2 border-b border-white/10 bg-white/5">
+      <div className="px-3 py-2 border-b border-white/10 bg-white/5 flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-white/90">캐릭터 박스</span>
+        <button
+          type="button"
+          onClick={handleRandomSelect}
+          className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-white/20 bg-black/10 text-white/80 hover:bg-white/15 hover:text-white hover:border-white/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title="옵션 랜덤 선택"
+          aria-label="옵션 랜덤 선택"
+          disabled={isConfirmed || loading || loadingFlowCard}
+        >
+          <svg
+            className="w-3.5 h-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="4" ry="4" stroke="currentColor" strokeWidth="1.8" />
+            <circle cx="9" cy="9" r="1.4" fill="currentColor" />
+            <circle cx="15" cy="15" r="1.4" fill="currentColor" />
+            <circle cx="9" cy="15" r="1.4" fill="currentColor" />
+            <circle cx="15" cy="9" r="1.4" fill="currentColor" />
+          </svg>
+        </button>
       </div>
       <div className="p-3 space-y-3">
         {/* 캐릭터 선택 */}
@@ -215,6 +300,15 @@ function CharacterBoxNodeComponent({ data, id }: NodeProps<{ label?: string } & 
           <div className="text-xs text-yellow-400/70">
             해당 조합의 FlowCard를 찾을 수 없습니다.
           </div>
+        )}
+        {canOpenEncyclopedia && (
+          <button
+            type="button"
+            onClick={handleOpenEncyclopediaWithFilters}
+            className="w-full mt-2 px-3 py-2 text-xs font-medium rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-colors"
+          >
+            도감에서 이 조합 보기
+          </button>
         )}
       </div>
     </div>

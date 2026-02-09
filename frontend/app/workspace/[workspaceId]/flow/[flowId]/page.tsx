@@ -22,7 +22,6 @@ import {
   type Edge,
   type NodeTypes,
   getNodesBounds,
-  getViewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { getFlow, updateFlow } from '@/app/lib/workspace';
@@ -39,6 +38,7 @@ import { PromptTextareaNode } from '../components/PromptTextareaNode';
 import { CharacterConfigNode, CHARACTER_CONFIG_NODE_ID, type CharacterConfigNodeData } from '../components/CharacterConfigNode';
 import { CategorySelectNode, CATEGORY_SELECT_NODE_ID, type CategorySelectNodeData } from '../components/CategorySelectNode';
 import { CategoryOptionsProvider, useCategoryOptions, type CategoryOptions } from '../context/CategoryOptionsContext';
+import { FlowUIProvider, useFlowUI } from '../context/FlowUIContext';
 import EncyclopediaSidebar from '../components/EncyclopediaSidebar';
 import FlowSidebar from '../components/FlowSidebar';
 import { CharacterBoxNode, type CharacterBoxNodeData } from '../components/CharacterBoxNode';
@@ -328,6 +328,7 @@ function FlowEditorInner() {
   const workspaceId = Number(params.workspaceId);
   const flowId = Number(params.flowId);
   const options = useCategoryOptions();
+  const { isEncyclopediaOpen, toggleEncyclopedia, closeEncyclopedia } = useFlowUI();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [flowName, setFlowName] = useState('');
@@ -339,7 +340,6 @@ function FlowEditorInner() {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [flowNeedsInitialGraph, setFlowNeedsInitialGraph] = useState(false);
   const builtWithOptions = useRef(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [flowSidebarOpen, setFlowSidebarOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -767,7 +767,7 @@ function FlowEditorInner() {
           </button>
           <button
             type="button"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+          onClick={toggleEncyclopedia}
             className="w-9 h-9 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
             title="도감 사이드바"
             aria-label="도감 사이드바"
@@ -822,8 +822,8 @@ function FlowEditorInner() {
         }}
       />
       <EncyclopediaSidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)}
+        isOpen={isEncyclopediaOpen} 
+        onClose={closeEncyclopedia}
         onUpdateNodes={(updater) => setNodes(updater)}
         nodes={nodes}
         flowId={flowId}
@@ -847,7 +847,9 @@ export default function FlowEditorPage() {
   return (
     <div className="fixed inset-0 top-14 z-40 flex flex-col bg-[#0c0c0f]">
       <CategoryOptionsProvider>
-        <FlowEditorInner />
+        <FlowUIProvider>
+          <FlowEditorInner />
+        </FlowUIProvider>
       </CategoryOptionsProvider>
     </div>
   );

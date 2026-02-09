@@ -637,7 +637,8 @@ function CardConfirmNodeComponent({ data, id }: NodeProps<{ label?: string } & C
             flavorText: cardData.flavorText || '',
             cardNumber: cardData.cardNumber || '',
             series: cardData.series || 'Default / Ncaco.Inc',
-            gender: '', // CardOptionNodeData에는 gender가 없을 수 있음
+            // FlowCard → CharacterBoxNode → CardOptionNode 에서 내려온 성별 값 사용
+            gender: cardData.gender || '',
           },
           characterImageUrl: flowCardImageUrl, // FlowCard의 image_url
           backgroundImageUrl: null,

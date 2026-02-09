@@ -1,7 +1,11 @@
 """
 카드 관련 API 라우터
 """
+import io
+import zipfile
+
 from fastapi import APIRouter, HTTPException, Depends, File, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -252,6 +256,259 @@ async def get_cards(
         raise HTTPException(
             status_code=500,
             detail=f"카드 목록 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.get("/download-zip")
+async def download_all_cards_zip(
+    db: Session = Depends(get_db),
+):
+    """
+    모든 카드의 이미지를 ZIP으로 내려받는 엔드포인트입니다.
+
+    ZIP 내부 구조 (캐릭터/카드명 기준):
+    - {캐릭터명}/합성3/캐릭터명_성별_속성_클래스.png
+    - {캐릭터명}/초안2/캐릭터명_성별_속성_클래스.png
+    - {캐릭터명}/원본1/캐릭터명_성별_속성_클래스.png
+
+    각 캐릭터 폴더 아래에 카드별 이미지가 저장됩니다.
+    - 합성3: 카드별 최신 합성이미지 (CardGeneratedImage 기준)
+    - 초안2: 최초 생성 이미지(URL 기준, Card.generated_image_url)
+    - 원본1: 원본 캐릭터/배경 이미지 (character_image_url > background_image_url)
+    """
+    from datetime import datetime
+
+    try:
+        # 카드 전체 조회 (필터 없이 최신순 전체)
+        cards, _total = card_service.get_all_cards(
+            db,
+            skip=0,
+            limit=10_000,
+        )
+
+        # 카드별 최신 합성이미지 URL (가장 최근 1장)
+        gen_rows = (
+            db.query(CardGeneratedImage)
+            .order_by(desc(CardGeneratedImage.created_at))
+            .all()
+        )
+        latest_gen_by_card: dict[int, str] = {}
+        for row in gen_rows:
+            if row.card_sn not in latest_gen_by_card:
+                latest_gen_by_card[row.card_sn] = row.image_url
+
+        def safe_filename(text: str | None, fallback: str) -> str:
+            """
+            파일/경로에 사용할 수 있도록 문자열을 정제합니다.
+            (윈도우 예약문자 제거)
+            """
+            if not text:
+                return fallback
+            invalid_chars = '\\/:*?"<>|'
+            cleaned = "".join(c for c in text if c not in invalid_chars).strip()
+            return cleaned or fallback
+
+        zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for card in cards:
+                # 캐릭터(카드명) 디렉토리
+                card_sn_str = str(card.card_sn).zfill(4)
+                char_dir_name = safe_filename(card.card_name, f"card_{card_sn_str}")
+
+                # 이미지 파일명: 캐릭터명_성별_속성_클래스
+                name_parts: list[str] = []
+                name_parts.append(char_dir_name)
+
+                # gender, attribute, type 이 존재하는 경우만 뒤에 붙임
+                for value in (card.gender, card.attribute, card.type):
+                    if value:
+                        safe = safe_filename(value, "")
+                        if safe:
+                            name_parts.append(safe)
+
+                file_base = "_".join(name_parts) if name_parts else f"card_{card_sn_str}"
+
+                # 1) 합성3: 최신 합성이미지
+                composite_url = latest_gen_by_card.get(card.card_sn)
+                if composite_url:
+                    composite_path = get_file_path_from_url(composite_url)
+                    if composite_path:
+                        ext = composite_path.suffix or ".png"
+                        arc_name = f"{char_dir_name}/합성3/{file_base}{ext}"
+                        try:
+                            with open(composite_path, "rb") as f:
+                                zipf.writestr(arc_name, f.read())
+                        except Exception:
+                            # 개별 파일 실패는 무시하고 계속 진행
+                            pass
+
+                # 2) 초안2: 최초 생성 이미지 (draft, generated_image_url)
+                draft_url = card.generated_image_url
+                if draft_url:
+                    draft_path = get_file_path_from_url(draft_url)
+                    if draft_path:
+                        ext = draft_path.suffix or ".png"
+                        arc_name = f"{char_dir_name}/초안2/{file_base}{ext}"
+                        try:
+                            with open(draft_path, "rb") as f:
+                                zipf.writestr(arc_name, f.read())
+                        except Exception:
+                            pass
+
+                # 3) 원본1: 캐릭터 > 배경
+                original_url = card.character_image_url or card.background_image_url
+                if original_url:
+                    original_path = get_file_path_from_url(original_url)
+                    if original_path:
+                        ext = original_path.suffix or ".png"
+                        arc_name = f"{char_dir_name}/원본1/{file_base}{ext}"
+                        try:
+                            with open(original_path, "rb") as f:
+                                zipf.writestr(arc_name, f.read())
+                        except Exception:
+                            pass
+
+        zip_buffer.seek(0)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"cards_pk_{timestamp}.zip"
+
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers=headers,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"카드 ZIP 생성 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.get("/{card_sn}/download-zip")
+async def download_single_card_zip(
+    card_sn: int,
+    db: Session = Depends(get_db),
+):
+    """
+    단일 카드의 원본/초안/합성 이미지를 ZIP으로 내려받는 엔드포인트입니다.
+
+    ZIP 내부 구조:
+    - pk_캐릭터/{캐릭터명}/합성3/...
+    - pk_캐릭터/{캐릭터명}/초안2/...
+    - pk_캐릭터/{캐릭터명}/원본1/...
+    """
+    from datetime import datetime
+
+    try:
+        card = db.query(Card).filter(Card.card_sn == card_sn).first()
+        if not card:
+            raise HTTPException(
+                status_code=404,
+                detail=f"카드 일련번호 {card_sn}에 해당하는 카드를 찾을 수 없습니다.",
+            )
+
+        # 해당 카드의 합성이미지 중 최신 1장
+        latest_gen = (
+            db.query(CardGeneratedImage)
+            .filter(CardGeneratedImage.card_sn == card_sn)
+            .order_by(desc(CardGeneratedImage.created_at))
+            .first()
+        )
+        latest_gen_url = latest_gen.image_url if latest_gen else None
+
+        def safe_filename(text: str | None, fallback: str) -> str:
+            """파일/경로에 사용할 수 있도록 문자열을 정제 (윈도우 예약문자 제거)."""
+            if not text:
+                return fallback
+            invalid_chars = '\\/:*?"<>|'
+            cleaned = "".join(c for c in text if c not in invalid_chars).strip()
+            return cleaned or fallback
+
+        card_sn_str = str(card.card_sn).zfill(4)
+        char_dir_name = safe_filename(card.card_name, f"card_{card_sn_str}")
+
+        # 이미지 파일명: 캐릭터명_성별_속성_클래스
+        name_parts: list[str] = []
+        name_parts.append(char_dir_name)
+        for value in (card.gender, card.attribute, card.type):
+            if value:
+                safe = safe_filename(value, "")
+                if safe:
+                    name_parts.append(safe)
+
+        file_base = "_".join(name_parts) if name_parts else f"card_{card_sn_str}"
+
+        zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+            # 1) 합성3: 최신 합성이미지
+            if latest_gen_url:
+                composite_path = get_file_path_from_url(latest_gen_url)
+                if composite_path:
+                    ext = composite_path.suffix or ".png"
+                    arc_name = f"{char_dir_name}/합성3/{file_base}{ext}"
+                    try:
+                        with open(composite_path, "rb") as f:
+                            zipf.writestr(arc_name, f.read())
+                    except Exception:
+                        pass
+
+            # 2) 초안2: 최초 생성 이미지 (draft, generated_image_url)
+            draft_url = card.generated_image_url
+            if draft_url:
+                draft_path = get_file_path_from_url(draft_url)
+                if draft_path:
+                    ext = draft_path.suffix or ".png"
+                    arc_name = f"{char_dir_name}/초안2/{file_base}{ext}"
+                    try:
+                        with open(draft_path, "rb") as f:
+                            zipf.writestr(arc_name, f.read())
+                    except Exception:
+                        pass
+
+            # 3) 원본1: 캐릭터 > 배경
+            original_url = card.character_image_url or card.background_image_url
+            if original_url:
+                original_path = get_file_path_from_url(original_url)
+                if original_path:
+                    ext = original_path.suffix or ".png"
+                    arc_name = f"{char_dir_name}/원본1/{file_base}{ext}"
+                    try:
+                        with open(original_path, "rb") as f:
+                            zipf.writestr(arc_name, f.read())
+                    except Exception:
+                        pass
+
+        zip_buffer.seek(0)
+
+        # 헤더 인코딩 문제를 피하기 위해 파일명은 ASCII(영문/숫자)만 사용
+        # (내부 ZIP 경로에는 한글이 그대로 포함되어도 무방)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"card_{card_sn_str}_{timestamp}.zip"
+
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers=headers,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"카드 ZIP 생성 중 오류가 발생했습니다: {str(e)}",
         )
 
 

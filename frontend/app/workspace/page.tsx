@@ -3,7 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { listWorkspaces, createWorkspace, deleteWorkspace, listFlows, type WorkspaceItem } from '@/app/lib/workspace';
+import {
+  listWorkspaces,
+  createWorkspace,
+  deleteWorkspace,
+  listFlows,
+  updateWorkspace,
+  type WorkspaceItem,
+} from '@/app/lib/workspace';
 import { getStoredToken } from '@/app/lib/auth';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import LoadingMask from '@/app/components/LoadingMask';
@@ -16,6 +23,9 @@ export default function WorkspacePage() {
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<WorkspaceItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [savingId, setSavingId] = useState<number | null>(null);
 
   useEffect(() => {
     const token = getStoredToken();
@@ -70,6 +80,39 @@ export default function WorkspacePage() {
     }
   };
 
+  const handleStartEdit = (workspace: WorkspaceItem) => {
+    setError(null);
+    setEditingId(workspace.id);
+    setEditingName(workspace.name?.trim() || '새 워크스페이스');
+  };
+
+  const handleCancelEdit = () => {
+    if (savingId) return;
+    setEditingId(null);
+    setEditingName('');
+  };
+
+  const handleRenameConfirm = async (workspace: WorkspaceItem) => {
+    const trimmed = editingName.trim();
+    if (!trimmed) {
+      setError('워크스페이스 이름을 입력해주세요.');
+      return;
+    }
+    setSavingId(workspace.id);
+    try {
+      const updated = await updateWorkspace(workspace.id, trimmed);
+      setWorkspaces((prev) =>
+        prev.map((w) => (w.id === workspace.id ? { ...w, ...updated, name: trimmed } : w)),
+      );
+      setEditingId(null);
+      setEditingName('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '워크스페이스 이름 수정에 실패했습니다.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0c0c0f] text-white">
       <LoadingMask isOpen={creating} message="워크스페이스 생성 중…" />
@@ -119,9 +162,58 @@ export default function WorkspacePage() {
                 key={w.id}
                 className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/10 transition-colors group"
               >
-                <Link href={`/workspace/${w.id}`} className="flex-1 min-w-0 font-medium">
-                  {w.name || '새 워크스페이스'}
-                </Link>
+                {editingId === w.id ? (
+                  <div className="flex-1 min-w-0 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      className="flex-1 min-w-0 rounded-md bg-black/40 border border-white/20 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-white/40"
+                      maxLength={200}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRenameConfirm(w)}
+                      disabled={savingId === w.id}
+                      className="rounded-md px-2 py-1 text-xs font-medium bg-white/20 hover:bg-white/30 disabled:opacity-50 transition-colors"
+                    >
+                      {savingId === w.id ? '저장 중…' : '저장'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      disabled={savingId === w.id}
+                      className="rounded-md px-2 py-1 text-xs text-white/60 hover:bg-white/10 disabled:opacity-50 transition-colors"
+                    >
+                      취소
+                    </button>
+                  </div>
+                ) : (
+                  <Link href={`/workspace/${w.id}`} className="flex-1 min-w-0 font-medium">
+                    {w.name || '새 워크스페이스'}
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (savingId) return;
+                    handleStartEdit(w);
+                  }}
+                  className="flex-shrink-0 rounded p-1.5 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                  title="이름 변경"
+                  aria-label="워크스페이스 이름 변경"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536M4 20h4.586a1 1 0 00.707-.293l9.439-9.439a1 1 0 000-1.414l-3.586-3.586a1 1 0 00-1.414 0L4 14.586V20z"
+                    />
+                  </svg>
+                </button>
                 <button
                   type="button"
                   onClick={(e) => {

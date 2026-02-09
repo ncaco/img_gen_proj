@@ -44,7 +44,8 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
       if (!src) continue;
       if (src.type === 'cardPreview') {
         const d = src.data as CardPreviewNodeData;
-        const url = d.imageUrl || null;
+        // 카드 전체 미리보기 캡처 이미지를 사용 (캐릭터 원본 이미지가 아니라 카드 형태)
+        const url = d.cardPreviewImageUrl || null;
         cardPreviewImageUrl = url
           ? url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')
             ? url

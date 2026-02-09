@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import JSZip from 'jszip';
 import { listFlowCharacters, getFlowCharacter, generateFlowCards, listFlowCards, fetchLoreMapping, type FlowCharacter, type FlowCharacterDetail, type FlowCard } from '@/app/lib/flow';
 import { useCategoryOptions } from '../context/CategoryOptionsContext';
+import { useFlowUI } from '../context/FlowUIContext';
 import CardGrid from './CardGrid';
 import CardDetailModal from './CardDetailModal';
 import { CHARACTER_CONFIG_NODE_ID, type CharacterConfigNodeData } from './CharacterConfigNode';
@@ -43,6 +44,7 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
   const [registerDescription, setRegisterDescription] = useState('');
   const [registering, setRegistering] = useState(false);
   const categoryOptions = useCategoryOptions();
+  const { encyclopediaSelection, clearEncyclopediaSelection } = useFlowUI();
 
   // 캐릭터 목록 로드
   useEffect(() => {
@@ -59,6 +61,70 @@ export default function EncyclopediaSidebar({ isOpen, onClose, onUpdateNodes, no
         setLoading(false);
       });
   }, [isOpen, viewMode]);
+
+  // 외부(플로우 노드)에서 선택된 캐릭터/필터로 진입할 때 처리
+  useEffect(() => {
+    if (!isOpen || !encyclopediaSelection) return;
+
+    const { characterId, gender, attribute, type } = encyclopediaSelection;
+
+    // 뷰 모드 및 필터 설정
+    setViewMode('cards');
+    setSelectedCharacterId(characterId);
+    setGenderFilter(gender ?? null);
+    setAttributeFilter(attribute ?? null);
+    setTypeFilter(type ?? null);
+    setIsCharacterDetailOpen(false);
+
+    // 캐릭터 이름 로드
+    (async () => {
+      try {
+        const res = await listFlowCharacters();
+        const character = res.characters.find((c) => c.id === characterId);
+        if (character) {
+          setSelectedCharacterName(character.name);
+        } else {
+          setSelectedCharacterName('');
+        }
+      } catch {
+        // 이름 로드 실패 시 조용히 무시
+      }
+    })();
+
+    // 해당 캐릭터의 모든 조합 카드 생성 (기존 handleCharacterClick 로직과 동일)
+    (async () => {
+      // 클래스 목록 생성: 2뎁스만 추출
+      const classList: string[] = [];
+      if (categoryOptions.classTree.length > 0) {
+        categoryOptions.classTree.forEach((level1) => {
+          if (level1.children && level1.children.length > 0) {
+            level1.children.forEach((level2) => {
+              classList.push(level2.name);
+            });
+          }
+        });
+      } else if (categoryOptions.class.length > 0) {
+        classList.push(...categoryOptions.class);
+      }
+
+      try {
+        setLoading(true);
+        await generateFlowCards({
+          characterId,
+          genders: categoryOptions.gender,
+          attributes: categoryOptions.attribute,
+          types: classList.length > 0 ? classList : categoryOptions.class,
+        });
+      } catch (error) {
+        console.error('카드 생성 실패:', error);
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    // 한 번 처리 후 선택 상태는 클리어
+    clearEncyclopediaSelection();
+  }, [isOpen, encyclopediaSelection, categoryOptions, clearEncyclopediaSelection]);
 
   // ESC 키로 등록 모달 닫기
   useEffect(() => {
