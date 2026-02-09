@@ -56,3 +56,15 @@ class CardDataGenerateResponse(BaseModel):
     noblePhantasm1: dict[str, str] = Field(..., description="보구1 (보구명, 진명개방)")
     noblePhantasm2: dict[str, str] = Field(..., description="보구2 (보구명, 진명개방)")
     flavorText: str = Field(..., description="플레이버 텍스트")
+
+
+class ImageEditRequest(BaseModel):
+    """이미지 편집(자동 생성) 요청 스키마 - 카드 미리보기 이미지 + 프롬프트"""
+    imageBase64: str = Field(..., description="참조 이미지 base64 (data URL prefix 제거 가능)")
+    prompt: str = Field(..., description="이미지 생성/편집 지시 프롬프트")
+
+
+class ImageEditResponse(BaseModel):
+    """이미지 편집(자동 생성) 응답 스키마"""
+    success: bool = Field(..., description="성공 여부")
+    imageBase64: str = Field(..., description="생성된 이미지 base64")

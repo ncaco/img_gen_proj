@@ -29,6 +29,7 @@ function CardConfirmNodeComponent({ data, id }: NodeProps<{ label?: string } & C
   const [error, setError] = useState<string | null>(null);
   const [isCardExists, setIsCardExists] = useState(false);
   const [checkingCardExists, setCheckingCardExists] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const prevDataRef = useRef<string>('');
 
   // 연결된 노드에서 데이터 가져오기
@@ -721,14 +722,73 @@ function CardConfirmNodeComponent({ data, id }: NodeProps<{ label?: string } & C
     }
   }, [data, uploadImage, generateCardPreviewImage, id, setNodes, nodes, edges]);
 
+  // 확정 여부 새로고침: API로 확인 후 미확정이면 savedCardSn 제거 → 생성이미지첨부 활성화
+  const handleRefreshConfirmStatus = useCallback(async () => {
+    if (!data.savedCardSn) {
+      setIsCardExists(false);
+      return;
+    }
+    setRefreshing(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/cards/${data.savedCardSn}/exists`);
+      if (!response.ok) {
+        setIsCardExists(false);
+        return;
+      }
+      const result = await response.json();
+      const exists = result.exists === true;
+      setIsCardExists(exists);
+      // 서버에 카드가 없으면(미확정) savedCardSn 제거 → 이미지 첨부 박스 활성화
+      if (!exists) {
+        setNodes((nodes) =>
+          nodes.map((n) =>
+            n.id === id
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    savedCardSn: null,
+                  } as CardConfirmNodeData,
+                }
+              : n
+          )
+        );
+      }
+    } catch (err) {
+      console.error('확정 여부 확인 실패:', err);
+      setError('확정 여부를 가져오지 못했습니다.');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [data.savedCardSn, id, setNodes]);
+
   // 카드가 이미 존재하면 확정 불가 (한 번만 수행 가능)
   const canConfirm = data.cardData && data.imageUrl && !saving && !isCardExists && !checkingCardExists;
 
   return (
     <div className="rounded-xl min-w-[320px] max-w-[400px] bg-[#1a1a1f] border border-white/15 shadow-lg overflow-visible">
       <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-white/40" />
-      <div className="px-3 py-2 border-b border-white/10 bg-white/5 flex items-center justify-between">
+      <div className="px-3 py-2 border-b border-white/10 bg-white/5 flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-white/90">카드 확정</span>
+        <button
+          type="button"
+          onClick={handleRefreshConfirmStatus}
+          disabled={refreshing || !data.savedCardSn}
+          className="w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          title="확정 여부 새로고침"
+          aria-label="확정 여부 새로고침"
+        >
+          {refreshing ? (
+            <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          )}
+        </button>
       </div>
       <div className="p-4 space-y-4">
         {!data.cardData && (

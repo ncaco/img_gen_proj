@@ -47,7 +47,6 @@ import { CardPreviewNode, type CardPreviewNodeData } from '../components/CardPre
 import { PromptBoxNode, type PromptBoxNodeData } from '../components/PromptBoxNode';
 import { GeneratedImageNode, type GeneratedImageNodeData } from '../components/GeneratedImageNode';
 import { CardConfirmNode, type CardConfirmNodeData } from '../components/CardConfirmNode';
-import { NodeAddPanel } from '../components/NodeAddPanel';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import { isCardConfirmed, isNodeConnectedToConfirmedCard } from '../utils/cardConfirm';
 
@@ -444,42 +443,26 @@ function FlowEditorInner() {
     [setEdges]
   );
 
-  // 노드 삭제 핸들러 - 모든 노드 삭제 방지
+  // 노드 삭제 핸들러: 선택된 노드와 연결된 엣지 제거
   const onNodesDelete = useCallback(
     (deleted: Node[]) => {
-      // 모든 노드 삭제 방지
-      alert('노드는 삭제할 수 없습니다.');
+      const deletedIds = new Set(deleted.map((n) => n.id));
+      setNodes((nds) => nds.filter((n) => !deletedIds.has(n.id)));
+      setEdges((eds) =>
+        eds.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target))
+      );
     },
-    []
+    [setNodes, setEdges]
   );
 
-  // 키보드 단축키: Delete/Backspace로 선택된 노드 삭제 방지
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // 입력 필드에 포커스가 있으면 삭제하지 않음
-      if (
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement ||
-        event.target instanceof HTMLSelectElement
-      ) {
-        return;
-      }
-
-      // Delete 또는 Backspace 키로 노드 삭제 방지
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        const selectedNodes = nodes.filter((node) => node.selected);
-        if (selectedNodes.length > 0) {
-          event.preventDefault();
-          alert('노드는 삭제할 수 없습니다.');
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [nodes]);
+  // 엣지(선) 삭제 핸들러: 선택된 엣지만 제거
+  const onEdgesDelete = useCallback(
+    (deleted: Edge[]) => {
+      const deletedIds = new Set(deleted.map((e) => e.id));
+      setEdges((eds) => eds.filter((e) => !deletedIds.has(e.id)));
+    },
+    [setEdges]
+  );
 
   const handleRefresh = useCallback(() => {
     if (Number.isNaN(workspaceId) || Number.isNaN(flowId)) return;
@@ -687,10 +670,16 @@ function FlowEditorInner() {
   }, [nodes, flowId, setNodes]);
 
   const handleResetFlow = useCallback(() => {
-    setNodes([]);
-    setEdges([]);
+    const { nodes: defaultNodes, edges: defaultEdges } = buildDefaultCardFlowGraph();
+    setNodes(defaultNodes);
+    setEdges(defaultEdges);
     setShowResetConfirm(false);
-  }, [setNodes, setEdges]);
+    if (!Number.isNaN(workspaceId) && !Number.isNaN(flowId)) {
+      updateFlow(workspaceId, flowId, {
+        flowData: { nodes: defaultNodes, edges: defaultEdges },
+      }).catch(() => {});
+    }
+  }, [workspaceId, flowId, setNodes, setEdges]);
 
   if (loading) {
     return (
@@ -808,9 +797,9 @@ function FlowEditorInner() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodesDelete={onNodesDelete}
+        onEdgesDelete={onEdgesDelete}
         nodeTypes={nodeTypes}
         zoomOnScroll
-        deleteKeyCode={null}
         defaultEdgeOptions={{
           style: { stroke: '#ffffff', strokeWidth: 1.5 },
           type: 'smoothstep',
@@ -840,7 +829,6 @@ function FlowEditorInner() {
         flowId={flowId}
         onRegenerateCharacter={handleRegenerateCharacter}
       />
-      <NodeAddPanel onAddNode={handleAddNode} />
       <ConfirmModal
         isOpen={showResetConfirm}
         onClose={() => setShowResetConfirm(false)}

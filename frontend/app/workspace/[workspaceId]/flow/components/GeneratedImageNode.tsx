@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState, useRef, useCallback } from 'react';
 import { Handle, type NodeProps, Position, useReactFlow, useNodes, useEdges } from '@xyflow/react';
-import { uploadFlowCardImage, getFlowCard, type FlowCard } from '@/app/lib/flow';
+import { uploadFlowCardImage, getFlowCard, fetchImageEdit, type FlowCard } from '@/app/lib/flow';
 import { API_BASE } from '@/app/lib/auth';
 import type { CardPreviewNodeData } from './CardPreviewNode';
 import type { PromptBoxNodeData } from './PromptBoxNode';
@@ -22,16 +22,43 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
   const nodes = useNodes();
   const edges = useEdges();
   const [uploading, setUploading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [flowCard, setFlowCard] = useState<FlowCard | null>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const prevSourceDataRef = useRef<string>('');
-  
+
   // 카드 확정 상태 확인
   const isConfirmed = isNodeConnectedToConfirmedCard(id, nodes, edges);
-  
+
   // 이미지 선택 버튼 활성화 여부 확인 (카드미리보기 다운로드 + 프롬프트 복사 모두 완료)
   const canSelectImage = data.cardPreviewDownloaded === true && data.promptCopied === true;
+
+  // 연결된 카드미리보기 이미지 URL / 프롬프트박스 프롬프트 (자동 생성용)
+  const { cardPreviewImageUrl, promptText } = (() => {
+    const incomingEdges = edges.filter((e) => e.target === id);
+    let cardPreviewImageUrl: string | null = null;
+    let promptText: string | null = null;
+    for (const edge of incomingEdges) {
+      const src = nodes.find((n) => n.id === edge.source);
+      if (!src) continue;
+      if (src.type === 'cardPreview') {
+        const d = src.data as CardPreviewNodeData;
+        const url = d.imageUrl || null;
+        cardPreviewImageUrl = url
+          ? url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')
+            ? url
+            : `${API_BASE}${url}`
+          : null;
+      }
+      if (src.type === 'promptBox') {
+        const d = src.data as PromptBoxNodeData;
+        promptText = (d.prompt && d.prompt.trim()) ? d.prompt.trim() : null;
+      }
+    }
+    return { cardPreviewImageUrl, promptText };
+  })();
+  const canAutoGenerate = Boolean(!isConfirmed && cardPreviewImageUrl && promptText && !generating);
 
   // 연결된 노드에서 이미지 URL 가져오기
   useEffect(() => {
@@ -158,6 +185,55 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
   const handleFileSelect = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
+
+  /** URL 또는 data URL을 base64 문자열로 변환 */
+  const urlToBase64 = useCallback(async (url: string): Promise<string> => {
+    if (url.startsWith('data:')) {
+      const base64 = url.split(',')[1];
+      if (base64) return base64;
+    }
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error('이미지를 불러올 수 없습니다.');
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const b64 = dataUrl.split(',')[1];
+        resolve(b64 ?? '');
+      };
+      reader.onerror = () => reject(new Error('이미지 변환 실패'));
+      reader.readAsDataURL(blob);
+    });
+  }, []);
+
+  const handleAutoGenerate = useCallback(async () => {
+    if (!cardPreviewImageUrl || !promptText || generating || isConfirmed) return;
+    setGenerating(true);
+    try {
+      const imageBase64 = await urlToBase64(cardPreviewImageUrl);
+      const res = await fetchImageEdit({ imageBase64, prompt: promptText });
+      const dataUrl = `data:image/png;base64,${res.imageBase64}`;
+      setNodes((nodes) =>
+        nodes.map((n) =>
+          n.id === id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  localImageUrl: dataUrl,
+                } as GeneratedImageNodeData,
+              }
+            : n
+        )
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '이미지 자동 생성에 실패했습니다.';
+      alert(msg);
+    } finally {
+      setGenerating(false);
+    }
+  }, [cardPreviewImageUrl, promptText, generating, isConfirmed, id, setNodes, urlToBase64]);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -382,6 +458,35 @@ function GeneratedImageNodeComponent({ data, id }: NodeProps<{ label?: string } 
             />
           </div>
         )}
+        {/* 하단: ★이미지 자동 생성 (카드미리보기 이미지 + 프롬프트박스 프롬프트 → OpenAI image-edit) */}
+        <div className="mt-3 pt-3 border-t border-white/10">
+          <button
+            type="button"
+            onClick={handleAutoGenerate}
+            disabled={!canAutoGenerate}
+            className="w-full px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-sm font-medium transition-colors border border-amber-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {generating ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>이미지 생성 중...</span>
+              </>
+            ) : (
+              <>
+                <span className="text-amber-300">★</span>
+                <span>이미지 자동 생성</span>
+              </>
+            )}
+          </button>
+          {!cardPreviewImageUrl && (
+            <p className="text-xs text-white/50 mt-1.5 text-center">카드 미리보기 박스를 연결하세요.</p>
+          )}
+          {cardPreviewImageUrl && !promptText && (
+            <p className="text-xs text-white/50 mt-1.5 text-center">카드 생성 프롬프트 박스를 연결하세요.</p>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -37,6 +37,8 @@ from app.schemas.flow import (
     FlavorTextGenerateResponse,
     CardDataGenerateRequest,
     CardDataGenerateResponse,
+    ImageEditRequest,
+    ImageEditResponse,
 )
 from app.services.lore_service import run_lore_mapping
 from app.services.flow_card_service import FlowCardService
@@ -49,6 +51,7 @@ from app.services.noble_phantasm_service import (
     generate_flavor_text,
     generate_card_data,
 )
+from app.services.image_edit_service import run_image_edit
 
 router = APIRouter(prefix="/flow", tags=["flow"])
 
@@ -659,6 +662,41 @@ async def generate_flavor_text_endpoint(
         raise HTTPException(
             status_code=500,
             detail=f"플레이버 텍스트 생성 중 오류가 발생했습니다: {str(e)}",
+        )
+
+
+@router.post("/image-edit", response_model=ImageEditResponse)
+def image_edit_endpoint(
+    request: ImageEditRequest,
+    current_user: User = Depends(get_current_user_required),
+):
+    """
+    OpenAI images.edit API로 이미지 자동 생성.
+    카드 미리보기 이미지(base64)와 카드생성 프롬프트를 받아 이미지를 생성합니다.
+    """
+    import base64 as b64
+
+    raw = request.imageBase64.strip()
+    if raw.startswith("data:"):
+        # data:image/png;base64,xxxx 제거
+        raw = raw.split(",", 1)[-1]
+    try:
+        image_bytes = b64.b64decode(raw)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"이미지 base64 디코딩 실패: {e}")
+
+    if not request.prompt or not request.prompt.strip():
+        raise HTTPException(status_code=400, detail="프롬프트를 입력해 주세요.")
+
+    try:
+        image_base64 = run_image_edit(image_bytes=image_bytes, prompt=request.prompt.strip())
+        return ImageEditResponse(success=True, imageBase64=image_base64)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"이미지 생성 중 오류가 발생했습니다: {str(e)}",
         )
 
 

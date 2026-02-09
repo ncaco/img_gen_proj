@@ -241,6 +241,33 @@ export async function generateImagePrompt(request: ImagePromptRequest): Promise<
   return res.json();
 }
 
+export interface ImageEditRequest {
+  imageBase64: string;
+  prompt: string;
+}
+
+export interface ImageEditResponse {
+  success: boolean;
+  imageBase64: string;
+}
+
+/** OpenAI image-edit로 이미지 자동 생성. 카드 미리보기 이미지 + 프롬프트 사용. 로그인 필요. */
+export async function fetchImageEdit(request: ImageEditRequest): Promise<ImageEditResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/flow/image-edit`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      imageBase64: request.imageBase64,
+      prompt: request.prompt,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '이미지 자동 생성에 실패했습니다.');
+  }
+  return res.json();
+}
+
 export interface FlowCardUpdateRequest {
   prompt?: string | null;
   negativePrompt?: string | null;
