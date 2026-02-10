@@ -71,6 +71,9 @@ export default function AdminPostPage() {
   // 인스타그램 업로드용 템플릿
   const [instagramFirstLine, setInstagramFirstLine] = useState('');
   const [instagramBody, setInstagramBody] = useState('');
+  const [instagramBodyNarrative, setInstagramBodyNarrative] = useState('');
+  const [instagramBodySpec, setInstagramBodySpec] = useState('');
+  const [instagramBodyQuestion, setInstagramBodyQuestion] = useState('');
   const [instagramHashtags, setInstagramHashtags] = useState('');
   const instagramCaption = [
     instagramFirstLine.trim(),
@@ -153,6 +156,9 @@ export default function AdminPostPage() {
     setEditingId(null);
     setInstagramFirstLine('');
     setInstagramBody('');
+    setInstagramBodyNarrative('');
+    setInstagramBodySpec('');
+    setInstagramBodyQuestion('');
     setInstagramHashtags('');
   };
 
@@ -176,8 +182,20 @@ export default function AdminPostPage() {
         throw new Error(err.detail || 'AI 생성에 실패했습니다.');
       }
       const data = await res.json();
+      const bodyNarrative: string = data.bodyNarrative ?? '';
+      const bodySpec: string = data.bodySpec ?? '';
+      const bodyQuestion: string = data.bodyQuestion ?? '';
+
       setInstagramFirstLine(data.firstLine ?? '');
-      setInstagramBody(data.body ?? '');
+      setInstagramBodyNarrative(bodyNarrative);
+      setInstagramBodySpec(bodySpec);
+      setInstagramBodyQuestion(bodyQuestion);
+      // 세 파츠를 줄바꿈으로 합쳐서 본문 textarea에 반영 (각 파트 한 줄씩)
+      setInstagramBody(
+        [bodyNarrative, bodySpec, bodyQuestion]
+          .filter((part) => part && part.trim().length > 0)
+          .join('\n\n')
+      );
       setInstagramHashtags(data.hashtags ?? '');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'AI 생성 중 오류가 발생했습니다.');

@@ -41,20 +41,79 @@ async def generate_instagram_caption_single(
 """.strip()
 
     if field == "firstLine":
-        system_prompt = """You are an expert at writing Instagram caption hooks for trading card / character illustration posts.
-Generate ONLY one short catchy line in Korean for the caption preview. No hashtags.
-Under 50 characters. Engaging and fitting for the card. Return ONLY the line, no quotes, no JSON."""
-    elif field == "body":
-        system_prompt = """You are an expert at writing Instagram caption body text for trading card / character illustration posts.
-Generate 2-4 sentences in Korean introducing the card, mood, or story. Natural and engaging. No hashtags.
-Return ONLY the body text, no JSON, no extra labels."""
-    else:  # hashtags
-        system_prompt = """You are an expert at Instagram hashtags for trading card / character illustration posts.
-Generate 5-10 hashtags in Korean or English, space-separated, each starting with #.
-Mix of generic (e.g. #카드 #일러스트) and specific to the card (name, type, attribute).
-Return ONLY the hashtags in one line, e.g. #태그1 #태그2 #태그3"""
+        system_prompt = """
+You are an expert at writing Instagram caption hooks for Fate-inspired trading card illustrations.
 
-    user_prompt = f"""Generate the requested part for this card:\n\n{card_info}"""
+GUIDELINES:
+- Write in Korean.
+- One short, powerful line under 50 characters.
+- No hashtags.
+- Style should feel like a Fate Noble Phantasm description, class doctrine, or Holy Grail War record.
+- Avoid casual tone. Use solemn, declarative language.
+- Prefer Class names (Saber, Avenger, etc.), fate/choice/curse keywords.
+- Do NOT explain the card. Hint at destiny or consequence.
+
+Return ONLY the line. No quotes, no JSON.
+""".strip()
+
+    elif field == "body":
+        system_prompt = """
+You are an expert at writing Instagram caption bodies for Fate-inspired trading card illustrations.
+
+STRUCTURE (three lines, each line corresponding to one part; no numbering, no labels like '서사:' etc.):
+Line 1 - Narrative:
+   - 1–2 short sentences.
+   - Written in past tense, like a completed legend or tragic record.
+   - Poetic, solemn, slightly literary.
+   - Focus on fate, loss, duty, curse, or resolve.
+
+Line 2 - Card Spec:
+   - 1 sentence.
+   - Calm, system-like tone.
+   - Naturally include key specs (card name, class/type, attribute, rarity, gender, series).
+   - Should feel like a Servant status record.
+
+Line 3 - Question:
+   - 1 sentence ending with a question mark.
+   - Address the reader as a Master making a choice.
+   - Invite judgment, summoning, or activation of power.
+
+RULES:
+- Write in Korean.
+- No hashtags.
+- No emojis.
+- No bullet lists.
+- Use line breaks ONLY to separate the three lines above (총 3줄).
+- Do not mention AI, prompts, or generation.
+- Do not explain Fate; assume the reader understands its conventions.
+
+Return ONLY these three lines as the body text. No JSON, no extra labels.
+""".strip()
+
+    else:  # hashtags
+        system_prompt = """
+You are an expert at Instagram hashtags for Fate-inspired trading card illustration posts.
+
+GUIDELINES:
+- Generate 5–10 hashtags.
+- Space-separated, each starting with #.
+- Mix:
+  * Trading card / illustration hashtags
+  * Fate-inspired (NOT official franchise names)
+  * Class, attribute, or concept-based tags
+- Avoid direct copyrighted titles if possible; use inspired/genre terms.
+- Korean and English may be mixed.
+
+EXAMPLES OF GOOD STYLE:
+#fateinspired #servantcard #tcgcard #aiart #컨셉카드 #성배전쟁
+
+Return ONLY the hashtags in one line.
+""".strip()
+
+    user_prompt = f"""Generate the requested part for this card:
+
+{card_info}
+"""
 
     response = await client.chat.completions.create(
         model="gpt-4o-mini",
@@ -101,19 +160,66 @@ async def generate_instagram_caption(
 - 플레이버 텍스트: {flavor_text or "없음"}
 """.strip()
 
-    system_prompt = """You are an expert at writing Instagram captions for trading card / character illustration posts.
-Generate a Korean Instagram caption in three parts. Return ONLY valid JSON with keys: firstLine, body, hashtags.
+    system_prompt = """
+You are an expert at writing Instagram captions for Fate-inspired trading card illustrations.
 
-Rules:
-- firstLine: One short catchy line (under 50 chars) for the preview. No hashtags. e.g. "오늘의 카드 - [카드명]"
-- body: 2-4 sentences introducing the card, mood, or story. Natural and engaging. No hashtags here.
-- hashtags: 5-10 hashtags in Korean or English, space-separated, each starting with #. Mix of generic (카드, 일러스트) and specific (card name, type, attribute).
+TASK:
+Generate a Korean Instagram caption in multiple structured parts and return ONLY valid JSON with keys:
+- firstLine
+- bodyNarrative
+- bodySpec
+- bodyQuestion
+- hashtags
+
+Rules for firstLine:
+- One short, powerful line under 50 characters.
+- No hashtags.
+- Style should feel like a Fate Noble Phantasm name, class doctrine, or Holy Grail War record.
+- Avoid casual tone. Use solemn, declarative language.
+- Prefer Class names (Saber, Avenger, etc.), fate/choice/curse keywords.
+- Do NOT explain the card. Hint at destiny or consequence.
+
+Rules for body (each part is intended to be displayed on its own line in the caption; no explicit numbering, no labels like '서사:' etc.):
+1) bodyNarrative:
+   - 1–2 short sentences.
+   - Written in past tense, like a completed legend or tragic record.
+   - Poetic, solemn, slightly literary.
+   - Focus on fate, loss, duty, curse, or resolve.
+
+2) bodySpec:
+   - 1 sentence.
+   - Calm, system-like tone.
+   - Naturally include key specs (card name, class/type, attribute, rarity, gender, series).
+   - Should feel like a Servant status record.
+
+3) bodyQuestion:
+   - 1 sentence ending with a question mark.
+   - Address the reader as a Master making a choice.
+   - Invite judgment, summoning, or activation of power.
+
+Rules for hashtags:
+- Generate 5–10 hashtags.
+- Space-separated, each starting with #.
+- Mix:
+  * Trading card / illustration hashtags
+  * Fate-inspired (NOT official franchise names)
+  * Class, attribute, or concept-based tags
+- Avoid direct copyrighted titles if possible; use inspired/genre terms.
+- Korean and English may be mixed.
+
+Global rules:
+- Write in Korean.
+- No emojis.
+- Do not mention AI, prompts, or generation.
+- Do not explain Fate; assume the reader understands its conventions.
 
 Output format (JSON only, no markdown):
-{"firstLine": "...", "body": "...", "hashtags": "#태그1 #태그2 #태그3 ..."}
-"""
+{"firstLine": "...", "bodyNarrative": "...", "bodySpec": "...", "bodyQuestion": "...", "hashtags": "#태그1 #태그2 #태그3 ..."}
+""".strip()
 
-    user_prompt = f"""Generate an Instagram caption for this card:\n\n{card_info}"""
+    user_prompt = f"""Generate an Instagram caption for this card:
+
+{card_info}"""
 
     response = await client.chat.completions.create(
         model="gpt-4o-mini",
@@ -134,7 +240,13 @@ Output format (JSON only, no markdown):
     import json
     data = json.loads(content)
     first_line = (data.get("firstLine") or "").strip()
-    body = (data.get("body") or "").strip()
+    body_narrative = (data.get("bodyNarrative") or "").strip()
+    body_spec = (data.get("bodySpec") or "").strip()
+    body_question = (data.get("bodyQuestion") or "").strip()
+    # 클라이언트에서 사용할 전체 body 문자열 (서사 + 스펙 + 질문, 각 줄별로 내려쓰기)
+    body = "\n\n".join(
+        part for part in [body_narrative, body_spec, body_question] if part
+    ).strip()
     raw_hashtags = (data.get("hashtags") or "").strip()
     # 해시태그 공백 구분, # 없으면 추가
     parts = [t.strip() for t in raw_hashtags.split() if t.strip()]
@@ -144,4 +256,7 @@ Output format (JSON only, no markdown):
         "firstLine": first_line,
         "body": body,
         "hashtags": hashtags,
+        "bodyNarrative": body_narrative,
+        "bodySpec": body_spec,
+        "bodyQuestion": body_question,
     }
