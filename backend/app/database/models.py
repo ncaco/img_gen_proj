@@ -374,3 +374,37 @@ class FlowCard(Base):
 
     def __repr__(self):
         return f"<FlowCard(id={self.id}, character_id={self.character_id}, gender='{self.gender}', attribute='{self.attribute}', type='{self.type}')>"
+
+
+class CardSnsPost(Base):
+    """
+    카드별 SNS 게시물: cards(확정 카드)에 대한 SNS 게시문 초안/저장.
+    관리자 페이지에서 카드 선택 후 게시물 작성·관리용.
+    """
+    __tablename__ = "card_sns_posts"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="게시물 ID (PK)")
+    card_sn = Column(Integer, ForeignKey("cards.card_sn"), nullable=False, index=True, comment="카드 일련번호 (FK)")
+    flow_card_id = Column(Integer, ForeignKey("flow_cards.id"), nullable=True, index=True, comment="플로우 카드 ID (출처 추적, 선택)")
+
+    # 게시물 내용
+    content = Column(Text, nullable=False, comment="SNS 게시물 본문")
+    platform = Column(String(50), nullable=True, comment="플랫폼 구분 (twitter, instagram 등)")
+    status = Column(String(20), nullable=False, default="draft", comment="상태: draft(초안), published(게시완료)")
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    def __repr__(self):
+        return f"<CardSnsPost(id={self.id}, card_sn={self.card_sn}, status='{self.status}')>"

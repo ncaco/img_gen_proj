@@ -26,6 +26,12 @@ export default function AdminHeader() {
               >
                 카테고리 관리
               </Link>
+              <Link
+                href="/admin/post"
+                className="px-2 py-1 rounded-md text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                게시물 관리
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-2">
