@@ -121,3 +121,28 @@ html::-webkit-scrollbar {
 .pinterest-pin:hover > div {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
+
+/* TipTap 캡션 에디터: placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+}
+
+.dark .ProseMirror p.is-editor-empty:first-child::before {
+  color: #6b7280;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+.ProseMirror p {
+  margin: 0.25em 0;
+}
+
+.ProseMirror p:first-child {
+  margin-top: 0;
+}

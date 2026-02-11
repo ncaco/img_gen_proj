@@ -42,75 +42,59 @@ async def generate_instagram_caption_single(
 
     if field == "firstLine":
         system_prompt = """
-You are an expert at writing Instagram caption hooks for Fate-inspired trading card illustrations.
+당신은 페이트 느낌의 트레이딩 카드/캐릭터 일러스트용 인스타그램 캡션 훅을 쓰는 전문가입니다.
 
-GUIDELINES:
-- Write in Korean.
-- One short, powerful line under 50 characters.
-- No hashtags.
-- Style should feel like a Fate Noble Phantasm description, class doctrine, or Holy Grail War record.
-- Avoid casual tone. Use solemn, declarative language.
-- Prefer Class names (Saber, Avenger, etc.), fate/choice/curse keywords.
-- Do NOT explain the card. Hint at destiny or consequence.
+지침:
+- 반드시 한국어로 작성하세요.
+- 70자 내외로 한 줄을 쓰되, 짧게 끊기지 않고 한 문장을 충분히 풀어 쓰세요.
+- 해시태그는 넣지 마세요.
+- 보구명, 클래스 교의, 성배전쟁 기록 같은 장중한 톤이어야 합니다.
+- 구어체를 피하고, 선언적이고 엄숙한 문체를 사용하세요.
+- 세이버, 어벤저 등 클래스명, 운명/선택/저주 같은 키워드를 활용하세요.
+- 카드를 설명하지 말고, 운명이나 결과를 암시하세요.
 
-Return ONLY the line. No quotes, no JSON.
+한 줄만 출력하세요. 따옴표, JSON 없이.
 """.strip()
 
     elif field == "body":
         system_prompt = """
-You are an expert at writing Instagram caption bodies for Fate-inspired trading card illustrations.
+당신은 페이트 느낌의 트레이딩 카드 일러스트용 인스타그램 본문 캡션을 쓰는 전문가입니다.
 
-STRUCTURE (three lines, each line corresponding to one part; no numbering, no labels like '서사:' etc.):
-Line 1 - Narrative:
-   - 1–2 short sentences.
-   - Written in past tense, like a completed legend or tragic record.
-   - Poetic, solemn, slightly literary.
-   - Focus on fate, loss, duty, curse, or resolve.
+구성 (세 부분을 줄바꿈으로만 구분, 번호나 라벨 없이. 각 부분은 문장을 길게 풀어서 쓰세요):
+1) 서사:
+   - 2~4문장으로 풍부하게 작성하세요. 과거형, 완결된 전설이나 비극 기록처럼.
+   - 장면·감정·배경을 구체적으로 묘사하고, 시적이고 장중하며 문학적인 톤을 유지하세요.
+   - 운명, 상실, 의무, 저주, 결의를 한두 문장이 아니라 이야기처럼 풀어 쓰세요.
 
-Line 2 - Card Spec:
-   - 1 sentence.
-   - Calm, system-like tone.
-   - Naturally include key specs (card name, class/type, attribute, rarity, gender, series).
-   - Should feel like a Servant status record.
+2) 카드 스펙:
+   - 1~2문장으로, 차분하고 시스템 같은 톤을 유지하면서 카드명·클래스·속성·등급·성별·시리즈를 구체적으로 넣으세요.
+   - 서번트 스테이터스 기록처럼 짧게 요약만 하지 말고, 문장을 자연스럽게 늘려서 적으세요.
 
-Line 3 - Question:
-   - 1 sentence ending with a question mark.
-   - Address the reader as a Master making a choice.
-   - Invite judgment, summoning, or activation of power.
+3) 질문:
+   - 1~2문장으로, 독자를 마스터로 두고 선택·판단·소환·권능 발동을 유도하는 말을 물음표로 끝내세요.
+   - 한 단어로 끝내지 말고, 문맥을 살린 질문을 길게 쓰세요.
 
-RULES:
-- Write in Korean.
-- No hashtags.
-- No emojis.
-- No bullet lists.
-- Use line breaks ONLY to separate the three lines above (총 3줄).
-- Do not mention AI, prompts, or generation.
-- Do not explain Fate; assume the reader understands its conventions.
+규칙:
+- 한국어로만 작성. 해시태그·이모지·불릿 리스트 금지. 문장은 짧게 끊지 말고 충분히 길게 쓰세요.
+- 서사·카드 스펙·질문 세 문단 사이에는 반드시 빈 줄을 한 줄 넣으세요 (문단과 문단 사이에 줄바꿈 두 번).
+- AI·프롬프트·생성 언급 금지.
 
-Return ONLY these three lines as the body text. No JSON, no extra labels.
+본문만 출력하세요. JSON이나 라벨 없이.
 """.strip()
 
     else:  # hashtags
         system_prompt = """
-You are an expert at Instagram hashtags for Fate-inspired trading card illustration posts.
+당신은 인스타그램에서 인기 있는 해시태그를 선정하는 전문가입니다.
 
-GUIDELINES:
-- Generate 5–10 hashtags.
-- Space-separated, each starting with #.
-- Mix:
-  * Trading card / illustration hashtags
-  * Fate-inspired (NOT official franchise names)
-  * Class, attribute, or concept-based tags
-- Avoid direct copyrighted titles if possible; use inspired/genre terms.
-- Korean and English may be mixed.
+지침:
+- 인기 있는 해시태그를 정확히 30개 만드세요.
+- 공백으로 구분하고, 각 태그는 #으로 시작하세요.
+- 트레이딩 카드·일러스트·팬아트·게임·캐릭터·페이트 영감·클래스·속성·AI아트 등 인기 검색어 위주로, 한·영 혼용 가능.
 
-EXAMPLES OF GOOD STYLE:
-#fateinspired #servantcard #tcgcard #aiart #컨셉카드 #성배전쟁
-
-Return ONLY the hashtags in one line.
+해시태그 30개를 한 줄로만 출력하세요.
 """.strip()
 
-    user_prompt = f"""Generate the requested part for this card:
+    user_prompt = f"""아래 카드에 대해 요청한 항목만 생성해 주세요.
 
 {card_info}
 """
@@ -161,63 +145,35 @@ async def generate_instagram_caption(
 """.strip()
 
     system_prompt = """
-You are an expert at writing Instagram captions for Fate-inspired trading card illustrations.
+당신은 페이트 느낌의 트레이딩 카드 일러스트용 인스타그램 캡션을 쓰는 전문가입니다.
 
-TASK:
-Generate a Korean Instagram caption in multiple structured parts and return ONLY valid JSON with keys:
-- firstLine
-- bodyNarrative
-- bodySpec
-- bodyQuestion
-- hashtags
+과제:
+한국어 인스타그램 캡션을 일반 텍스트로만 출력하세요. JSON·마크다운·따옴표를 사용하지 마세요. 문장은 짧게 끊지 말고 충분히 길게, 풍부하게 쓰세요.
 
-Rules for firstLine:
-- One short, powerful line under 50 characters.
-- No hashtags.
-- Style should feel like a Fate Noble Phantasm name, class doctrine, or Holy Grail War record.
-- Avoid casual tone. Use solemn, declarative language.
-- Prefer Class names (Saber, Avenger, etc.), fate/choice/curse keywords.
-- Do NOT explain the card. Hint at destiny or consequence.
+출력 형식 (반드시 지킬 것. 각 항목·문단 사이에는 반드시 빈 줄 한 줄, 즉 줄바꿈 두 번을 넣으세요):
+1) 첫 번째 줄: 한 줄 소개 (70자 내외, 해시태그 없음. 한 문장을 풀어서 쓰세요)
+2) 빈 줄 한 줄
+3) 본문: 서사 문단 → 빈 줄 → 카드 스펙 문단 → 빈 줄 → 질문 문단. 각 문단은 문장을 길게 풀어서 작성.
+4) 빈 줄 한 줄
+5) 마지막 줄: 해시태그만 (인기 태그 30개, 공백 구분, #으로 시작)
 
-Rules for body (each part is intended to be displayed on its own line in the caption; no explicit numbering, no labels like '서사:' etc.):
-1) bodyNarrative:
-   - 1–2 short sentences.
-   - Written in past tense, like a completed legend or tragic record.
-   - Poetic, solemn, slightly literary.
-   - Focus on fate, loss, duty, curse, or resolve.
+한 줄 소개 규칙:
+- 70자 내외로, 장중한 톤. 세이버·어벤저 등 클래스명, 운명/선택/저주 키워드. 짧게 요약만 하지 말고 한 문장을 풀어 쓰세요.
 
-2) bodySpec:
-   - 1 sentence.
-   - Calm, system-like tone.
-   - Naturally include key specs (card name, class/type, attribute, rarity, gender, series).
-   - Should feel like a Servant status record.
+본문 규칙 (각 문단을 짧게 끊지 말고 길게 쓰고, 문단과 문단 사이에는 반드시 빈 줄 한 줄을 넣으세요):
+- 1부 서사: 2~4문장으로 과거형 서사를 풍부하게. 장면·감정·배경을 구체적으로, 시적·장중·문학적으로. 운명·상실·의무·저주·결의를 이야기처럼 풀어 쓰세요.
+- 빈 줄(내려쓰기 두 번)
+- 2부 카드 스펙: 1~2문장으로 카드명·클래스·속성·등급·성별·시리즈를 구체적으로, 서번트 스테이터스 톤으로 자연스럽게 늘려서 쓰세요.
+- 빈 줄(내려쓰기 두 번)
+- 3부 질문: 1~2문장으로 마스터에게 선택·판단·소환을 유도하는 질문을 문맥을 살려 길게 쓰고 물음표로 끝내세요.
 
-3) bodyQuestion:
-   - 1 sentence ending with a question mark.
-   - Address the reader as a Master making a choice.
-   - Invite judgment, summoning, or activation of power.
+해시태그 규칙:
+- 인기 있는 해시태그를 정확히 25개, #으로 시작, 공백 구분. 트레이딩 카드/일러스트·팬아트·게임·캐릭터·페이트 영감·클래스·속성·AI아트 등 인기 검색어 위주. 한·영 혼용 가능.
 
-Rules for hashtags:
-- Generate 5–10 hashtags.
-- Space-separated, each starting with #.
-- Mix:
-  * Trading card / illustration hashtags
-  * Fate-inspired (NOT official franchise names)
-  * Class, attribute, or concept-based tags
-- Avoid direct copyrighted titles if possible; use inspired/genre terms.
-- Korean and English may be mixed.
-
-Global rules:
-- Write in Korean.
-- No emojis.
-- Do not mention AI, prompts, or generation.
-- Do not explain Fate; assume the reader understands its conventions.
-
-Output format (JSON only, no markdown):
-{"firstLine": "...", "bodyNarrative": "...", "bodySpec": "...", "bodyQuestion": "...", "hashtags": "#태그1 #태그2 #태그3 ..."}
+공통: 한국어만. 이모지·AI·생성 언급 금지.
 """.strip()
 
-    user_prompt = f"""Generate an Instagram caption for this card:
+    user_prompt = f"""아래 카드에 대한 인스타그램 캡션을 생성해 주세요.
 
 {card_info}"""
 
@@ -230,33 +186,25 @@ Output format (JSON only, no markdown):
         temperature=0.7,
     )
     content = (response.choices[0].message.content or "").strip()
-    # JSON 블록 제거 (```json ... ```)
-    if content.startswith("```"):
-        content = content.split("```")[1]
-        if content.startswith("json"):
-            content = content[4:]
-    content = content.strip()
-
-    import json
-    data = json.loads(content)
-    first_line = (data.get("firstLine") or "").strip()
-    body_narrative = (data.get("bodyNarrative") or "").strip()
-    body_spec = (data.get("bodySpec") or "").strip()
-    body_question = (data.get("bodyQuestion") or "").strip()
-    # 클라이언트에서 사용할 전체 body 문자열 (서사 + 스펙 + 질문, 각 줄별로 내려쓰기)
-    body = "\n\n".join(
-        part for part in [body_narrative, body_spec, body_question] if part
-    ).strip()
-    raw_hashtags = (data.get("hashtags") or "").strip()
-    # 해시태그 공백 구분, # 없으면 추가
-    parts = [t.strip() for t in raw_hashtags.split() if t.strip()]
-    hashtags = " ".join(p if p.startswith("#") else f"#{p}" for p in parts)
+    # 일반 텍스트 파싱: 첫 블록=한줄소개, 마지막 # 포함 블록=해시태그, 그 사이=본문
+    blocks = [b.strip() for b in content.split("\n\n") if b.strip()]
+    first_line = blocks[0] if blocks else ""
+    body = ""
+    raw_hashtags = ""
+    if len(blocks) >= 2:
+        # 마지막 블록 중 #이 있는 것을 해시태그로
+        for i in range(len(blocks) - 1, 0, -1):
+            if "#" in blocks[i]:
+                raw_hashtags = blocks[i]
+                body = "\n\n".join(blocks[1:i]).strip()
+                break
+        else:
+            body = "\n\n".join(blocks[1:]).strip()
+    hashtags_parts = [t.strip() for t in raw_hashtags.split() if t.strip()]
+    hashtags = " ".join(p if p.startswith("#") else f"#{p}" for p in hashtags_parts)
 
     return {
         "firstLine": first_line,
         "body": body,
         "hashtags": hashtags,
-        "bodyNarrative": body_narrative,
-        "bodySpec": body_spec,
-        "bodyQuestion": body_question,
     }

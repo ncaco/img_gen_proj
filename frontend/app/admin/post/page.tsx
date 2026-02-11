@@ -1,8 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { API_BASE, getStoredToken } from '@/app/lib/auth';
 import { FiSave, FiTrash2, FiEdit2, FiImage, FiZap, FiCopy } from 'react-icons/fi';
+import dynamic from 'next/dynamic';
+import type { CaptionEditorRef } from './CaptionEditor';
+
+const CaptionEditor = dynamic(() => import('./CaptionEditor'), { ssr: false });
 
 const INSTAGRAM_CAPTION_MAX = 2200;
 const INSTAGRAM_FEED_ASPECT = { w: 4, h: 5 }; // 4:5 권장
@@ -68,36 +72,20 @@ export default function AdminPostPage() {
   const [editPlatform, setEditPlatform] = useState('');
   const [editStatus, setEditStatus] = useState('draft');
 
-  // 인스타그램 업로드용 템플릿
-  const [instagramFirstLine, setInstagramFirstLine] = useState('');
-  const [instagramBody, setInstagramBody] = useState('');
-  const [instagramBodyNarrative, setInstagramBodyNarrative] = useState('');
-  const [instagramBodySpec, setInstagramBodySpec] = useState('');
-  const [instagramBodyQuestion, setInstagramBodyQuestion] = useState('');
-  const [instagramHashtags, setInstagramHashtags] = useState('');
-  const instagramCaption = [
-    instagramFirstLine.trim(),
-    instagramBody.trim(),
-    instagramHashtags
-      .split(/[\s,]+/)
-      .filter(Boolean)
-      .map((t) => (t.startsWith('#') ? t : `#${t}`))
-      .join(' '),
-  ]
-    .filter(Boolean)
-    .join('\n\n');
-  const instagramCaptionLength = instagramCaption.length;
+  // 인스타그램 업로드용: 통합 캡션 에디터 (한 줄 소개·본문·해시태그 한 곳에서 작성)
+  const [captionContent, setCaptionContent] = useState('');
+  const captionEditorRef = useRef<CaptionEditorRef>(null);
   const [previewFit, setPreviewFit] = useState<'contain' | 'cover'>('contain');
   const [generatingCaption, setGeneratingCaption] = useState(false);
-  const [generatingField, setGeneratingField] = useState<'firstLine' | 'body' | 'hashtags' | null>(null);
-  const [copiedField, setCopiedField] = useState<'firstLine' | 'body' | 'hashtags' | null>(null);
+  const [captionCopied, setCaptionCopied] = useState(false);
 
-  const copyToClipboard = async (text: string, field: 'firstLine' | 'body' | 'hashtags') => {
+  const copyCaptionToClipboard = async () => {
+    const text = captionEditorRef.current?.getContent() ?? captionContent;
     if (!text.trim()) return;
     try {
       await navigator.clipboard.writeText(text.trim());
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 1500);
+      setCaptionCopied(true);
+      setTimeout(() => setCaptionCopied(false), 1500);
     } catch {
       setError('클립보드 복사에 실패했습니다.');
     }
@@ -154,16 +142,12 @@ export default function AdminPostPage() {
     setFormPlatform('');
     setFormStatus('draft');
     setEditingId(null);
-    setInstagramFirstLine('');
-    setInstagramBody('');
-    setInstagramBodyNarrative('');
-    setInstagramBodySpec('');
-    setInstagramBodyQuestion('');
-    setInstagramHashtags('');
+    setCaptionContent('');
   };
 
   const applyInstagramTemplateToCaption = () => {
-    setFormContent(instagramCaption);
+    const text = captionEditorRef.current?.getContent() ?? captionContent;
+    setFormContent(text.trim());
     setFormPlatform('instagram');
   };
 
@@ -182,51 +166,16 @@ export default function AdminPostPage() {
         throw new Error(err.detail || 'AI 생성에 실패했습니다.');
       }
       const data = await res.json();
-      const bodyNarrative: string = data.bodyNarrative ?? '';
-      const bodySpec: string = data.bodySpec ?? '';
-      const bodyQuestion: string = data.bodyQuestion ?? '';
-
-      setInstagramFirstLine(data.firstLine ?? '');
-      setInstagramBodyNarrative(bodyNarrative);
-      setInstagramBodySpec(bodySpec);
-      setInstagramBodyQuestion(bodyQuestion);
-      // 세 파츠를 줄바꿈으로 합쳐서 본문 textarea에 반영 (각 파트 한 줄씩)
-      setInstagramBody(
-        [bodyNarrative, bodySpec, bodyQuestion]
-          .filter((part) => part && part.trim().length > 0)
-          .join('\n\n')
-      );
-      setInstagramHashtags(data.hashtags ?? '');
+      const firstLine = (data.firstLine ?? '').trim();
+      const body = (data.body ?? '').trim();
+      const hashtags = (data.hashtags ?? '').trim();
+      const fullCaption = [firstLine, body, hashtags].filter(Boolean).join('\n\n');
+      captionEditorRef.current?.setContent(fullCaption);
+      setCaptionContent(fullCaption);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'AI 생성 중 오류가 발생했습니다.');
     } finally {
       setGeneratingCaption(false);
-    }
-  };
-
-  const handleGenerateInstagramCaptionSingle = async (field: 'firstLine' | 'body' | 'hashtags') => {
-    if (!selectedCard || !token) return;
-    setGeneratingField(field);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/card-sns-posts/generate-instagram-caption-single`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ card_sn: selectedCard.cardSn, field }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'AI 생성에 실패했습니다.');
-      }
-      const data = await res.json();
-      const value = data.value ?? '';
-      if (field === 'firstLine') setInstagramFirstLine(value);
-      else if (field === 'body') setInstagramBody(value);
-      else setInstagramHashtags(value);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'AI 생성 중 오류가 발생했습니다.');
-    } finally {
-      setGeneratingField(null);
     }
   };
 
@@ -412,144 +361,55 @@ export default function AdminPostPage() {
                 </div>
               </div>
 
-              {/* 인스타그램 업로드용 템플릿 */}
+              {/* 인스타그램 업로드용: 통합 캡션 에디터 */}
               {selectedCard && !editingId && (
                 <div className="rounded-lg border border-pink-200 dark:border-pink-800 bg-gradient-to-br from-pink-50/50 to-purple-50/50 dark:from-pink-900/20 dark:to-purple-900/20 p-4">
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                       <FiImage className="w-4 h-4 text-pink-500" />
-                      인스타그램 업로드용 템플릿
+                      인스타그램 캡션 (한 줄 소개 · 본문 · 해시태그 통합)
                     </h2>
-                    <button
-                      type="button"
-                      onClick={handleGenerateInstagramCaption}
-                      disabled={generatingCaption}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <FiZap className="w-4 h-4" />
-                      {generatingCaption ? '생성 중...' : 'AI로 생성'}
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    첫 줄(미리보기)·본문·해시태그를 입력한 뒤 &quot;캡션에 적용&quot;을 누르면 게시문 본문에 반영됩니다. (캡션 최대 2,200자)
-                  </p>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400">한 줄 소개 (미리보기에 노출)</label>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleGenerateInstagramCaptionSingle('firstLine')}
-                            disabled={generatingField !== null}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-800/50 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="AI로 이 항목만 생성"
-                          >
-                            <FiZap className="w-3.5 h-3.5" />
-                            {generatingField === 'firstLine' ? '생성 중...' : 'AI 생성'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard(instagramFirstLine, 'firstLine')}
-                            disabled={!instagramFirstLine.trim()}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="클립보드 복사"
-                          >
-                            <FiCopy className="w-3.5 h-3.5" />
-                            {copiedField === 'firstLine' ? '복사됨' : '복사'}
-                          </button>
-                        </div>
-                      </div>
-                      <input
-                        type="text"
-                        value={instagramFirstLine}
-                        onChange={(e) => setInstagramFirstLine(e.target.value)}
-                        placeholder="예: 오늘의 카드 - [카드명]"
-                        maxLength={100}
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400">본문</label>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleGenerateInstagramCaptionSingle('body')}
-                            disabled={generatingField !== null}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-800/50 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="AI로 이 항목만 생성"
-                          >
-                            <FiZap className="w-3.5 h-3.5" />
-                            {generatingField === 'body' ? '생성 중...' : 'AI 생성'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard(instagramBody, 'body')}
-                            disabled={!instagramBody.trim()}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="클립보드 복사"
-                          >
-                            <FiCopy className="w-3.5 h-3.5" />
-                            {copiedField === 'body' ? '복사됨' : '복사'}
-                          </button>
-                        </div>
-                      </div>
-                      <textarea
-                        value={instagramBody}
-                        onChange={(e) => setInstagramBody(e.target.value)}
-                        rows={3}
-                        placeholder="설명이나 스토리를 입력하세요."
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400">해시태그 (공백 또는 쉼표 구분, # 없어도 자동 추가)</label>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleGenerateInstagramCaptionSingle('hashtags')}
-                            disabled={generatingField !== null}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-800/50 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="AI로 이 항목만 생성"
-                          >
-                            <FiZap className="w-3.5 h-3.5" />
-                            {generatingField === 'hashtags' ? '생성 중...' : 'AI 생성'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard(instagramHashtags, 'hashtags')}
-                            disabled={!instagramHashtags.trim()}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="클립보드 복사"
-                          >
-                            <FiCopy className="w-3.5 h-3.5" />
-                            {copiedField === 'hashtags' ? '복사됨' : '복사'}
-                          </button>
-                        </div>
-                      </div>
-                      <input
-                        type="text"
-                        value={instagramHashtags}
-                        onChange={(e) => setInstagramHashtags(e.target.value)}
-                        placeholder="예: 카드게임 트레이딩카드 일러스트"
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className={`text-xs ${instagramCaptionLength > INSTAGRAM_CAPTION_MAX ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                        {instagramCaptionLength} / {INSTAGRAM_CAPTION_MAX}자
-                      </span>
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={applyInstagramTemplateToCaption}
-                        disabled={!instagramCaption.trim() || instagramCaptionLength > INSTAGRAM_CAPTION_MAX}
-                        className="px-3 py-1.5 rounded-lg bg-pink-600 text-white text-sm font-medium hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleGenerateInstagramCaption}
+                        disabled={generatingCaption}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        캡션에 적용
+                        <FiZap className="w-4 h-4" />
+                        {generatingCaption ? '생성 중...' : 'AI로 생성'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={copyCaptionToClipboard}
+                        className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                        title="캡션 전체 복사"
+                      >
+                        <FiCopy className="w-4 h-4" />
+                        {captionCopied ? '복사됨' : '복사'}
                       </button>
                     </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    한 곳에서 캡션을 작성한 뒤 &quot;캡션에 적용&quot;을 누르면 게시문 본문에 반영됩니다. (최대 2,200자)
+                  </p>
+                  <CaptionEditor
+                    ref={captionEditorRef}
+                    initialContent={captionContent}
+                    onChange={setCaptionContent}
+                    maxLength={INSTAGRAM_CAPTION_MAX}
+                    placeholder="한 줄 소개, 본문, 해시태그를 한 곳에서 작성하세요. (엔터로 줄바꿈)"
+                    className="mb-3"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={applyInstagramTemplateToCaption}
+                      disabled={!captionContent.trim() || captionContent.length > INSTAGRAM_CAPTION_MAX}
+                      className="px-3 py-1.5 rounded-lg bg-pink-600 text-white text-sm font-medium hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      캡션에 적용
+                    </button>
                   </div>
                   {/* 인스타그램 피드 비율 미리보기 (4:5) */}
                   <div className="mt-4">

@@ -31,9 +31,6 @@ class GenerateInstagramCaptionResponse(BaseModel):
     firstLine: str
     body: str
     hashtags: str
-    bodyNarrative: str
-    bodySpec: str
-    bodyQuestion: str
 
 
 class GenerateInstagramCaptionSingleRequest(BaseModel):
@@ -104,9 +101,6 @@ async def generate_instagram_caption_for_card(
             firstLine=result["firstLine"],
             body=result["body"],
             hashtags=result["hashtags"],
-            bodyNarrative=result.get("bodyNarrative", ""),
-            bodySpec=result.get("bodySpec", ""),
-            bodyQuestion=result.get("bodyQuestion", ""),
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

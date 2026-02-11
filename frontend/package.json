@@ -10,6 +10,10 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "@tiptap/extension-placeholder": "^3.19.0",
+    "@tiptap/pm": "^3.19.0",
+    "@tiptap/react": "^3.19.0",
+    "@tiptap/starter-kit": "^3.19.0",
     "@xyflow/react": "^12.10.0",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
