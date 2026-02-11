@@ -50,6 +50,7 @@ def _post_to_response(p: CardSnsPost) -> CardSnsPostResponseSchema:
         content=p.content,
         platform=p.platform,
         status=p.status or "draft",
+        url=p.url,
         createdAt=p.created_at.isoformat() if p.created_at else "",
         updatedAt=p.updated_at.isoformat() if p.updated_at else "",
     )
@@ -169,6 +170,7 @@ async def create_post(
         content=body.content.strip(),
         platform=(body.platform or "").strip() or None,
         status=(body.status or "draft").strip(),
+        url=(body.url or "").strip() or None,
     )
     db.add(post)
     db.commit()
@@ -212,6 +214,8 @@ async def update_post(
         post.platform = body.platform.strip() or None
     if body.status is not None:
         post.status = body.status.strip()
+    if body.url is not None:
+        post.url = body.url.strip() or None
     db.commit()
     db.refresh(post)
     return _post_to_response(post)

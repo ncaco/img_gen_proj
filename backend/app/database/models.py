@@ -391,6 +391,7 @@ class CardSnsPost(Base):
     content = Column(Text, nullable=False, comment="SNS 게시물 본문")
     platform = Column(String(50), nullable=True, comment="플랫폼 구분 (twitter, instagram 등)")
     status = Column(String(20), nullable=False, default="draft", comment="상태: draft(초안), published(게시완료)")
+    url = Column(Text, nullable=True, comment="게시된 SNS URL (선택)")
 
     created_at = Column(
         DateTime(timezone=True),

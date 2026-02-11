@@ -93,6 +93,7 @@ interface SnsPost {
   content: string;
   platform?: string;
   status: string;
+  url?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -127,6 +128,8 @@ export default function AdminPostPage() {
   const [editContent, setEditContent] = useState('');
   const [editPlatform, setEditPlatform] = useState('instagram');
   const [editStatus, setEditStatus] = useState('draft');
+  const [formUrl, setFormUrl] = useState('');
+  const [editUrl, setEditUrl] = useState('');
 
   const [generatingCaption, setGeneratingCaption] = useState(false);
 
@@ -182,6 +185,7 @@ export default function AdminPostPage() {
     setFormContent('');
     setFormPlatform('instagram');
     setFormStatus('draft');
+    setFormUrl('');
     setEditingId(null);
   };
 
@@ -428,12 +432,18 @@ export default function AdminPostPage() {
         : `${API_BASE}/api/v1/card-sns-posts`;
       const method = editingId ? 'PATCH' : 'POST';
       const body = editingId
-        ? { content: formContent.trim(), platform: editPlatform.trim() || null, status: editStatus }
+        ? {
+            content: formContent.trim(),
+            platform: editPlatform.trim() || null,
+            status: editStatus,
+            url: formUrl.trim() || null,
+          }
         : {
             card_sn: selectedCard.cardSn,
             content: finalContent,
             platform: formPlatform.trim() || null,
             status: formStatus,
+            url: formUrl.trim() || null,
           };
       const res = await fetch(url, { method, headers, body: JSON.stringify(body) });
       if (!res.ok) {
@@ -443,6 +453,7 @@ export default function AdminPostPage() {
       setFormContent('');
       setFormPlatform('');
       setFormStatus('draft');
+      setFormUrl('');
       setEditingId(null);
       if (selectedCard) fetchPosts(selectedCard.cardSn);
     } catch (e) {
@@ -457,6 +468,7 @@ export default function AdminPostPage() {
     setEditContent(post.content);
     setEditPlatform(post.platform || '');
     setEditStatus(post.status);
+    setEditUrl(post.url || '');
   };
 
   const handleUpdatePost = async (e: React.FormEvent) => {
@@ -472,6 +484,7 @@ export default function AdminPostPage() {
           content: editContent.trim(),
           platform: editPlatform.trim() || null,
           status: editStatus,
+          url: editUrl.trim() || null,
         }),
       });
       if (!res.ok) {
@@ -670,6 +683,13 @@ export default function AdminPostPage() {
                           placeholder="게시물 본문"
                           required
                         />
+                        <input
+                          type="url"
+                          value={editUrl}
+                          onChange={(e) => setEditUrl(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 text-xs mt-2"
+                          placeholder="게시된 SNS URL (선택, 예: https://instagram.com/p/...)"
+                        />
                         <div className="flex flex-wrap gap-3">
                           <select
                             value={editPlatform}
@@ -714,6 +734,13 @@ export default function AdminPostPage() {
                           rows={8}
                           className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"
                           placeholder="SNS 게시물 본문을 직접 입력하거나, AI 버튼으로 자동 생성해 보세요."
+                        />
+                        <input
+                          type="url"
+                          value={formUrl}
+                          onChange={(e) => setFormUrl(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 text-xs"
+                          placeholder="게시된 SNS URL (선택, 예: https://instagram.com/p/...)"
                         />
                         <div className="flex flex-wrap gap-3">
                           <select
@@ -765,6 +792,16 @@ export default function AdminPostPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
+                            {post.url && (
+                              <a
+                                href={post.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-[11px] text-indigo-500 dark:text-indigo-300 hover:underline break-all"
+                              >
+                                {post.url}
+                              </a>
+                            )}
                             <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
                               {post.platform && <span>{post.platform}</span>}
                               <span>{post.status === 'published' ? '게시완료' : '초안'}</span>

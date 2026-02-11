@@ -12,6 +12,7 @@ class CardSnsPostCreateSchema(BaseModel):
     content: str = Field(..., min_length=1, description="게시물 본문")
     platform: Optional[str] = Field(None, description="플랫폼 (twitter, instagram 등)")
     status: str = Field(default="draft", description="상태: draft, published")
+    url: Optional[str] = Field(None, description="게시된 SNS URL (선택)")
 
 
 class CardSnsPostUpdateSchema(BaseModel):
@@ -19,6 +20,7 @@ class CardSnsPostUpdateSchema(BaseModel):
     content: Optional[str] = Field(None, min_length=1, description="게시물 본문")
     platform: Optional[str] = Field(None, description="플랫폼")
     status: Optional[str] = Field(None, description="상태: draft, published")
+    url: Optional[str] = Field(None, description="게시된 SNS URL (선택)")
 
 
 class CardSnsPostResponseSchema(BaseModel):
@@ -29,6 +31,7 @@ class CardSnsPostResponseSchema(BaseModel):
     content: str
     platform: Optional[str] = None
     status: str
+    url: Optional[str] = None
     createdAt: str = Field(..., description="생성일시")
     updatedAt: str = Field(..., description="수정일시")
 
