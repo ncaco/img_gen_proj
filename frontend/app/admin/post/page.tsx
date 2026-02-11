@@ -1,15 +1,70 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { API_BASE, getStoredToken } from '@/app/lib/auth';
-import { FiSave, FiTrash2, FiEdit2, FiImage, FiZap, FiCopy } from 'react-icons/fi';
-import dynamic from 'next/dynamic';
-import type { CaptionEditorRef } from './CaptionEditor';
-
-const CaptionEditor = dynamic(() => import('./CaptionEditor'), { ssr: false });
+import { FiSave, FiTrash2, FiEdit2, FiZap } from 'react-icons/fi';
 
 const INSTAGRAM_CAPTION_MAX = 2200;
 const INSTAGRAM_FEED_ASPECT = { w: 4, h: 5 }; // 4:5 권장
+
+// RGB(0-255) -> HSL(0-1)
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
+    }
+    h /= 6;
+  }
+
+  return [h, s, l];
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  let r: number;
+  let g: number;
+  let b: number;
+
+  if (s === 0) {
+    r = g = b = l; // achromatic
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
 
 interface Card {
   cardSn: number;
@@ -19,6 +74,7 @@ interface Card {
   attribute: string;
   rarity: string;
   gender?: string;
+  series?: string;
   generatedImageUrl?: string;
   characterImageUrl?: string;
   draftImageUrl?: string;
@@ -64,35 +120,20 @@ export default function AdminPostPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [formContent, setFormContent] = useState('');
-  const [formPlatform, setFormPlatform] = useState('');
+  const [formPlatform, setFormPlatform] = useState('instagram');
   const [formStatus, setFormStatus] = useState('draft');
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
-  const [editPlatform, setEditPlatform] = useState('');
+  const [editPlatform, setEditPlatform] = useState('instagram');
   const [editStatus, setEditStatus] = useState('draft');
 
-  // 인스타그램 업로드용: 통합 캡션 에디터 (한 줄 소개·본문·해시태그 한 곳에서 작성)
-  const [captionContent, setCaptionContent] = useState('');
-  const captionEditorRef = useRef<CaptionEditorRef>(null);
-  const [previewFit, setPreviewFit] = useState<'contain' | 'cover'>('contain');
   const [generatingCaption, setGeneratingCaption] = useState(false);
-  const [captionCopied, setCaptionCopied] = useState(false);
-
-  const copyCaptionToClipboard = async () => {
-    const text = captionEditorRef.current?.getContent() ?? captionContent;
-    if (!text.trim()) return;
-    try {
-      await navigator.clipboard.writeText(text.trim());
-      setCaptionCopied(true);
-      setTimeout(() => setCaptionCopied(false), 1500);
-    } catch {
-      setError('클립보드 복사에 실패했습니다.');
-    }
-  };
 
   const token = getStoredToken();
-  const headers = token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } : { 'Content-Type': 'application/json' };
+  const headers: HeadersInit = token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
 
   const fetchCards = useCallback(async () => {
     try {
@@ -139,16 +180,9 @@ export default function AdminPostPage() {
   const handleSelectCard = (card: Card) => {
     setSelectedCard(card);
     setFormContent('');
-    setFormPlatform('');
+    setFormPlatform('instagram');
     setFormStatus('draft');
     setEditingId(null);
-    setCaptionContent('');
-  };
-
-  const applyInstagramTemplateToCaption = () => {
-    const text = captionEditorRef.current?.getContent() ?? captionContent;
-    setFormContent(text.trim());
-    setFormPlatform('instagram');
   };
 
   const handleGenerateInstagramCaption = async () => {
@@ -169,9 +203,24 @@ export default function AdminPostPage() {
       const firstLine = (data.firstLine ?? '').trim();
       const body = (data.body ?? '').trim();
       const hashtags = (data.hashtags ?? '').trim();
-      const fullCaption = [firstLine, body, hashtags].filter(Boolean).join('\n\n');
-      captionEditorRef.current?.setContent(fullCaption);
-      setCaptionContent(fullCaption);
+      const fixedTags = '#NCACO #AI #FATE #TCG #CARD #ART';
+      const hashtagsWithFixed = hashtags ? `${hashtags} ${fixedTags}` : fixedTags;
+
+      const fixedFooter =
+        '---\n\n' +
+        '다음 카드의 주인공은 여러분이 정합니다.\n\n' +
+        '댓글로 설정을 남겨주시면, 참고하여 다음 TCG 카드로 제작하겠습니다.\n\n' +
+        '아래 양식을 복사해서 작성해주세요.\n\n' +
+        '이름 : (대상)\n' +
+        '성별 : (남성/여성)\n' +
+        '속성 : (불/물/흙/바람/빛/금속/얼음/자연/번개/어둠)\n' +
+        '클래스 : (세이버/랜서/아처/라이더/캐스터/어새신/버서커/룰러/어벤저/얼터에고)\n\n' +
+        '여러분의 설정이 새로운 세계관이 됩니다.\n' +
+        '가장 흥미로운 조합을 다음 카드로 구현하겠습니다.';
+
+      const fullCaption = [firstLine, body, hashtagsWithFixed, fixedFooter].filter(Boolean).join('\n\n');
+      setFormContent(fullCaption);
+      setFormPlatform((prev) => prev || 'instagram');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'AI 생성 중 오류가 발생했습니다.');
     } finally {
@@ -179,9 +228,198 @@ export default function AdminPostPage() {
     }
   };
 
+  const handleDownloadInstagramImage = async () => {
+    if (!selectedCard) return;
+    const src = getImageUrl(
+      selectedCard.generatedImageUrl || selectedCard.characterImageUrl || selectedCard.draftImageUrl
+    );
+    if (!src) {
+      setError('다운로드할 카드 이미지를 찾을 수 없습니다.');
+      return;
+    }
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = src;
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('이미지를 불러오지 못했습니다.'));
+      });
+
+      // 지배색(대략적인 평균색) 추출을 위한 다운샘플링
+      const sampleSize = 64;
+      const offscreenCanvas = document.createElement('canvas');
+      offscreenCanvas.width = sampleSize;
+      offscreenCanvas.height = sampleSize;
+      const offscreenCtx = offscreenCanvas.getContext('2d');
+      if (!offscreenCtx) throw new Error('색상을 분석할 수 없습니다.');
+
+      offscreenCtx.drawImage(img, 0, 0, sampleSize, sampleSize);
+      const imageData = offscreenCtx.getImageData(0, 0, sampleSize, sampleSize);
+      const data = imageData.data;
+      let rSum = 0;
+      let gSum = 0;
+      let bSum = 0;
+      let count = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const alpha = data[i + 3];
+        if (alpha < 32) continue; // 거의 투명한 픽셀은 제외
+        rSum += r;
+        gSum += g;
+        bSum += b;
+        count += 1;
+      }
+
+      const avgR = count ? rSum / count : 20;
+      const avgG = count ? gSum / count : 20;
+      const avgB = count ? bSum / count : 30;
+
+      // 평균색 기준 지배색 + 보색 계산 (HSL에서 180도 회전)
+      const [h, s, l] = rgbToHsl(avgR, avgG, avgB);
+      const baseH = h;
+      const baseS = s * 0.8;
+      const baseL = Math.min(0.4, l * 0.7 + 0.1); // 너무 밝지 않게 조정
+
+      const compH = (h + 0.5) % 1; // 보색 (180도)
+      const compS = baseS;
+      const compL = baseL;
+
+      const [baseR, baseG, baseB] = hslToRgb(baseH, baseS, baseL);
+      const [compR, compG, compB] = hslToRgb(compH, compS, compL);
+
+      // 4:5 비율의 고해상도 캔버스 (인스타 게시용)
+      const targetWidth = 2048;
+      const targetHeight = Math.round((targetWidth * INSTAGRAM_FEED_ASPECT.h) / INSTAGRAM_FEED_ASPECT.w); // 2560
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas를 초기화할 수 없습니다.');
+
+      // 배경: 카드 이미지를 1.5배 확대한 후, 아주 낮은 투명도로 전체에 깔기
+      // 먼저 지배색/보색 블렌드로 기본 그라디언트를 깔고
+      const gradient = ctx.createLinearGradient(0, 0, targetWidth, targetHeight);
+      const midR = Math.round(baseR * 0.6 + compR * 0.4);
+      const midG = Math.round(baseG * 0.6 + compG * 0.4);
+      const midB = Math.round(baseB * 0.6 + compB * 0.4);
+      gradient.addColorStop(0, `rgb(${baseR}, ${baseG}, ${baseB})`);
+      gradient.addColorStop(0.5, `rgb(${midR}, ${midG}, ${midB})`);
+      gradient.addColorStop(1, `rgb(${compR}, ${compG}, ${compB})`);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+      // 그 위에 카드 이미지를 1.5배로 확대해서, 매우 낮은 투명도로 오버레이
+      const bgScale = Math.min(targetWidth / img.width, targetHeight / img.height) * 1.5;
+      const bgW = img.width * bgScale;
+      const bgH = img.height * bgScale;
+      const bgX = (targetWidth - bgW) / 2;
+      const bgY = (targetHeight - bgH) / 2;
+
+      ctx.save();
+      ctx.globalAlpha = 0.12; // 아주 옅게
+      ctx.filter = 'blur(2px)'; // 살짝 블러를 줘서 카드와 겹쳐도 거슬리지 않게
+      ctx.drawImage(img, bgX, bgY, bgW, bgH);
+      ctx.restore();
+
+      // 비네팅
+      const vignette = ctx.createRadialGradient(
+        targetWidth / 2,
+        targetHeight / 2,
+        Math.min(targetWidth, targetHeight) / 4,
+        targetWidth / 2,
+        targetHeight / 2,
+        Math.max(targetWidth, targetHeight) / 1.1,
+      );
+      vignette.addColorStop(0, 'rgba(0,0,0,0)');
+      vignette.addColorStop(1, 'rgba(0,0,0,0.45)');
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+      // 원본 비율을 유지하면서 4:5 캔버스 안에 최대한 크게 맞추되, 살짝 여백을 더 주기 위해 스케일을 약간 줄임
+      const scale = Math.min(targetWidth / img.width, targetHeight / img.height) * 0.95;
+      const drawWidth = img.width * scale;
+      const drawHeight = img.height * scale;
+      const dx = (targetWidth - drawWidth) / 2;
+      const dy = (targetHeight - drawHeight) / 2;
+
+      // 이미지 본체를 라운드 카드처럼 그리기 (라운드 정도를 약간 줄임)
+      const radius = 70;
+      const cardX = dx;
+      const cardY = dy;
+      const cardW = drawWidth;
+      const cardH = drawHeight;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cardX + radius, cardY);
+      ctx.lineTo(cardX + cardW - radius, cardY);
+      ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + radius);
+      ctx.lineTo(cardX + cardW, cardY + cardH - radius);
+      ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - radius, cardY + cardH);
+      ctx.lineTo(cardX + radius, cardY + cardH);
+      ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - radius);
+      ctx.lineTo(cardX, cardY + radius);
+      ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY);
+      ctx.closePath();
+      ctx.clip();
+
+      // 카드 이미지
+      ctx.drawImage(img, cardX, cardY, cardW, cardH);
+
+      ctx.restore();
+
+      // 카드 외곽 글로우/보더 (라운드 값과 동일하게 통일)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 6;
+      ctx.shadowColor = 'rgba(168,85,247,0.6)';
+      ctx.shadowBlur = 30;
+      ctx.beginPath();
+      ctx.moveTo(cardX + radius, cardY);
+      ctx.lineTo(cardX + cardW - radius, cardY);
+      ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + radius);
+      ctx.lineTo(cardX + cardW, cardY + cardH - radius);
+      ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - radius, cardY + cardH);
+      ctx.lineTo(cardX + radius, cardY + cardH);
+      ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - radius);
+      ctx.lineTo(cardX, cardY + radius);
+      ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            setError('이미지 다운로드에 실패했습니다. 다시 시도해 주세요.');
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const safeName = (selectedCard.cardName || 'card').replace(/[\\\/:*?"<>|]/g, '_');
+          link.download = `instagram_${selectedCard.cardSn}_${safeName}.png`;
+          link.href = url;
+          link.click();
+          URL.revokeObjectURL(url);
+        },
+        'image/png',
+        1,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '이미지 다운로드에 실패했습니다. 다시 시도해 주세요.');
+    }
+  };
+
   const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCard || !formContent.trim() || !token) return;
+    const finalContent = formContent.trim();
+    if (!selectedCard || !finalContent || !token) return;
     setSaving(true);
     setError(null);
     try {
@@ -190,8 +428,13 @@ export default function AdminPostPage() {
         : `${API_BASE}/api/v1/card-sns-posts`;
       const method = editingId ? 'PATCH' : 'POST';
       const body = editingId
-        ? { content: formContent.trim(), platform: formPlatform.trim() || null, status: formStatus }
-        : { card_sn: selectedCard.cardSn, content: formContent.trim(), platform: formPlatform.trim() || null, status: formStatus };
+        ? { content: formContent.trim(), platform: editPlatform.trim() || null, status: editStatus }
+        : {
+            card_sn: selectedCard.cardSn,
+            content: finalContent,
+            platform: formPlatform.trim() || null,
+            status: formStatus,
+          };
       const res = await fetch(url, { method, headers, body: JSON.stringify(body) });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -273,7 +516,7 @@ export default function AdminPostPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 카드 선택 영역 */}
+        {/* 카드 선택 영역 (좌측) */}
         <div className="lg:col-span-1">
           <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">카드 선택</h2>
           {loadingCards ? (
@@ -318,42 +561,76 @@ export default function AdminPostPage() {
           )}
         </div>
 
-        {/* 선택 카드 정보 + 게시물 작성/목록 */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* 가운데: 선택 카드 이미지 프리뷰 */}
+        <div className="lg:col-span-1">
+          {!selectedCard ? (
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-6 text-center text-gray-500 dark:text-gray-400 text-sm h-full flex items-center justify-center">
+              카드를 선택하면<br />여기에 이미지가 표시됩니다.
+            </div>
+          ) : (
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800 h-full flex flex-col items-center justify-between gap-3">
+              <div className="w-full flex items-center justify-between mb-2">
+                <div className="text-xs font-medium text-gray-700 dark:text-gray-300">인스타그램 4:5 미리보기</div>
+                <button
+                  type="button"
+                  onClick={handleDownloadInstagramImage}
+                  className="text-[11px] px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  4:5 이미지 다운로드
+                </button>
+              </div>
+              <div
+                className="w-full max-w-[300px] rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-700 shadow-md"
+                style={{ aspectRatio: `${INSTAGRAM_FEED_ASPECT.w} / ${INSTAGRAM_FEED_ASPECT.h}` }}
+              >
+                {getImageUrl(
+                  selectedCard.generatedImageUrl || selectedCard.characterImageUrl || selectedCard.draftImageUrl
+                ) ? (
+                  <img
+                    src={
+                      getImageUrl(
+                        selectedCard.generatedImageUrl ||
+                          selectedCard.characterImageUrl ||
+                          selectedCard.draftImageUrl
+                      )!
+                    }
+                    alt=""
+                    className="w-full h-full object-contain bg-white"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-4xl text-gray-400 bg-white">
+                    🎴
+                  </div>
+                )}
+              </div>
+              <div className="mt-1 text-center">
+                <div className="text-xs font-semibold text-gray-900 dark:text-white">{selectedCard.cardName}</div>
+                <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                  #{selectedCard.cardSn} · {selectedCard.type} · {selectedCard.attribute}
+                  {selectedCard.gender && ` · ${selectedCard.gender}`}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 우측: 게시물 작성/목록 (선택 카드 정보는 얇은 헤더로만) */}
+        <div className="lg:col-span-1 space-y-6">
           {!selectedCard ? (
             <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-8 text-center text-gray-500 dark:text-gray-400">
               왼쪽에서 카드를 선택하세요.
             </div>
           ) : (
             <>
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
-                <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">선택 카드</h2>
-                <div className="flex items-center gap-4">
-                  <div
-                    className="w-20 h-20 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0 flex items-center justify-center text-3xl text-gray-400"
-                    style={{ aspectRatio: '1' }}
-                  >
-                    {getImageUrl(
-                      selectedCard.generatedImageUrl || selectedCard.characterImageUrl || selectedCard.draftImageUrl
-                    ) ? (
-                      <img
-                        src={
-                          getImageUrl(
-                            selectedCard.generatedImageUrl ||
-                              selectedCard.characterImageUrl ||
-                              selectedCard.draftImageUrl
-                          )!
-                        }
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span>🎴</span>
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-gray-900 dark:text-white">{selectedCard.cardName}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+              {/* 얇은 선택 카드 요약 박스 */}
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 bg-white dark:bg-gray-800">
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">선택 카드</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                      {selectedCard.cardName}
+                    </div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
                       #{selectedCard.cardSn} · {selectedCard.type} · {selectedCard.attribute}
                       {selectedCard.gender && ` · ${selectedCard.gender}`}
                     </div>
@@ -361,111 +638,24 @@ export default function AdminPostPage() {
                 </div>
               </div>
 
-              {/* 인스타그램 업로드용: 통합 캡션 에디터 */}
-              {selectedCard && !editingId && (
-                <div className="rounded-lg border border-pink-200 dark:border-pink-800 bg-gradient-to-br from-pink-50/50 to-purple-50/50 dark:from-pink-900/20 dark:to-purple-900/20 p-4">
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                      <FiImage className="w-4 h-4 text-pink-500" />
-                      인스타그램 캡션 (한 줄 소개 · 본문 · 해시태그 통합)
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleGenerateInstagramCaption}
-                        disabled={generatingCaption}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <FiZap className="w-4 h-4" />
-                        {generatingCaption ? '생성 중...' : 'AI로 생성'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={copyCaptionToClipboard}
-                        className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                        title="캡션 전체 복사"
-                      >
-                        <FiCopy className="w-4 h-4" />
-                        {captionCopied ? '복사됨' : '복사'}
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    한 곳에서 캡션을 작성한 뒤 &quot;캡션에 적용&quot;을 누르면 게시문 본문에 반영됩니다. (최대 2,200자)
-                  </p>
-                  <CaptionEditor
-                    ref={captionEditorRef}
-                    initialContent={captionContent}
-                    onChange={setCaptionContent}
-                    maxLength={INSTAGRAM_CAPTION_MAX}
-                    placeholder="한 줄 소개, 본문, 해시태그를 한 곳에서 작성하세요. (엔터로 줄바꿈)"
-                    className="mb-3"
-                  />
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={applyInstagramTemplateToCaption}
-                      disabled={!captionContent.trim() || captionContent.length > INSTAGRAM_CAPTION_MAX}
-                      className="px-3 py-1.5 rounded-lg bg-pink-600 text-white text-sm font-medium hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      캡션에 적용
-                    </button>
-                  </div>
-                  {/* 인스타그램 피드 비율 미리보기 (4:5) */}
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">피드 미리보기 (4:5)</span>
-                      <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewFit('contain')}
-                          className={`px-2 py-1 text-xs ${previewFit === 'contain' ? 'bg-pink-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}
-                        >
-                          전체 보이기
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewFit('cover')}
-                          className={`px-2 py-1 text-xs ${previewFit === 'cover' ? 'bg-pink-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}
-                        >
-                          꽉 채우기
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1.5">
-                      {previewFit === 'contain' ? '이미지가 잘리지 않고 전부 보입니다. 업로드 시 여백이 생길 수 있습니다.' : '비율에 맞춰 꽉 채워집니다. 업로드 시 일부가 잘릴 수 있습니다.'}
-                    </p>
-                    <div
-                      className="mx-auto rounded-lg overflow-hidden bg-white border border-gray-300 dark:border-gray-600 shadow-lg max-w-[240px]"
-                      style={{ aspectRatio: `${INSTAGRAM_FEED_ASPECT.w} / ${INSTAGRAM_FEED_ASPECT.h}` }}
-                    >
-                      {getImageUrl(
-                        selectedCard.generatedImageUrl || selectedCard.characterImageUrl || selectedCard.draftImageUrl
-                      ) ? (
-                        <img
-                          src={
-                            getImageUrl(
-                              selectedCard.generatedImageUrl ||
-                                selectedCard.characterImageUrl ||
-                                selectedCard.draftImageUrl
-                            )!
-                          }
-                          alt=""
-                          className={`w-full h-full ${previewFit === 'contain' ? 'object-contain' : 'object-cover'}`}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl text-gray-600">🎴</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* 새 게시물 작성 / 수정 폼 */}
               <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
-                <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  {editingId ? '게시물 수정' : '새 SNS 게시문 작성'}
-                </h2>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {editingId ? '게시물 수정' : '새 SNS 게시문 작성'}
+                  </h2>
+                  {!editingId && token && selectedCard && (
+                    <button
+                      type="button"
+                      onClick={handleGenerateInstagramCaption}
+                      disabled={generatingCaption || saving}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-medium hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <FiZap className="w-4 h-4" />
+                      {generatingCaption ? 'AI 생성 중...' : 'AI로 캡션 생성'}
+                    </button>
+                  )}
+                </div>
                 {!token ? (
                   <p className="text-sm text-amber-600 dark:text-amber-400">로그인 후 게시물을 작성할 수 있습니다.</p>
                 ) : (
@@ -475,19 +665,22 @@ export default function AdminPostPage() {
                         <textarea
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
-                          rows={4}
+                          rows={8}
                           className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"
                           placeholder="게시물 본문"
                           required
                         />
                         <div className="flex flex-wrap gap-3">
-                          <input
-                            type="text"
+                          <select
                             value={editPlatform}
                             onChange={(e) => setEditPlatform(e.target.value)}
-                            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 text-sm w-32"
-                            placeholder="플랫폼"
-                          />
+                            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 text-sm w-40"
+                          >
+                            <option value="instagram">Instagram</option>
+                            <option value="twitter">Twitter / X</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="etc">기타</option>
+                          </select>
                           <select
                             value={editStatus}
                             onChange={(e) => setEditStatus(e.target.value)}
@@ -518,19 +711,21 @@ export default function AdminPostPage() {
                         <textarea
                           value={formContent}
                           onChange={(e) => setFormContent(e.target.value)}
-                          rows={4}
+                          rows={8}
                           className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"
-                          placeholder="SNS 게시물 본문을 입력하세요."
-                          required
+                          placeholder="SNS 게시물 본문을 직접 입력하거나, AI 버튼으로 자동 생성해 보세요."
                         />
                         <div className="flex flex-wrap gap-3">
-                          <input
-                            type="text"
+                          <select
                             value={formPlatform}
                             onChange={(e) => setFormPlatform(e.target.value)}
-                            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 text-sm w-32"
-                            placeholder="플랫폼 (선택)"
-                          />
+                            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 text-sm w-40"
+                          >
+                            <option value="instagram">Instagram</option>
+                            <option value="twitter">Twitter / X</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="etc">기타</option>
+                          </select>
                           <select
                             value={formStatus}
                             onChange={(e) => setFormStatus(e.target.value)}
@@ -570,8 +765,7 @@ export default function AdminPostPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{post.content}</p>
-                            <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
                               {post.platform && <span>{post.platform}</span>}
                               <span>{post.status === 'published' ? '게시완료' : '초안'}</span>
                               <span>{new Date(post.updatedAt).toLocaleString('ko-KR')}</span>
