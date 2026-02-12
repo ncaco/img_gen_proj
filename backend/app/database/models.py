@@ -376,6 +376,31 @@ class FlowCard(Base):
         return f"<FlowCard(id={self.id}, character_id={self.character_id}, gender='{self.gender}', attribute='{self.attribute}', type='{self.type}')>"
 
 
+class ApiUsageLog(Base):
+    """
+    API 사용 로그: 글생성(LLM)·이미지생성 호출 시 입력/출력 토큰·비용 저장.
+    """
+    __tablename__ = "api_usage_logs"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="로그 ID (PK)")
+    operation_type = Column(String(50), nullable=False, index=True, comment="구분: post_creation(글생성), image_generation(이미지생성)")
+    model = Column(String(100), nullable=True, comment="모델명 (예: gpt-4o-mini, gpt-image-1.5)")
+    input_tokens = Column(Integer, nullable=True, comment="입력 토큰 수 (이미지 생성 시 NULL)")
+    output_tokens = Column(Integer, nullable=True, comment="출력 토큰 수 (이미지 생성 시 NULL)")
+    cost_usd = Column(String(20), nullable=True, comment="비용 (USD 문자열, 예: 0.001234)")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True, comment="요청 사용자 ID (선택)")
+    extra = Column(JSON, nullable=True, comment="추가 정보 (character_id, card_id 등)")
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="처리 시각",
+    )
+
+    def __repr__(self):
+        return f"<ApiUsageLog(id={self.id}, operation_type='{self.operation_type}', cost_usd='{self.cost_usd}')>"
+
+
 class CardSnsPost(Base):
     """
     카드별 SNS 게시물: cards(확정 카드)에 대한 SNS 게시문 초안/저장.

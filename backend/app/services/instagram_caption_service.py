@@ -113,7 +113,14 @@ async def generate_instagram_caption_single(
     if field == "hashtags":
         parts = [t.strip() for t in content.split() if t.strip()]
         content = " ".join(p if p.startswith("#") else f"#{p}" for p in parts)
-    return content
+    usage = None
+    if getattr(response, "usage", None):
+        u = response.usage
+        inp = getattr(u, "input_tokens", None) or getattr(u, "prompt_tokens", None)
+        out = getattr(u, "output_tokens", None) or getattr(u, "completion_tokens", None)
+        if inp is not None and out is not None:
+            usage = {"input_tokens": inp, "output_tokens": out}
+    return content, usage
 
 
 async def generate_instagram_caption(
@@ -210,6 +217,13 @@ async def generate_instagram_caption(
         temperature=0.7,
     )
     content = (response.choices[0].message.content or "").strip()
+    usage = None
+    if getattr(response, "usage", None):
+        u = response.usage
+        inp = getattr(u, "input_tokens", None) or getattr(u, "prompt_tokens", None)
+        out = getattr(u, "output_tokens", None) or getattr(u, "completion_tokens", None)
+        if inp is not None and out is not None:
+            usage = {"input_tokens": inp, "output_tokens": out}
     # 일반 텍스트 파싱: 첫 블록=한줄소개, 마지막 # 포함 블록=해시태그, 그 사이=본문
     blocks = [b.strip() for b in content.split("\n\n") if b.strip()]
     first_line = blocks[0] if blocks else ""
@@ -231,4 +245,4 @@ async def generate_instagram_caption(
         "firstLine": first_line,
         "body": body,
         "hashtags": hashtags,
-    }
+    }, usage

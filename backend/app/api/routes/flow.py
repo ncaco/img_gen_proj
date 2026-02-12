@@ -52,6 +52,12 @@ from app.services.noble_phantasm_service import (
     generate_card_data,
 )
 from app.services.image_edit_service import run_image_edit
+from app.services.api_usage_log_service import (
+    log_api_usage,
+    OPERATION_POST_CREATION,
+    OPERATION_IMAGE_GENERATION,
+    GPT_IMAGE_15_PER_IMAGE_USD,
+)
 
 router = APIRouter(prefix="/flow", tags=["flow"])
 
@@ -84,7 +90,7 @@ async def lore_mapping(
     description = (body.description or "").strip()
 
     try:
-        lore_result = await run_lore_mapping(name=name, description=description)
+        lore_result, usage = await run_lore_mapping(name=name, description=description)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -92,6 +98,18 @@ async def lore_mapping(
             status_code=500,
             detail=f"Lore 분석 중 오류가 발생했습니다: {e}",
         )
+
+    if usage:
+        log_api_usage(
+            db,
+            OPERATION_POST_CREATION,
+            model="gpt-4o-mini",
+            input_tokens=usage.get("input_tokens"),
+            output_tokens=usage.get("output_tokens"),
+            user_id=current_user.id,
+            extra={"endpoint": "lore-mapping", "character_id": body.character_id},
+        )
+        db.commit()
 
     if body.character_id:
         character = db.query(FlowCharacter).filter(
@@ -394,16 +412,28 @@ async def generate_image_prompt(
     
     try:
         # Image Prompt 생성
-        image_prompt, character_settings = await run_image_prompt_generator(
+        image_prompt, character_settings, usage = await run_image_prompt_generator(
             lore=lore,
             gender=request.gender,
             attribute=request.attribute,
             type=request.type,
         )
-        
+
+        if usage:
+            log_api_usage(
+                db,
+                OPERATION_POST_CREATION,
+                model="gpt-4o-mini",
+                input_tokens=usage.get("input_tokens"),
+                output_tokens=usage.get("output_tokens"),
+                user_id=current_user.id,
+                extra={"endpoint": "image-prompt", "character_id": request.characterId},
+            )
+            db.commit()
+
         # 후처리
         final_prompt, final_character_settings = run_prompt_postprocess(image_prompt, character_settings)
-        
+
         return ImagePromptResponse(
             success=True,
             prompt=final_prompt.landscape_image_prompt_en,
@@ -584,14 +614,26 @@ async def generate_noble_phantasm_endpoint(
     
     try:
         # 보구 생성
-        result = await generate_noble_phantasm(
+        result, usage = await generate_noble_phantasm(
             lore=lore,
             gender=request.gender,
             attribute=request.attribute,
             type=request.type,
             exclude_noble_phantasms=request.excludeNoblePhantasms,
         )
-        
+
+        if usage:
+            log_api_usage(
+                db,
+                OPERATION_POST_CREATION,
+                model="gpt-4o-mini",
+                input_tokens=usage.get("input_tokens"),
+                output_tokens=usage.get("output_tokens"),
+                user_id=current_user.id,
+                extra={"endpoint": "noble-phantasm", "character_id": request.characterId},
+            )
+            db.commit()
+
         return NoblePhantasmGenerateResponse(
             success=True,
             보구명=result.보구명,
@@ -645,13 +687,25 @@ async def generate_flavor_text_endpoint(
     
     try:
         # 플레이버 텍스트 생성
-        result = await generate_flavor_text(
+        result, usage = await generate_flavor_text(
             lore=lore,
             gender=request.gender,
             attribute=request.attribute,
             type=request.type,
         )
-        
+
+        if usage:
+            log_api_usage(
+                db,
+                OPERATION_POST_CREATION,
+                model="gpt-4o-mini",
+                input_tokens=usage.get("input_tokens"),
+                output_tokens=usage.get("output_tokens"),
+                user_id=current_user.id,
+                extra={"endpoint": "flavor-text", "character_id": request.characterId},
+            )
+            db.commit()
+
         return FlavorTextGenerateResponse(
             success=True,
             flavorText=result.flavorText,
@@ -668,6 +722,7 @@ async def generate_flavor_text_endpoint(
 @router.post("/image-edit", response_model=ImageEditResponse)
 def image_edit_endpoint(
     request: ImageEditRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_required),
 ):
     """
@@ -690,6 +745,15 @@ def image_edit_endpoint(
 
     try:
         image_base64 = run_image_edit(image_bytes=image_bytes, prompt=request.prompt.strip())
+        log_api_usage(
+            db,
+            OPERATION_IMAGE_GENERATION,
+            model="gpt-image-1.5",
+            cost_usd=GPT_IMAGE_15_PER_IMAGE_USD,
+            user_id=current_user.id,
+            extra={"endpoint": "image-edit"},
+        )
+        db.commit()
         return ImageEditResponse(success=True, imageBase64=image_base64)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -739,14 +803,26 @@ async def generate_card_data_endpoint(
     
     try:
         # 카드 데이터 일괄 생성
-        result = await generate_card_data(
+        result, usage = await generate_card_data(
             lore=lore,
             gender=request.gender,
             attribute=request.attribute,
             type=request.type,
             exclude_noble_phantasms=request.excludeNoblePhantasms,
         )
-        
+
+        if usage:
+            log_api_usage(
+                db,
+                OPERATION_POST_CREATION,
+                model="gpt-4o-mini",
+                input_tokens=usage.get("input_tokens"),
+                output_tokens=usage.get("output_tokens"),
+                user_id=current_user.id,
+                extra={"endpoint": "card-data/generate", "character_id": request.characterId},
+            )
+            db.commit()
+
         return CardDataGenerateResponse(
             success=True,
             noblePhantasm1=result["noblePhantasm1"],

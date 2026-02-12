@@ -58,8 +58,16 @@ Return all display values in "한국어(English)" format as specified.
         text_format=LoreMappingResult,
     )
 
+    usage = None
+    if getattr(response, "usage", None):
+        u = response.usage
+        inp = getattr(u, "input_tokens", None) or getattr(u, "prompt_tokens", None)
+        out = getattr(u, "output_tokens", None) or getattr(u, "completion_tokens", None)
+        if inp is not None and out is not None:
+            usage = {"input_tokens": inp, "output_tokens": out}
+
     try:
         result: LoreMappingResult = response.output_parsed
-        return result
+        return result, usage
     except ValidationError as e:
         raise ValueError(f"Schema validation failed: {e}") from e

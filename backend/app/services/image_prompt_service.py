@@ -170,6 +170,14 @@ The prompt should reflect the character's background, era, archetype, and achiev
         text_format=ImagePromptResult,
     )
 
+    usage = None
+    if getattr(response, "usage", None):
+        u = response.usage
+        inp = getattr(u, "input_tokens", None) or getattr(u, "prompt_tokens", None)
+        out = getattr(u, "output_tokens", None) or getattr(u, "completion_tokens", None)
+        if inp is not None and out is not None:
+            usage = {"input_tokens": inp, "output_tokens": out}
+
     try:
         result: ImagePromptResult = response.output_parsed
         
@@ -190,8 +198,8 @@ The prompt should reflect the character's background, era, archetype, and achiev
             "class": type,
         }
         
-        # 결과와 캐릭터 설정 정보를 튜플로 반환
-        return result, character_settings_dict
+        # 결과, 캐릭터 설정 정보, usage 튜플로 반환
+        return result, character_settings_dict, usage
     except ValidationError as e:
         raise ValueError(f"Schema validation failed: {e}") from e
 

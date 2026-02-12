@@ -46,15 +46,20 @@ function imageUrl(url: string | null | undefined): string {
   return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
+/** 시드를 사용해 결정론적이지만 세션마다 다른 순서로 풀을 채움 */
 function randomRepeat<T extends { cardSn: number }>(
   source: T[],
   count: number,
-  seedOffset: number = 0
+  seedOffset: number = 0,
+  randomSeed: number = 0
 ): (T & { uniqueKey: number })[] {
   if (source.length === 0) return [];
   const result: (T & { uniqueKey: number })[] = [];
   for (let i = 0; i < count; i++) {
-    const idx = Math.floor((Math.sin((seedOffset + i) * 9999) * 0.5 + 0.5) * source.length) % source.length;
+    const idx =
+      Math.floor(
+        (Math.sin((randomSeed + seedOffset + i) * 9999) * 0.5 + 0.5) * source.length
+      ) % source.length;
     result.push({ ...source[idx], uniqueKey: seedOffset + i });
   }
   return result;
@@ -67,6 +72,8 @@ export default function Home() {
   const [displayCount, setDisplayCount] = useState(INITIAL_COUNT);
   const loadingMore = useRef(false);
   const initialPoolSet = useRef(false);
+  /** 조회 시 한 번 생성해 세션 내 풀 순서에 일관되게 적용하는 랜덤 시드 */
+  const randomSeedRef = useRef<number | null>(null);
 
   const sourceItems: DisplayItem[] =
     cards.length > 0
@@ -101,14 +108,19 @@ export default function Home() {
   useEffect(() => {
     if (cards.length === 0) {
       initialPoolSet.current = false;
+      randomSeedRef.current = null;
       setPool(randomRepeat(PLACEHOLDER_ITEMS, POOL_BATCH_SIZE, 0));
       setDisplayCount(INITIAL_COUNT);
       return;
     }
     if (initialPoolSet.current) return;
     initialPoolSet.current = true;
+    if (randomSeedRef.current === null) {
+      randomSeedRef.current = Math.floor(Math.random() * 1e9);
+    }
+    const seed = randomSeedRef.current;
     const source = cards.map((c, i) => ({ ...c, uniqueKey: i, cardSn: c.cardSn }));
-    setPool(randomRepeat(source, POOL_BATCH_SIZE, 0));
+    setPool(randomRepeat(source, POOL_BATCH_SIZE, 0, seed));
     setDisplayCount(INITIAL_COUNT);
   }, [cards]);
 
@@ -133,7 +145,8 @@ export default function Home() {
     if (pool.length === 0 || displayCount <= pool.length - LOAD_MORE_COUNT) return;
     const source = getSourceForPool();
     if (source.length === 0) return;
-    setPool((prev) => [...prev, ...randomRepeat(source, POOL_BATCH_SIZE, prev.length)]);
+    const seed = randomSeedRef.current ?? 0;
+    setPool((prev) => [...prev, ...randomRepeat(source, POOL_BATCH_SIZE, prev.length, seed)]);
   }, [displayCount, pool.length, getSourceForPool]);
 
   useEffect(() => {

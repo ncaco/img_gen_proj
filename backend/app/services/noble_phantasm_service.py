@@ -140,9 +140,17 @@ Return values in the specified format:
         text_format=NoblePhantasmResult,
     )
 
+    usage = None
+    if getattr(response, "usage", None):
+        u = response.usage
+        inp = getattr(u, "input_tokens", None) or getattr(u, "prompt_tokens", None)
+        out = getattr(u, "output_tokens", None) or getattr(u, "completion_tokens", None)
+        if inp is not None and out is not None:
+            usage = {"input_tokens": inp, "output_tokens": out}
+
     try:
         result: NoblePhantasmResult = response.output_parsed
-        return result
+        return result, usage
     except ValidationError as e:
         raise ValueError(f"Schema validation failed: {e}") from e
 
@@ -225,9 +233,17 @@ Return the result as a single quote or dialogue line.
         text_format=FlavorTextResult,
     )
 
+    usage = None
+    if getattr(response, "usage", None):
+        u = response.usage
+        inp = getattr(u, "input_tokens", None) or getattr(u, "prompt_tokens", None)
+        out = getattr(u, "output_tokens", None) or getattr(u, "completion_tokens", None)
+        if inp is not None and out is not None:
+            usage = {"input_tokens": inp, "output_tokens": out}
+
     try:
         result: FlavorTextResult = response.output_parsed
-        return result
+        return result, usage
     except ValidationError as e:
         raise ValueError(f"Schema validation failed: {e}") from e
 
@@ -238,43 +254,59 @@ async def generate_card_data(
     attribute: str,
     type: str,
     exclude_noble_phantasms: list[dict[str, str]] | None = None,
-) -> dict:
+) -> tuple[dict, dict | None]:
     """
     한 번에 보구1, 보구2, 플레이버 텍스트를 생성합니다.
+    반환: (결과 딕셔너리, 집계 usage 또는 None)
     """
     # 보구1 생성
-    noble_phantasm1 = await generate_noble_phantasm(
+    noble_phantasm1, usage1 = await generate_noble_phantasm(
         lore=lore,
         gender=gender,
         attribute=attribute,
         type=type,
         exclude_noble_phantasms=exclude_noble_phantasms,
     )
-    
+
     # 보구1을 제외 목록에 추가
     updated_exclude_list = (exclude_noble_phantasms or []).copy()
     updated_exclude_list.append({
         "보구명": noble_phantasm1.보구명,
         "진명개방": noble_phantasm1.진명개방,
     })
-    
+
     # 보구2 생성 (보구1 제외)
-    noble_phantasm2 = await generate_noble_phantasm(
+    noble_phantasm2, usage2 = await generate_noble_phantasm(
         lore=lore,
         gender=gender,
         attribute=attribute,
         type=type,
         exclude_noble_phantasms=updated_exclude_list,
     )
-    
+
     # 플레이버 텍스트 생성
-    flavor_text_result = await generate_flavor_text(
+    flavor_text_result, usage3 = await generate_flavor_text(
         lore=lore,
         gender=gender,
         attribute=attribute,
         type=type,
     )
-    
+
+    agg = None
+    if usage1 or usage2 or usage3:
+        def _add(a: dict | None, b: dict | None) -> dict:
+            if not a:
+                return b or {}
+            if not b:
+                return a
+            return {
+                "input_tokens": a.get("input_tokens", 0) + b.get("input_tokens", 0),
+                "output_tokens": a.get("output_tokens", 0) + b.get("output_tokens", 0),
+            }
+        agg = _add(_add(usage1, usage2), usage3)
+        if not agg:
+            agg = None
+
     return {
         "noblePhantasm1": {
             "보구명": noble_phantasm1.보구명,
@@ -285,4 +317,4 @@ async def generate_card_data(
             "진명개방": noble_phantasm2.진명개방,
         },
         "flavorText": flavor_text_result.flavorText,
-    }
+    }, agg

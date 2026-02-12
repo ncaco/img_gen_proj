@@ -19,6 +19,7 @@ from app.services.instagram_caption_service import (
     generate_instagram_caption,
     generate_instagram_caption_single,
 )
+from app.services.api_usage_log_service import log_api_usage, OPERATION_POST_CREATION
 
 router = APIRouter(prefix="/card-sns-posts", tags=["card-sns-posts"])
 
@@ -89,7 +90,7 @@ async def generate_instagram_caption_for_card(
             detail=f"카드 일련번호 {body.card_sn}을(를) 찾을 수 없습니다.",
         )
     try:
-        result = await generate_instagram_caption(
+        result, usage = await generate_instagram_caption(
             card_name=card.card_name or "",
             card_type=card.type or "",
             attribute=card.attribute or "",
@@ -98,6 +99,17 @@ async def generate_instagram_caption_for_card(
             flavor_text=card.flavor_text,
             series=card.series,
         )
+        if usage:
+            log_api_usage(
+                db,
+                OPERATION_POST_CREATION,
+                model="gpt-4o-mini",
+                input_tokens=usage.get("input_tokens"),
+                output_tokens=usage.get("output_tokens"),
+                user_id=current_user.id,
+                extra={"endpoint": "instagram-caption", "card_sn": body.card_sn},
+            )
+            db.commit()
         return GenerateInstagramCaptionResponse(
             firstLine=result["firstLine"],
             body=result["body"],
@@ -131,7 +143,7 @@ async def generate_instagram_caption_single_for_card(
             detail=f"카드 일련번호 {body.card_sn}을(를) 찾을 수 없습니다.",
         )
     try:
-        value = await generate_instagram_caption_single(
+        value, usage = await generate_instagram_caption_single(
             card_name=card.card_name or "",
             card_type=card.type or "",
             attribute=card.attribute or "",
@@ -141,6 +153,17 @@ async def generate_instagram_caption_single_for_card(
             flavor_text=card.flavor_text,
             series=card.series,
         )
+        if usage:
+            log_api_usage(
+                db,
+                OPERATION_POST_CREATION,
+                model="gpt-4o-mini",
+                input_tokens=usage.get("input_tokens"),
+                output_tokens=usage.get("output_tokens"),
+                user_id=current_user.id,
+                extra={"endpoint": "instagram-caption-single", "card_sn": body.card_sn, "field": body.field},
+            )
+            db.commit()
         return GenerateInstagramCaptionSingleResponse(value=value)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
