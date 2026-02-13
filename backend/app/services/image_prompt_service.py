@@ -76,89 +76,130 @@ async def run_image_prompt_generator(
     client = AsyncOpenAI(api_key=api_key)
 
     system_prompt = """
-You are an anime illustration prompt engineer for Fate-style characters.
+당신은 Fate 시리즈 스타일의 애니메이션 서번트 일러스트를 위한
+전문 프롬프트 엔지니어입니다.
 
-TASK:
-- Generate ONLY image generation prompts.
-- Use moe-style character design.
-- Respect the Servant class, era, and core concept.
-- Apply natural Fate-style gender adaptation.
-- Create a wide horizontal (16:9) cinematic composition.
+[역할]
+- 결과물은 반드시 "이미지 생성용 프롬프트"만 출력합니다.
+- 설명, 해설, 주석은 절대 출력하지 않습니다.
+- moe 스타일의 캐릭터 디자인을 기반으로 합니다.
+- Fate 세계관의 톤, 분위기, 미학을 존중합니다.
+- 서번트의 클래스, 속성, 성별, 시대적 배경을 시각적으로 정확히 반영해야 합니다.
+- 와이드 시네마틱 구도 (16:9, 가로형)를 사용합니다.
 
-CRITICAL REQUIREMENTS:
-- The prompt MUST explicitly include and emphasize the character's Gender, Attribute, and Class.
-- Gender should be clearly reflected in the character's appearance and design.
-- Attribute (Fire/Water/Wind/Earth/Light/Dark/etc. - elemental attributes) should influence the visual style, color scheme, aura, and atmosphere. For example, Fire attribute should show flames, red/orange colors, and fiery effects. Water attribute should show blue colors, water effects, and fluid elements.
-- Class (Saber/Archer/Lancer/etc.) should be reflected in the character's pose, weapons, and overall design.
-- SPECIAL CLASS REQUIREMENT: If the class is Saber, the prompt MUST include a sword-type weapon. Saber class characters must be depicted with a sword (sword, blade, katana, etc.). This is MANDATORY for Saber class.
-- SPECIAL CLASS REQUIREMENT: If the class is Lancer, the prompt MUST include a spear-type weapon. Lancer class characters must be depicted with a spear or lance (spear, lance, polearm, etc.). This is MANDATORY for Lancer class.
-- SPECIAL CLASS REQUIREMENT: If the class is Archer, the prompt MUST include a bow-type weapon. Archer class characters must be depicted with a bow (bow, longbow, crossbow, etc.). This is MANDATORY for Archer class.
-- SPECIAL CLASS REQUIREMENT: If the class is Rider, the prompt MUST include at least one phantasmal beast, mythical creature, or mount. Rider class characters must be depicted with their mount/beast companion. This is MANDATORY for Rider class.
-- SPECIAL CLASS REQUIREMENT: If the class is Berserker, the prompt MUST include berserker rage effects such as violent aura, fury, madness, aggressive expression, wild eyes, and intense combat atmosphere. Berserker class characters must show signs of berserker rage and madness. This is MANDATORY for Berserker class.
-- SPECIAL CLASS REQUIREMENT: If the class is Ruler, the prompt MUST include judge/priest-like elements such as authoritative presence, dignified appearance, judicial or religious symbols, sacred atmosphere, and a sense of justice and divine authority. Ruler class characters must convey the feeling of a judge or high priest. This is MANDATORY for Ruler class.
-- SPECIAL CLASS REQUIREMENT: If the class is Avenger, the prompt MUST include curse effects, torn/tattered clothing, and NO weapons. Avenger class characters must show signs of curses, wear torn or tattered clothes, and must NOT have any weapons. This is MANDATORY for Avenger class.
-- SPECIAL CLASS REQUIREMENT: If the class is Alter Ego, the prompt MUST include mechanical-organic hybrid design, asymmetrical structure, digital glitch effects, surreal and dreamlike atmosphere, and express the duality of "another self". Alter Ego class characters must show a fusion of mechanical and organic elements, asymmetrical body structure, digital glitch effects, and surreal dreamlike atmosphere representing dual identity. This is MANDATORY for Alter Ego class.
-- These three elements (Gender, Attribute, Class) are MANDATORY and must be prominently featured in the prompt.
+[핵심 필수 요소 - 반드시 명시적으로 포함]
+0. 설정 (Settings)
+    - 대상의 시대적 배경과 평판을 반영하는 설정을 포함합니다.
 
-STRICT RULES:
-- Do NOT change lore or Servant settings.
-- Do NOT add new Noble Phantasms.
-- Do NOT include gameplay or combat stats.
-- NO text, NO UI, NO watermark, NO logo, NO letters in image.
+1. 성별 (Gender)
+   - 외형, 체형, 복장, 분위기에서 명확히 드러나야 합니다.
 
-Return ONLY valid JSON matching the schema.
-"""
+2. 속성 (Attribute / 원소 속성)
+   - Fire / Water / Wind / Earth / Light / Dark 등
+   - 색감, 이펙트, 오라, 환경 연출을 통해 강하게 표현해야 합니다.
+     예시:
+     - Fire: 붉은/주황 계열, 불꽃, 열기, 화염 오라
+     - Water: 푸른 계열, 물결, 수면 반사, 수속성 이펙트
+     - Wind: 공기의 흐름, 부유감, 바람결, 에테르 효과
+     - Earth: 대지색, 암석, 자연, 안정감
+     - Light: 광휘, 성스러운 빛, 밝은 색조
+     - Steel: 강철, 검은색, 냉각, 무명
+     - Ice: 냉기, 얼음, 빙결, 냉혹한 분위기
+     - Forest: 숲, 자연, 안정감, 신비로운 분위기
+     - Lightning: 번개, 번개속성, 번개 오라, 번개 이펙트
+     - Dark: 어둠, 그림자, 저채도, 음침하고 신비로운 분위기
 
-    # 캐릭터 설정 정보 구성
-    character_settings = f"""
-Character Settings:
-- Name: {lore.name}
-- Historical/Mythical: {lore.historical_or_mythical}
-- Origin Country: {lore.origin_country or "Unknown"}
-- Era: {lore.era}
-- Main Archetype: {lore.main_archetype}
-- Legend Rank: {lore.legend_rank}
-- Mystery Level: {lore.mystery_level}
-- Divinity Potential: {lore.divinity_potential}
-- Noble Phantasms: {', '.join([np.get('보구명', '') for np in (lore.noble_phantasms or [])]) if lore.noble_phantasms else "None"}
-- Key Achievements: {', '.join(lore.key_achievements) if lore.key_achievements else "None"}
+3. 클래스 (Class)
+   - 포즈, 무기, 실루엣, 전투 스타일에 반드시 반영
+
+[클래스별 절대 규칙 – 위반 불가]
+- Saber:
+  반드시 소드 계열 무기 포함
+  (소드, 블레이드, 카타나, 롱소드, 래피어 등)
+
+- Lancer:
+  반드시 대형 무기 계열 무기 포함
+  (창, 랜스, 폴암, 대검, 도끼,  등)
+
+- Archer:
+  반드시 원거리 계열 포함
+  (활, 롱보우, 크로스보우, 권총, 소총, 기관총, 미사일, 레이저 등)
+
+- Rider:
+  반드시 환상종 / 탈것 / 신수 중 최소 1종 포함
+  (환상종, 탈것, 신수 등)
+
+- Caster:
+  반드시 마법 계열 포함
+  (마법진, 마법서, 마법책, 마법봉, 마법지팡이 등)
+
+- Berserker:
+  광기, 분노, 폭주 오라, 난폭한 표정 필수
+  (광기, 분노, 폭주 오라, 난폭한 표정 등)
+
+- Ruler:
+  재판관 / 사제 / 성직자적 요소 필수
+  (권위, 신성함, 정의, 심판자 이미지)
+
+- Avenger:
+  저주 효과 필수
+  찢어진 복장 필수
+  무기 절대 금지 (완전 무장 해제 상태)
+  (저주 효과, 찢어진 복장, 무기 절대 금지 등)
+
+- Alter Ego:
+  기계 + 유기체 융합 디자인
+  비대칭 구조
+  디지털 글리치
+  몽환적이고 초현실적인 분위기
+  '또 다른 자아'의 이중성 표현 필수
+
+[금지 사항]
+- 설정에 없는 새로운 보구 추가 금지
+- 게임 UI, 수치, 텍스트 정보 금지
+- 이미지 내 텍스트, 로고, 워터마크, UI, 글자 절대 금지
+
+[출력 형식]
+- 반드시 JSON 형식으로만 출력
+- 스키마를 정확히 준수
 """
 
     user_prompt = f"""
-Lore Mapping (JSON):
+[Lore 매핑 정보 - JSON]
 {lore.model_dump_json(indent=2)}
 
-{character_settings}
+[캐릭터 설정 요약]
+- 이름: {lore.name}
+- 역사/신화적 존재 여부: {lore.historical_or_mythical}
+- 기원 국가: {lore.origin_country or "Unknown"}
+- 시대: {lore.era}
+- 핵심 아키타입: {lore.main_archetype}
+- 전설 등급: {lore.legend_rank}
+- 미스터리 수치: {lore.mystery_level}
+- 신성 잠재력: {lore.divinity_potential}
+- 보구: {', '.join([np.get('보구명', '') for np in (lore.noble_phantasms or [])]) if lore.noble_phantasms else "None"}
+- 주요 업적: {', '.join(lore.key_achievements) if lore.key_achievements else "None"}
 
-Servant Configuration (MUST be prominently featured in the prompt):
-- Gender: {gender}
-- Attribute: {attribute}
-- Class: {type}
+[서번트 핵심 설정 – 반드시 프롬프트에 명확히 반영]
+- 성별 (Gender): {gender}
+- 속성 (Attribute / 원소): {attribute}
+- 클래스 (Class): {type}
 
-IMPORTANT: The generated prompt MUST explicitly and clearly include:
-1. The character's gender ({gender}) - reflected in appearance, clothing, and design
-2. The attribute ({attribute}) - this is an ELEMENTAL attribute (Fire/Water/Wind/Earth/Light/Dark/etc.). The prompt must include visual elements that represent this element:
-   - Fire: flames, red/orange colors, fiery effects, heat waves
-   - Water: blue colors, water effects, fluid elements, aquatic atmosphere
-   - Wind: flowing elements, air currents, ethereal effects
-   - Earth: brown/green colors, solid/grounded elements, nature
-   - Light: bright colors, light effects, radiant atmosphere
-   - Dark: dark colors, shadow effects, mysterious atmosphere
-   The attribute should be prominently featured in the visual style, color scheme, aura, and atmosphere.
-3. The class ({type}) - reflected in pose, weapons, equipment, and overall character design
-{f"   CRITICAL CLASS REQUIREMENT FOR SABER: The prompt MUST include a sword-type weapon. The Saber class character must be shown with a sword (sword, blade, katana, longsword, broadsword, etc.). This is MANDATORY - Saber class characters always have a sword. Include descriptions like 'sword', 'blade', 'katana', 'longsword', 'broadsword', 'wielding a sword', 'holding a sword', etc." if type.lower() in ["saber", "세이버"] else ""}
-{f"   CRITICAL CLASS REQUIREMENT FOR LANCER: The prompt MUST include a spear-type weapon. The Lancer class character must be shown with a spear or lance (spear, lance, polearm, halberd, etc.). This is MANDATORY - Lancer class characters always have a spear or lance. Include descriptions like 'spear', 'lance', 'polearm', 'halberd', 'wielding a spear', 'holding a lance', etc." if type.lower() in ["lancer", "랜서"] else ""}
-{f"   CRITICAL CLASS REQUIREMENT FOR ARCHER: The prompt MUST include a bow-type weapon. The Archer class character must be shown with a bow (bow, longbow, crossbow, composite bow, etc.). This is MANDATORY - Archer class characters always have a bow. Include descriptions like 'bow', 'longbow', 'crossbow', 'composite bow', 'wielding a bow', 'holding a bow', 'with bow and arrow', etc." if type.lower() in ["archer", "아처"] else ""}
-{f"   CRITICAL CLASS REQUIREMENT FOR RIDER: The prompt MUST include at least one phantasmal beast, mythical creature, or mount. The Rider class character must be shown with their mount/beast companion. This is MANDATORY - Rider class characters always have mounts or phantasmal beasts. Include descriptions like 'riding a mythical beast', 'with phantasmal mount', 'accompanied by a legendary creature', etc." if type.lower() in ["rider", "라이더"] else ""}
-{f"   CRITICAL CLASS REQUIREMENT FOR BERSERKER: The prompt MUST include berserker rage effects such as violent aura, fury, madness, aggressive expression, wild eyes, intense combat atmosphere, berserker rage, and signs of madness. The Berserker class character must show clear signs of berserker rage and madness. This is MANDATORY - Berserker class characters always exhibit berserker rage. Include descriptions like 'berserker rage', 'violent aura', 'fury', 'madness', 'wild eyes', 'aggressive expression', 'intense combat atmosphere', etc." if type.lower() in ["berserker", "버서커"] else ""}
-{f"   CRITICAL CLASS REQUIREMENT FOR RULER: The prompt MUST include judge/priest-like elements such as authoritative presence, dignified appearance, judicial or religious symbols, sacred atmosphere, sense of justice, divine authority, and regal bearing. The Ruler class character must convey the feeling of a judge or high priest. This is MANDATORY - Ruler class characters always have judge/priest-like qualities. Include descriptions like 'judge-like', 'priest-like', 'authoritative presence', 'dignified appearance', 'judicial symbols', 'religious symbols', 'sacred atmosphere', 'sense of justice', 'divine authority', 'regal bearing', etc." if type.lower() in ["ruler", "룰러"] else ""}
-{f"   CRITICAL CLASS REQUIREMENT FOR AVENGER: The prompt MUST include curse effects, torn/tattered clothing, and NO weapons. The Avenger class character must show signs of curses (curse marks, curse aura, cursed appearance), wear torn or tattered clothes (ripped clothing, damaged garments, worn-out fabric), and must NOT have any weapons (no sword, no spear, no bow, no staff, completely unarmed). This is MANDATORY - Avenger class characters always have curses, torn clothing, and no weapons. Include descriptions like 'cursed', 'curse marks', 'curse aura', 'torn clothing', 'tattered clothes', 'ripped garments', 'damaged fabric', 'no weapons', 'unarmed', 'weaponless', etc." if type.lower() in ["avenger", "어벤저"] else ""}
-{f"   CRITICAL CLASS REQUIREMENT FOR ALTER EGO: The prompt MUST include mechanical-organic hybrid design, asymmetrical structure, digital glitch effects, surreal and dreamlike atmosphere, and express the duality of 'another self'. The Alter Ego class character must show a fusion of mechanical and organic elements (cyborg-like features, biomechanical design, mechanical parts fused with organic body), asymmetrical body structure (uneven proportions, mismatched limbs, non-symmetrical design), digital glitch effects (pixelation, data corruption, digital artifacts, glitch aesthetics), surreal and dreamlike atmosphere (ethereal, otherworldly, dreamy, surreal), and dual identity expression (split personality, multiple selves, identity duality). This is MANDATORY - Alter Ego class characters always have these characteristics. Include descriptions like 'mechanical-organic hybrid', 'cyborg', 'biomechanical', 'asymmetrical', 'uneven proportions', 'digital glitch', 'pixelation', 'data corruption', 'surreal', 'dreamlike', 'ethereal', 'dual identity', 'another self', 'split personality', etc." if type.lower() in ["alter ego", "얼터에고", "alterego"] else ""}
-4. Character settings information - incorporate the character's historical/mythical background, era, archetype, legend rank, mystery level, divinity potential, and key achievements into the visual design and atmosphere
+[중요 지시사항]
+- 성별({gender})은 외형과 분위기에서 명확히 드러나야 합니다.
+- 속성({attribute})은 색감, 이펙트, 오라, 배경 연출을 통해 강하게 표현해야 합니다.
+- 클래스({type})는 무기, 포즈, 전투 스타일로 즉각 인식 가능해야 합니다.
+- 위 캐릭터의 시대, 전설성, 아키타입, 업적이 시각적으로 자연스럽게 녹아들어야 합니다.
+- Fate 시리즈 공식 일러스트와 어울리는 톤을 유지합니다.
+- moe 스타일 + 시네마틱 연출을 결합합니다.
+- 가로형 16:9 와이드 구도를 사용합니다.
+- 이미지에는 텍스트, UI, 로고, 워터마크, 글자가 없어야 합니다.
 
-Generate a Fate-style anime illustration prompt for this Servant in landscape (16:9) format.
-Make sure Gender, Attribute (elemental), Class, and Character Settings are clearly and explicitly expressed in the prompt.
-The prompt should reflect the character's background, era, archetype, and achievements in the visual design.
+[최종 목표]
+위 설정을 기반으로 Fate 스타일의 고퀄리티 애니메이션 서번트 일러스트를 생성하기 위한
+**이미지 생성용 프롬프트를 작성하세요.**
+
+※ 출력은 오직 JSON 형식만 허용됩니다.
 """
 
     response = await client.responses.parse(
