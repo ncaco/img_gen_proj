@@ -113,6 +113,16 @@ export default function Header() {
                   >
                     내 워크스페이스
                   </Link>
+                  {user.is_admin && (
+                    <Link
+                      href="/admin"
+                      className="block px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                      role="menuitem"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      관리자 페이지
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={handleLogout}

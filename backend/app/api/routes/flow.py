@@ -545,11 +545,25 @@ async def upload_flow_card_image(
         raise HTTPException(status_code=404, detail="해당 카드를 찾을 수 없습니다.")
     
     try:
-        # 이미지 파일 업로드 (flow_cards 서브디렉토리에 저장)
+        # 워크스페이스 기준 디렉토리 구성: flow_cards/user_{user_id}/workspace_{workspace_id}/
+        from app.database.models import Flow  # 지연 import로 순환 참조 방지
+
+        workspace_id = None
+        if character.flow_id:
+            flow = db.query(Flow).filter(Flow.id == character.flow_id).first()
+            if flow and flow.workspace_id:
+                workspace_id = flow.workspace_id
+
+        if workspace_id is not None:
+            subdirectory = f"flow_cards/user_{current_user.id}/workspace_{workspace_id}"
+        else:
+            # 워크스페이스 정보를 찾지 못한 경우 fallback
+            subdirectory = f"flow_cards/user_{current_user.id}/workspace_unknown"
+
         file_url, file_path = await save_uploaded_file(
             file,
-            subdirectory="flow_cards",
-            filename_prefix=f"card_{card_id}_"
+            subdirectory=subdirectory,
+            filename_prefix=f"card_{card_id}_",
         )
         
         # FlowCard에 이미지 URL 저장

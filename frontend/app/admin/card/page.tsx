@@ -680,7 +680,7 @@ export default function CardPage() {
     );
   } else {
     content = (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
         {cards.map((card) => {
           const imageUrl = getImageUrl(
             card.generatedImageUrl || card.characterImageUrl || card.backgroundImageUrl,
@@ -688,6 +688,18 @@ export default function CardPage() {
 
           return (
             <div key={card.cardSn} className="group relative">
+              {/* 삭제 버튼을 카드 앞(상단)에 배치 */}
+              <div className="absolute -top-2 -right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <button
+                  onClick={(e) => handleDeleteCard(e, card)}
+                  className="h-8 w-8 rounded-full bg-red-600 text-white hover:bg-red-700 flex items-center justify-center shadow-lg transition-colors"
+                  aria-label="카드 삭제"
+                  title="카드 삭제"
+                >
+                  <FiTrash2 className="h-4 w-4" />
+                </button>
+              </div>
+              
               <div
                 onClick={() => handleCardClick(card)}
                 className="bg-transparent rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-105 cursor-pointer"
@@ -716,18 +728,6 @@ export default function CardPage() {
                     <span className="text-4xl">🎴</span>
                   </div>
                 )}
-              </div>
-              
-              {/* Hover 시 카드 외부 하단에 나타나는 조작 버튼 */}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 flex justify-center gap-2 pt-2 opacity-0 group-hover:opacity-100 translate-y-0 group-hover:translate-y-2 transition-all duration-300 ease-out">
-                <button
-                  onClick={(e) => handleDeleteCard(e, card)}
-                  className="h-8 w-8 rounded-full bg-red-600 text-white hover:bg-red-700 flex items-center justify-center shadow-lg transition-colors"
-                  aria-label="카드 삭제"
-                  title="카드 삭제"
-                >
-                  <FiTrash2 className="h-4 w-4" />
-                </button>
               </div>
             </div>
           );
