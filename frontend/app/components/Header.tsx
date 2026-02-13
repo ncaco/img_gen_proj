@@ -76,6 +76,12 @@ export default function Header() {
           >
             카드생성
           </Link>
+          <Link
+            href="/hero-auto"
+            className="text-sm font-medium text-white/70 hover:text-white transition-colors"
+          >
+            영웅 풀오토
+          </Link>
         </div>
 
         <nav className="flex items-center gap-3">

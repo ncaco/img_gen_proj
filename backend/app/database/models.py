@@ -376,6 +376,40 @@ class FlowCard(Base):
         return f"<FlowCard(id={self.id}, character_id={self.character_id}, gender='{self.gender}', attribute='{self.attribute}', type='{self.type}')>"
 
 
+class HeroAutoPool(Base):
+    """
+    영웅 풀오토 설정: 한 명의 캐릭터에 대해 10개의 서번트 슬롯(10각형)을 자동 배분한 결과를 저장.
+    """
+    __tablename__ = "hero_auto_pools"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="풀오토 ID (PK)")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="소유자 사용자 ID (FK)")
+    character_id = Column(Integer, ForeignKey("flow_characters.id"), nullable=False, index=True, comment="플로우 캐릭터 ID (FK)")
+
+    # 10개 슬롯 정보 (각 슬롯: position, gender, attribute, type 등)
+    servants = Column(JSON, nullable=True, comment="서번트 슬롯 정보 배열 (JSON)")
+
+    # 확정 여부: True이면 더 이상 재배분/수정 불가
+    is_confirmed = Column(Integer, nullable=False, default=0, comment="확정 여부 (1: 확정, 0: 미확정)")
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    def __repr__(self):
+        return f"<HeroAutoPool(id={self.id}, user_id={self.user_id}, character_id={self.character_id}, is_confirmed={self.is_confirmed})>"
+
+
 class ApiUsageLog(Base):
     """
     API 사용 로그: 글생성(LLM)·이미지생성 호출 시 입력/출력 토큰·비용 저장.

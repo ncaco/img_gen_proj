@@ -11,6 +11,7 @@ from app.api.routes import (
     flow,
     card_sns_posts,
     logs,
+    hero_auto,
 )
 
 # API 라우터 통합
@@ -25,5 +26,6 @@ api_router.include_router(categories.router)
 api_router.include_router(flow.router)
 api_router.include_router(card_sns_posts.router)
 api_router.include_router(logs.router)
+api_router.include_router(hero_auto.router)
 
 __all__ = ["api_router"]
