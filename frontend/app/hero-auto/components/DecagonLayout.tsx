@@ -41,18 +41,21 @@ export default function DecagonLayout({
     return base.map((slot) => byPos.get(slot.position) ?? slot);
   }, [servants]);
 
-  const radiusPercent = 44; // 원 반지름 (%) — 슬롯 좌우 확대(클래스 열)에 맞춤
+  // 타원 배치: 가로 넓게(좌우 5대5), 박스 좌우 간격 확대
+  const radiusXPercent = 64; // 좌우 반지름 (%) — 박스들 좌우로 넓게
+  const radiusYPercent = 44; // 상하 반지름 (%)
   const center = 50;
   const startAngle = -Math.PI / 2; // 위에서 시작
   const step = (2 * Math.PI) / 10;
 
   // 겹침 보정 (position 0=1번 … 9=10번): [offsetX%, offsetY%]
-  // 위쪽 1·2·10번: 10·2번 내리기 + 좌우로 벌리기 / 아래쪽 5·6·7번: 5·7번 올리기 + 좌우로 벌리기
   const slotOffset: Record<number, { x: number; y: number }> = {
-    1: { x: 5, y: 7 },    // 2번: 오른쪽·아래
-    4: { x: 5, y: -7 },   // 5번: 오른쪽·위
-    6: { x: -5, y: -7 },  // 7번: 왼쪽·위
-    9: { x: -5, y: 7 },   // 10번: 왼쪽·아래
+    0: { x: 0, y: -10 },   // 1번: 위쪽으로
+    1: { x: 12, y: 6 },    // 2번: 오른쪽·아래
+    4: { x: 12, y: -10 },  // 5번: 오른쪽·위
+    5: { x: 0, y: 10 },    // 6번: 아래쪽으로
+    6: { x: -12, y: -10 }, // 7번: 왼쪽·위
+    9: { x: -12, y: 6 },   // 10번: 왼쪽·아래
   };
 
   return (
@@ -63,8 +66,8 @@ export default function DecagonLayout({
       {/* 슬롯들 */}
       {displaySlots.map((slot, idx) => {
         const angle = startAngle + idx * step;
-        const x = center + radiusPercent * Math.cos(angle);
-        const y = center + radiusPercent * Math.sin(angle);
+        const x = center + radiusXPercent * Math.cos(angle);
+        const y = center + radiusYPercent * Math.sin(angle);
         const offset = slotOffset[slot.position] ?? { x: 0, y: 0 };
 
         const isActiveAttr = activeAttributePos === slot.position;

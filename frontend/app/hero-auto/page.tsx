@@ -203,7 +203,10 @@ export default function HeroAutoPage() {
 
   return (
     <div className="h-screen w-full overflow-hidden flex flex-col bg-gradient-to-b from-[#050510] via-[#050712] to-black text-white">
-      <div className="relative flex-1 flex flex-col min-h-0 w-full max-w-[1920px] mx-auto px-3 sm:px-4 py-3">
+      <div
+        className="relative flex-1 flex flex-col min-h-0 w-full max-w-[1920px] mx-auto px-3 sm:px-4 py-3 origin-top"
+        style={{ transform: 'scale(0.88)' }}
+      >
         {/* 상단: 제목 + 영웅 + 상태 뱃지 (한 줄) */}
         <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-2 mb-2">
           <h1 className="text-lg sm:text-xl font-semibold text-white">영웅 풀오토</h1>
@@ -236,9 +239,9 @@ export default function HeroAutoPage() {
           </div>
         </div>
 
-        {/* 10각형 영역: 화면 안에 스크롤 없이 맞춤, 가운데 정렬 */}
+        {/* 10각형 영역: 화면 안에 스크롤 없이 맞춤, 가운데 정렬 (스케일로 전체 수납) */}
         <div className="relative flex-1 min-h-0 w-full flex flex-col items-center justify-center py-1 overflow-hidden">
-          <div className="w-full h-full flex items-center justify-center min-w-0 min-h-0 max-w-[90vmin] max-h-[90vmin]">
+          <div className="w-full h-full flex items-center justify-center min-w-0 min-h-0 max-w-[82vmin] max-h-[82vmin]">
             <DecagonLayout
               servants={pool?.servants ?? null}
               activeAttributePos={activeAttrPos}
@@ -268,14 +271,24 @@ export default function HeroAutoPage() {
               {selectedHero ? '영웅 변경' : '영웅 선택'}
             </button>
             {hasServants && !pool?.isConfirmed && (
-              <button
-                type="button"
-                onClick={handleRegenerate}
-                disabled={lockScreen}
-                className="pointer-events-auto inline-flex items-center justify-center rounded-full border border-indigo-400/60 bg-indigo-600/80 px-2.5 py-1 text-[10px] font-medium text-white hover:bg-indigo-500/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                재생성
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleRegenerate}
+                  disabled={lockScreen}
+                  className="pointer-events-auto inline-flex items-center justify-center rounded-full border border-indigo-400/60 bg-indigo-600/80 px-2.5 py-1 text-[10px] font-medium text-white hover:bg-indigo-500/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  재생성
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={lockScreen}
+                  className="pointer-events-auto inline-flex items-center justify-center rounded-full bg-emerald-500 px-2.5 py-1 text-[10px] font-semibold text-black hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  확정
+                </button>
+              </>
             )}
             {!hasServants && selectedHero && !pool?.isConfirmed && (
               <button
@@ -285,35 +298,6 @@ export default function HeroAutoPage() {
                 className="pointer-events-auto inline-flex items-center justify-center rounded-full border border-indigo-400/60 bg-indigo-600/80 px-2.5 py-1 text-[10px] font-medium text-white hover:bg-indigo-500/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 랜덤생성
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* 하단: 안내 + 버튼 */}
-        <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-2 mt-2 pt-2 border-t border-white/15">
-          <p className="text-[11px] text-white/60 max-w-[60%]">
-            속성: 남→여→남→여 / 클래스: 여→남→여→남 순으로 배분
-          </p>
-          <div className="flex items-center gap-1.5">
-            {selectedHero && !pool?.isConfirmed && (
-              <button
-                type="button"
-                onClick={handleOpenDistribution}
-                disabled={lockScreen}
-                className="inline-flex items-center justify-center rounded-lg border border-indigo-400/60 bg-indigo-600/80 px-2.5 py-1.5 text-[10px] font-medium text-white hover:bg-indigo-500/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {hasServants ? '다시 배분' : '랜덤 배분'}
-              </button>
-            )}
-            {hasServants && !pool?.isConfirmed && (
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={lockScreen}
-                className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-2.5 py-1.5 text-[10px] font-semibold text-black hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                확정
               </button>
             )}
           </div>

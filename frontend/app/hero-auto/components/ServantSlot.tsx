@@ -26,6 +26,7 @@ import {
   GiCrown,
   GiAngryEyes,
   GiSplitCross,
+  GiMetalBar,
 } from 'react-icons/gi';
 import type { ServantSlot } from '@/app/lib/heroAuto';
 
@@ -50,6 +51,7 @@ function getAttributeColor(attribute?: string | null): string {
   if (name.includes('바람') || name.includes('wind')) return 'rgba(255, 255, 255, 0.95)'; // 흰색
   if (name.includes('빛') || name.includes('light') || name.includes('star') || name.includes('천'))
     return 'rgba(250, 204, 21, 0.9)'; // 노란색
+  if (name.includes('금속') || name.includes('metal')) return 'rgba(148, 163, 184, 0.9)'; // 은/회색
   if (name.includes('강설') || name.includes('snow')) return 'rgba(203, 213, 225, 0.9)'; // 은색
   if (name.includes('얼음') || name.includes('ice')) return 'rgba(125, 211, 252, 0.9)'; // 하늘색
   if (name.includes('자연') || name.includes('nature')) return 'rgba(34, 197, 94, 0.9)'; // 초록색
@@ -77,6 +79,7 @@ function getAttributeIcon(attribute?: string | null): React.ReactNode {
   if (name.includes('흙') || name.includes('땅') || name.includes('earth')) return <MdTerrain className={ICON_CLASS} style={style} />;
   if (name.includes('바람') || name.includes('wind')) return <FiWind className={ICON_CLASS} style={style} />;
   if (name.includes('빛') || name.includes('light') || name.includes('star') || name.includes('천')) return <IoSparkles className={ICON_CLASS} style={style} />;
+  if (name.includes('금속') || name.includes('metal')) return <GiMetalBar className={ICON_CLASS} style={style} />;
   if (name.includes('강설') || name.includes('snow')) return <IoSnow className={ICON_CLASS} style={style} />;
   if (name.includes('얼음') || name.includes('ice')) return <MdAcUnit className={ICON_CLASS} style={style} />;
   if (name.includes('자연') || name.includes('nature')) return <IoLeaf className={ICON_CLASS} style={style} />;
@@ -167,17 +170,17 @@ export default function ServantSlotView({
       }}
     >
       <div className="border-x border-white/30">
-        <div className="text-[10px] text-white/70 font-semibold px-2 py-2 border-b border-white/25 grid grid-cols-[auto_auto_auto_minmax(0,1fr)] gap-2 w-full text-center bg-white/[0.06]">
+        <div className="text-[10px] text-white/70 font-semibold px-2 py-2 border-b border-white/25 grid grid-cols-[2rem_minmax(4rem,auto)_minmax(4.5rem,auto)_minmax(0,1fr)] gap-2 w-full text-center bg-white/[0.06]">
           <span className="truncate border-r border-white/25 py-0.5">번호</span>
           <span className="truncate border-r border-white/25 py-0.5">성별</span>
           <span className="truncate border-r border-white/25 py-0.5">속성</span>
           <span className="truncate py-0.5 text-left pl-1">클래스</span>
         </div>
-        <div className="grid grid-cols-[auto_auto_auto_minmax(0,1fr)] gap-2 px-0 py-2.5 text-[11px] w-full text-center bg-white/[0.02]">
-          <div className="flex items-center justify-center min-w-0 font-semibold text-white/90 border-r border-white/25 py-1.5 w-8">
+        <div className="grid grid-cols-[2rem_minmax(4rem,auto)_minmax(4.5rem,auto)_minmax(0,1fr)] gap-2 px-0 py-3 text-[11px] w-full text-center bg-white/[0.02]">
+          <div className="flex items-center justify-center min-w-0 font-semibold text-white/90 border-r border-white/25 py-2 w-8">
             {slotNumber}
           </div>
-          <div className="flex items-center justify-center gap-1.5 min-w-0 border-r border-white/25 py-1.5">
+          <div className="flex items-center justify-center gap-1.5 min-w-0 border-r border-white/25 py-2">
             <span
               className={`flex items-center justify-center rounded-full border border-white/40 flex-shrink-0 text-[10px] font-bold w-6 h-6 ${
                 showGender
@@ -191,11 +194,11 @@ export default function ServantSlotView({
             </span>
             <span className="truncate text-white/90">{genderLabel}</span>
           </div>
-          <div className="flex items-center justify-center gap-1.5 min-w-0 border-r border-white/25 py-1.5">
+          <div className="flex items-center justify-center gap-1.5 min-w-0 border-r border-white/25 py-2">
             {showAttribute ? getAttributeIcon(slot.attribute) : <div className="w-5 h-5 rounded border border-white/40 flex-shrink-0 bg-white/10" />}
             <span className="truncate text-amber-100/90">{attributeLabel}</span>
           </div>
-          <div className="flex items-center justify-center gap-1.5 min-w-0 py-1.5 text-left pl-2">
+          <div className="flex items-center justify-center gap-1.5 min-w-0 py-2 text-left pl-2">
             {showClass ? getClassIcon(slot.type) : <div className="w-5 h-5 rounded-full border border-white/40 flex-shrink-0" />}
             <span className="truncate text-sky-100/80 min-w-0">{classLabel}</span>
           </div>
