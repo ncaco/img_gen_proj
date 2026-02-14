@@ -30,10 +30,15 @@ import {
 } from 'react-icons/gi';
 import type { ServantSlot } from '@/app/lib/heroAuto';
 
+/** 배정 연출 단계: 성별/속성/클래스에 따라 셰도우 색상 구분 */
+export type ActivePhase = 'gender' | 'attr' | 'class';
+
 export interface ServantSlotProps {
   slot: ServantSlot;
   isActiveAttribute?: boolean;
   isActiveClass?: boolean;
+  /** 현재 연출 단계 (성별=푸른/붉은, 속성·클래스=속성색) */
+  activePhase?: ActivePhase | null;
   isConfirmed?: boolean;
   /** 0=미공개, 1=성별만, 2=성별+속성, 3=전체. 없으면 3(전체 공개) */
   revealedStep?: number;
@@ -102,29 +107,33 @@ function normalizeClassNameForIcon(type?: string | null): string {
 
 const CLASS_ICON = 'w-5 h-5 flex-shrink-0';
 
-function getClassIcon(type?: string | null): React.ReactNode {
+/** 클래스 아이콘. attributeColor가 있으면 선택된 속성과 같은 색으로 표시 */
+function getClassIcon(type?: string | null, attributeColor?: string): React.ReactNode {
   const raw = normalizeClassNameForIcon(type);
-  if (!raw) return <div className={`${CLASS_ICON} rounded-full border border-white/40`} />;
+  const style = attributeColor ? { color: attributeColor } : undefined;
+
+  if (!raw) return <div className={`${CLASS_ICON} rounded-full border border-white/40`} style={style} />;
 
   const t = raw.toLowerCase();
-  if (t.includes('saber') || t.includes('세이버')) return <GiCrossedSwords className={`${CLASS_ICON} text-sky-300`} />;
-  if (t.includes('archer') || t.includes('아처')) return <GiBowArrow className={`${CLASS_ICON} text-amber-300`} />;
-  if (t.includes('lancer') || t.includes('랜서')) return <GiSpearHook className={`${CLASS_ICON} text-emerald-300`} />;
-  if (t.includes('rider') || t.includes('라이더')) return <GiHorseHead className={`${CLASS_ICON} text-orange-300`} />;
-  if (t.includes('caster') || t.includes('캐스터')) return <GiWizardStaff className={`${CLASS_ICON} text-violet-300`} />;
-  if (t.includes('assassin') || t.includes('어새신')) return <GiDaggers className={`${CLASS_ICON} text-rose-300`} />;
-  if (t.includes('berserker') || t.includes('버서커')) return <GiBroadDagger className={`${CLASS_ICON} text-red-300`} />;
-  if (t.includes('ruler') || t.includes('룰러')) return <GiCrown className={`${CLASS_ICON} text-yellow-300`} />;
-  if (t.includes('avenger') || t.includes('어벤저')) return <GiAngryEyes className={`${CLASS_ICON} text-orange-400`} />;
-  if (t.includes('alter') || t.includes('얼터에고') || t.includes('얼터 에고') || (t.includes('얼터') && t.includes('에고')) || t.includes('ego')) return <GiSplitCross className={`${CLASS_ICON} text-fuchsia-300`} />;
+  if (t.includes('saber') || t.includes('세이버')) return <GiCrossedSwords className={CLASS_ICON} style={style} />;
+  if (t.includes('archer') || t.includes('아처')) return <GiBowArrow className={CLASS_ICON} style={style} />;
+  if (t.includes('lancer') || t.includes('랜서')) return <GiSpearHook className={CLASS_ICON} style={style} />;
+  if (t.includes('rider') || t.includes('라이더')) return <GiHorseHead className={CLASS_ICON} style={style} />;
+  if (t.includes('caster') || t.includes('캐스터')) return <GiWizardStaff className={CLASS_ICON} style={style} />;
+  if (t.includes('assassin') || t.includes('어새신')) return <GiDaggers className={CLASS_ICON} style={style} />;
+  if (t.includes('berserker') || t.includes('버서커')) return <GiBroadDagger className={CLASS_ICON} style={style} />;
+  if (t.includes('ruler') || t.includes('룰러')) return <GiCrown className={CLASS_ICON} style={style} />;
+  if (t.includes('avenger') || t.includes('어벤저')) return <GiAngryEyes className={CLASS_ICON} style={style} />;
+  if (t.includes('alter') || t.includes('얼터에고') || t.includes('얼터 에고') || (t.includes('얼터') && t.includes('에고')) || t.includes('ego')) return <GiSplitCross className={CLASS_ICON} style={style} />;
 
-  return <div className={`${CLASS_ICON} rounded-full border border-white/60`} />;
+  return <div className={`${CLASS_ICON} rounded-full border border-white/60`} style={style} />;
 }
 
 export default function ServantSlotView({
   slot,
   isActiveAttribute = false,
   isActiveClass = false,
+  activePhase = null,
   isConfirmed = false,
   revealedStep = 3,
 }: ServantSlotProps) {
@@ -133,19 +142,34 @@ export default function ServantSlotView({
   const showAttribute = revealedStep >= 2;
   const showClass = revealedStep >= 3;
 
-  const classGlow = isActiveClass
-    ? 'shadow-[0_0_18px_rgba(251,191,36,0.9)]'
-    : isConfirmed
-      ? 'shadow-[0_0_10px_rgba(148,163,184,0.7)]'
-      : 'shadow-[0_0_6px_rgba(15,23,42,0.8)]';
+  // 배정 시 셰도우: 남=푸른색, 여=붉은색 / 속성·클래스=속성 색
+  const maleGlow = 'rgba(59, 130, 246, 0.9)';   // 푸른색
+  const femaleGlow = 'rgba(239, 68, 68, 0.9)';  // 붉은색
+  const glowColor =
+    isActiveAttribute && activePhase === 'gender'
+      ? (slot.gender === '여' ? femaleGlow : slot.gender === '남' ? maleGlow : attrColor)
+      : attrColor;
+  const glowSize =
+    isActiveAttribute || isActiveClass ? 18 : isConfirmed ? 10 : 4;
+  const defaultGlow = 'rgba(15,23,42,0.9)';
+  const borderGlow =
+    isActiveAttribute || isActiveClass
+      ? `0 0 ${glowSize}px ${glowColor}`
+      : isConfirmed
+        ? `0 0 ${glowSize}px ${attrColor}`
+        : `0 0 4px ${defaultGlow}`;
 
-  const borderGlow = isActiveAttribute
-    ? `0 0 18px ${attrColor}`
-    : isConfirmed
-      ? `0 0 10px ${attrColor}`
-      : '0 0 4px rgba(15,23,42,0.9)';
+  // 배정 중엔 borderGlow만 사용, 그 외 기본/확정 시만 Tailwind 셰도우
+  const classGlow =
+    isActiveAttribute || isActiveClass
+      ? ''
+      : isConfirmed
+        ? 'shadow-[0_0_10px_rgba(148,163,184,0.7)]'
+        : 'shadow-[0_0_6px_rgba(15,23,42,0.8)]';
 
-  const genderLabel = showGender ? (slot.gender === '여' ? 'F' : 'M') : '?';
+  const genderLabel = showGender
+    ? (slot.gender === '여' ? 'F' : slot.gender === '남' ? 'M' : '?')
+    : '?';
   const attributeLabel = showAttribute ? (slot.attribute || '-') : '-';
   const classLabel = showClass ? (slot.type || '-') : '-';
 
@@ -154,7 +178,9 @@ export default function ServantSlotView({
   const GenderIcon = showGender
     ? slot.gender === '여'
       ? IoFemale
-      : IoMale
+      : slot.gender === '남'
+        ? IoMale
+        : IoHelpCircle
     : IoHelpCircle;
 
   return (
@@ -169,40 +195,60 @@ export default function ServantSlotView({
         minWidth: 'clamp(150px, 22vw, 300px)',
       }}
     >
-      <div className="border-x border-white/30">
-        <div className="text-[10px] text-white/70 font-semibold px-2 py-2 border-b border-white/25 grid grid-cols-[2rem_minmax(4rem,auto)_minmax(4.5rem,auto)_minmax(0,1fr)] gap-2 w-full text-center bg-white/[0.06]">
-          <span className="truncate border-r border-white/25 py-0.5">번호</span>
-          <span className="truncate border-r border-white/25 py-0.5">성별</span>
-          <span className="truncate border-r border-white/25 py-0.5">속성</span>
-          <span className="truncate py-0.5 text-left pl-1">클래스</span>
-        </div>
-        <div className="grid grid-cols-[2rem_minmax(4rem,auto)_minmax(4.5rem,auto)_minmax(0,1fr)] gap-2 px-0 py-3 text-[11px] w-full text-center bg-white/[0.02]">
-          <div className="flex items-center justify-center min-w-0 font-semibold text-white/90 border-r border-white/25 py-2 w-8">
-            {slotNumber}
-          </div>
-          <div className="flex items-center justify-center gap-1.5 min-w-0 border-r border-white/25 py-2">
-            <span
-              className={`flex items-center justify-center rounded-full border border-white/40 flex-shrink-0 text-[10px] font-bold w-6 h-6 ${
-                showGender
-                  ? slot.gender === '여'
-                    ? 'bg-pink-500/40 text-pink-50'
-                    : 'bg-sky-500/40 text-sky-50'
-                  : 'bg-white/20 text-white/50'
-              }`}
-            >
-              <GenderIcon className="w-3.5 h-3.5" />
-            </span>
-            <span className="truncate text-white/90">{genderLabel}</span>
-          </div>
-          <div className="flex items-center justify-center gap-1.5 min-w-0 border-r border-white/25 py-2">
-            {showAttribute ? getAttributeIcon(slot.attribute) : <div className="w-5 h-5 rounded border border-white/40 flex-shrink-0 bg-white/10" />}
-            <span className="truncate text-amber-100/90">{attributeLabel}</span>
-          </div>
-          <div className="flex items-center justify-center gap-1.5 min-w-0 py-2 text-left pl-2">
-            {showClass ? getClassIcon(slot.type) : <div className="w-5 h-5 rounded-full border border-white/40 flex-shrink-0" />}
-            <span className="truncate text-sky-100/80 min-w-0">{classLabel}</span>
-          </div>
-        </div>
+      <div className="border-x border-white/30 overflow-hidden">
+        <table className="w-full table-fixed text-center border-collapse text-[11px]">
+          <colgroup>
+            <col style={{ width: '2rem' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '26%' }} />
+            <col />
+          </colgroup>
+          <thead>
+            <tr className="text-[10px] text-white/70 font-semibold bg-white/[0.06]">
+              <th className="px-1 py-2 border-b border-r border-white/25">번호</th>
+              <th className="px-1 py-2 border-b border-r border-white/25">성별</th>
+              <th className="px-1 py-2 border-b border-r border-white/25">속성</th>
+              <th className="px-1 py-2 border-b border-white/25">클래스</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="bg-white/[0.02]">
+              <td className="font-semibold text-white/90 border-r border-white/25 py-2 align-middle">
+                {slotNumber}
+              </td>
+              <td className="border-r border-white/25 py-2 align-middle">
+                <div className="flex items-center justify-center gap-1.5 min-w-0">
+                  <span
+                    className={`inline-flex items-center justify-center rounded-full border border-white/40 flex-shrink-0 text-[10px] font-bold w-6 h-6 ${
+                      showGender
+                        ? slot.gender === '여'
+                          ? 'bg-pink-500/40 text-pink-50'
+                          : slot.gender === '남'
+                            ? 'bg-sky-500/40 text-sky-50'
+                            : 'bg-white/20 text-white/50'
+                        : 'bg-white/20 text-white/50'
+                    }`}
+                  >
+                    <GenderIcon className="w-3.5 h-3.5" />
+                  </span>
+                  <span className="truncate text-white/90">{genderLabel}</span>
+                </div>
+              </td>
+              <td className="border-r border-white/25 py-2 align-middle">
+                <div className="flex items-center justify-center gap-1.5 min-w-0">
+                  {showAttribute ? getAttributeIcon(slot.attribute) : <div className="w-5 h-5 rounded border border-white/40 flex-shrink-0 bg-white/10" />}
+                  <span className="truncate text-amber-100/90">{attributeLabel}</span>
+                </div>
+              </td>
+              <td className="py-2 align-middle">
+                <div className="flex items-center justify-center gap-1.5 min-w-0">
+                  {showClass ? getClassIcon(slot.type, attrColor) : <div className="w-5 h-5 rounded-full border border-white/40 flex-shrink-0" />}
+                  <span className="truncate text-sky-100/80">{classLabel}</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );

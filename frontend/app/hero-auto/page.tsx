@@ -246,6 +246,7 @@ export default function HeroAutoPage() {
               servants={pool?.servants ?? null}
               activeAttributePos={activeAttrPos}
               activeClassPos={activeClassPos}
+              activePhase={progressPhase}
               isConfirmed={!!pool?.isConfirmed}
               revealedSteps={revealedSteps}
             />

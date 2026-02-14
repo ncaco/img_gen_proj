@@ -2,12 +2,15 @@
 
 import React, { useMemo } from 'react';
 import ServantSlotView from './ServantSlot';
+import type { ActivePhase } from './ServantSlot';
 import type { ServantSlot } from '@/app/lib/heroAuto';
 
 export interface DecagonLayoutProps {
   servants: ServantSlot[] | null;
   activeAttributePos?: number | null;
   activeClassPos?: number | null;
+  /** 배정 연출 단계 (성별/속성/클래스) — 셰도우 색상 구분용 */
+  activePhase?: ActivePhase | null;
   isConfirmed?: boolean;
   /** 0=미공개, 1=성별만, 2=성별+속성, 3=전체. 길이 10. 없으면 전부 공개로 간주 */
   revealedSteps?: number[];
@@ -17,14 +20,15 @@ export default function DecagonLayout({
   servants,
   activeAttributePos = null,
   activeClassPos = null,
+  activePhase = null,
   isConfirmed = false,
   revealedSteps,
 }: DecagonLayoutProps) {
-  // 0~9 기본 슬롯 구성 (짝수=남, 홀수=여)
+  // 0~9 기본 슬롯 구성 (최초 진입 시 성별/속성/클래스 미할당)
   const displaySlots: ServantSlot[] = useMemo(() => {
     const base: ServantSlot[] = Array.from({ length: 10 }).map((_, idx) => ({
       position: idx,
-      gender: idx % 2 === 0 ? '남' : '여',
+      gender: '',
       attribute: undefined,
       type: undefined,
     }));
@@ -88,6 +92,7 @@ export default function DecagonLayout({
               slot={slot}
               isActiveAttribute={isActiveAttr}
               isActiveClass={isActiveCls}
+              activePhase={activePhase}
               isConfirmed={isConfirmed}
               revealedStep={revealedStep}
             />

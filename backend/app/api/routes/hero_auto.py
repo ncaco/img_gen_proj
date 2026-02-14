@@ -3,6 +3,8 @@
 
 한 명의 플로우 캐릭터에 대해 10개의 서번트 슬롯(10각형)을 자동 배분/확정하는 기능을 제공합니다.
 """
+import random
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -227,6 +229,10 @@ async def distribute_hero_auto_pool(
     attributes_10 = _expand_to_10(attributes)
     classes_10 = _expand_to_10(classes)
 
+    # 매번 다른 배정을 위해 랜덤 시드 생성 (요청마다 새 시드)
+    seed = secrets.randbits(64)
+    rng = random.Random(seed)
+
     # 10개 슬롯 기본 구조 (0~9, 성별 고정: 짝수=남, 홀수=여)
     slots: list[dict] = []
     for pos in range(10):
@@ -244,21 +250,25 @@ async def distribute_hero_auto_pool(
     male_indices = [0, 2, 4, 6, 8]
     female_indices = [1, 3, 5, 7, 9]
 
-    # --- 속성 배분: 남>여>남>여 ---
-    # attributes_10[0:5] -> 남성 슬롯 0,2,4,6,8
-    # attributes_10[5:10] -> 여성 슬롯 1,3,5,7,9
+    # --- 속성 배분: 남>여 순서 유지, 속성만 슬롯에 랜덤 할당 ---
+    male_attrs = attributes_10[0:5].copy()
+    female_attrs = attributes_10[5:10].copy()
+    rng.shuffle(male_attrs)
+    rng.shuffle(female_attrs)
     for idx, slot_index in enumerate(male_indices):
-        slots[slot_index]["attribute"] = attributes_10[idx]
+        slots[slot_index]["attribute"] = male_attrs[idx]
     for idx, slot_index in enumerate(female_indices):
-        slots[slot_index]["attribute"] = attributes_10[5 + idx]
+        slots[slot_index]["attribute"] = female_attrs[idx]
 
-    # --- 클래스 배분: 여>남>여>남 ---
-    # classes_10[0:5] -> 여성 슬롯 1,3,5,7,9
-    # classes_10[5:10] -> 남성 슬롯 0,2,4,6,8
+    # --- 클래스 배분: 여>남 순서 유지, 클래스만 슬롯에 랜덤 할당 ---
+    female_classes = classes_10[0:5].copy()
+    male_classes = classes_10[5:10].copy()
+    rng.shuffle(female_classes)
+    rng.shuffle(male_classes)
     for idx, slot_index in enumerate(female_indices):
-        slots[slot_index]["type"] = classes_10[idx]
+        slots[slot_index]["type"] = female_classes[idx]
     for idx, slot_index in enumerate(male_indices):
-        slots[slot_index]["type"] = classes_10[5 + idx]
+        slots[slot_index]["type"] = male_classes[idx]
 
     pool.servants = slots
     pool.is_confirmed = 0
