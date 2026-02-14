@@ -45,6 +45,10 @@ class HeroAutoPoolResponseSchema(HeroAutoPoolBaseSchema):
         default_factory=list, description="10개 서번트 슬롯 정보"
     )
     isConfirmed: bool = Field(..., description="확정 여부")
+    classOrder: Optional[List[str]] = Field(
+        default_factory=list,
+        description="클래스 카테고리 순서(정렬용, 풀 조회 시에만 채워짐)",
+    )
 
     class Config:
         from_attributes = True

@@ -145,7 +145,12 @@ async def get_hero_auto_pool(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="해당 풀오토 정보를 찾을 수 없습니다.",
         )
-    return _to_response(pool)
+    resp = _to_response(pool)
+    # 클래스 카테고리 순서(정렬용) 포함
+    class_order = _get_category_names(db, "class", limit=20)
+    data = resp.model_dump()
+    data["classOrder"] = class_order
+    return HeroAutoPoolResponseSchema(**data)
 
 
 @router.delete("/{pool_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -23,6 +23,8 @@ export interface HeroAutoPool {
   characterId: number;
   servants: ServantSlot[];
   isConfirmed: boolean;
+  /** 클래스 카테고리 순서(정렬용, 풀 조회 시에만 내려옴) */
+  classOrder?: string[];
 }
 
 export interface HeroAutoPoolCreateRequest {

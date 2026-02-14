@@ -7,9 +7,9 @@ import {
   type HeroAutoPool,
   type ServantSlot,
 } from '@/app/lib/heroAuto';
-import { generateImagePrompt, listFlowCards, type FlowCard } from '@/app/lib/flow';
+import { generateImagePrompt, listFlowCards, getFlowCharacter, uploadFlowCardImage, type FlowCard } from '@/app/lib/flow';
 import { getClassIcon, getAttributeColor } from '@/app/hero-auto/components/ServantSlot';
-import { IoSparkles } from 'react-icons/io5';
+import { IoSparkles, IoCopyOutline, IoImageOutline } from 'react-icons/io5';
 
 /** 성별 입력 정규화: 남 -> 남성, 여 -> 여성 (API/도감은 남성/여성 사용) */
 function normalizeGender(g: string | null | undefined): string {
@@ -27,11 +27,22 @@ export default function HeroAutoPromptsPage({
 }) {
   const [poolId, setPoolId] = useState<number | null>(null);
   const [pool, setPool] = useState<HeroAutoPool | null>(null);
-  const [prompts, setPrompts] = useState<{ position: number; prompt: string | null; negativePrompt: string | null }[]>([]);
+  const [characterName, setCharacterName] = useState<string | null>(null);
+  const [prompts, setPrompts] = useState<{
+    position: number;
+    prompt: string | null;
+    negativePrompt: string | null;
+    cardId?: number;
+    imageUrl?: string | null;
+  }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generatingSlot, setGeneratingSlot] = useState<number | null>(null);
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [uploadingPosition, setUploadingPosition] = useState<number | null>(null);
+  const [copiedPosition, setCopiedPosition] = useState<number | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const uploadTargetRef = React.useRef<{ position: number; cardId: number } | null>(null);
 
   const load = useCallback(async (id: number) => {
     setLoading(true);
@@ -39,6 +50,7 @@ export default function HeroAutoPromptsPage({
     try {
       const poolRes = await getHeroAutoPool(id);
       setPool(poolRes);
+      getFlowCharacter(poolRes.characterId).then((c) => setCharacterName(c.name)).catch(() => setCharacterName(null));
       if (!poolRes.isConfirmed || !poolRes.servants?.length) {
         setPrompts(Array.from({ length: 10 }, (_, i) => ({ position: i, prompt: null, negativePrompt: null })));
         return;
@@ -56,10 +68,18 @@ export default function HeroAutoPromptsPage({
           position,
           prompt: card?.prompt ?? null,
           negativePrompt: card?.negativePrompt ?? null,
+          cardId: card?.id,
+          imageUrl: card?.imageUrl ?? null,
         };
       });
       while (slotPrompts.length < 10) {
-        slotPrompts.push({ position: slotPrompts.length, prompt: null, negativePrompt: null });
+        slotPrompts.push({
+          position: slotPrompts.length,
+          prompt: null,
+          negativePrompt: null,
+          cardId: undefined,
+          imageUrl: null,
+        });
       }
       setPrompts(slotPrompts);
     } catch (e) {
@@ -85,6 +105,74 @@ export default function HeroAutoPromptsPage({
 
   const servants: ServantSlot[] = pool?.servants ?? [];
   const hasServants = servants.length >= 10;
+  const allPromptsReady =
+    hasServants &&
+    prompts.slice(0, 10).every(
+      (p) => !!p.prompt?.trim() && !!p.negativePrompt?.trim(),
+    );
+
+  // 목록 표시: 클래스 카테고리 순서(classOrder) 기준 정렬, 없으면 한글 가나다 순
+  const sortedIndices = React.useMemo(() => {
+    if (!hasServants) return Array.from({ length: 10 }, (_, i) => i);
+    const classOrder = pool?.classOrder ?? [];
+    const orderOf = (typeName: string) => {
+      if (classOrder.length === 0) return 0;
+      const i = classOrder.indexOf(typeName);
+      return i >= 0 ? i : 9999;
+    };
+    const compareType = (typeA: string, typeB: string) =>
+      classOrder.length > 0
+        ? orderOf(typeA) - orderOf(typeB)
+        : typeA.localeCompare(typeB, 'ko');
+    return Array.from({ length: 10 }, (_, i) => i).sort((a, b) => {
+      const typeA = servants[a]?.type ?? '';
+      const typeB = servants[b]?.type ?? '';
+      const byType = compareType(typeA, typeB);
+      if (byType !== 0) return byType;
+      const attrA = servants[a]?.attribute ?? '';
+      const attrB = servants[b]?.attribute ?? '';
+      const byAttr = attrA.localeCompare(attrB, 'ko');
+      if (byAttr !== 0) return byAttr;
+      return a - b;
+    });
+  }, [hasServants, servants, pool?.classOrder]);
+
+  const handleCopyPrompt = useCallback((position: number) => {
+    const p = prompts[position];
+    if (!p?.prompt?.trim() || !p?.negativePrompt?.trim()) return;
+    const text = `프롬프트:\n${p.prompt}\n\n네거티브:\n${p.negativePrompt}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedPosition(position);
+      setTimeout(() => setCopiedPosition(null), 1500);
+    });
+  }, [prompts]);
+
+  const handleUploadClick = useCallback((position: number) => {
+    const cardId = prompts[position]?.cardId;
+    if (cardId == null) return;
+    uploadTargetRef.current = { position, cardId };
+    setUploadingPosition(position);
+    fileInputRef.current?.click();
+  }, [prompts]);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const target = uploadTargetRef.current;
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      uploadTargetRef.current = null;
+      setUploadingPosition(null);
+      if (target == null || !file || poolId == null) return;
+      setError(null);
+      try {
+        await uploadFlowCardImage(target.cardId, file);
+        await load(poolId);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '이미지 업로드에 실패했습니다.');
+      }
+    },
+    [poolId, load],
+  );
 
   const handleGenerateOne = async (position: number) => {
     if (!pool?.characterId || !hasServants) return;
@@ -101,7 +189,9 @@ export default function HeroAutoPromptsPage({
       });
       setPrompts((prev) => {
         const next = [...prev];
+        const existing = next[position];
         next[position] = {
+          ...existing,
           position,
           prompt: res.prompt,
           negativePrompt: res.negativePrompt,
@@ -147,7 +237,8 @@ export default function HeroAutoPromptsPage({
       setPrompts((prev) => {
         const next = [...prev];
         for (const { position, prompt, negativePrompt } of results) {
-          next[position] = { position, prompt, negativePrompt };
+          const existing = next[position];
+          next[position] = { ...existing, position, prompt, negativePrompt };
         }
         return next;
       });
@@ -194,14 +285,16 @@ export default function HeroAutoPromptsPage({
             프롬프트 관리 · 풀 #{poolId}
           </h1>
         </div>
-        <button
-          type="button"
-          onClick={handleGenerateAll}
-          disabled={generatingAll || !hasServants}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {generatingAll ? '생성 중...' : '한번에 모든 프롬프트 생성'}
-        </button>
+        {!allPromptsReady && (
+          <button
+            type="button"
+            onClick={handleGenerateAll}
+            disabled={generatingAll || !hasServants}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingAll ? '생성 중...' : '한번에 모든 프롬프트 생성'}
+          </button>
+        )}
       </header>
 
       {error && (
@@ -228,40 +321,47 @@ export default function HeroAutoPromptsPage({
                 </tr>
               </thead>
               <tbody>
-                {(hasServants ? servants : Array.from({ length: 10 }, (_, i) => ({ position: i, gender: '-', attribute: '-', type: '-' }))).map(
-                  (s, i) => {
-                    const attrColor = getAttributeColor(s?.attribute);
-                    return (
-                      <tr key={i} className="border-t border-white/10">
-                        <td className="px-2 py-1.5 tabular-nums text-white/90">{i + 1}</td>
-                        <td className="px-2 py-1.5 text-white/90">{s.gender ?? '-'}</td>
-                        <td className="px-2 py-1.5 text-white/90">{s.attribute ?? '-'}</td>
-                        <td className="px-2 py-1.5 text-white/90">{s.type ?? '-'}</td>
-                        <td className="px-2 py-1.5">
-                          <span className="flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4 [&>div]:w-4 [&>div]:h-4">
-                            {getClassIcon(s?.type, attrColor)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  },
-                )}
+                {sortedIndices.map((position, i) => {
+                  const s = hasServants ? servants[position] : { position, gender: '-', attribute: '-', type: '-' };
+                  const attrColor = getAttributeColor(s?.attribute);
+                  return (
+                    <tr key={position} className="border-t border-white/10">
+                      <td className="px-2 py-1.5 tabular-nums text-white/90">{i + 1}</td>
+                      <td className="px-2 py-1.5 text-white/90">{s?.gender ?? '-'}</td>
+                      <td className="px-2 py-1.5 text-white/90">{s?.attribute ?? '-'}</td>
+                      <td className="px-2 py-1.5 text-white/90">{s?.type ?? '-'}</td>
+                      <td className="px-2 py-1.5">
+                        <span className="flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4 [&>div]:w-4 [&>div]:h-4">
+                          {getClassIcon(s?.type, attrColor)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* 오른쪽: 맨 왼쪽 번호+아이콘, 명칭, 프롬프트/네거티브 한줄, 생성 아이콘 */}
+        {/* 오른쪽: 맨 왼쪽 번호+아이콘, 명칭, 프롬프트/네거티브 한줄, 액션(생성/복사/업로드) */}
         <div className="flex-1 min-w-0 flex flex-col rounded-lg border border-white/20 bg-white/5 overflow-hidden">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+            aria-hidden
+          />
           <div className="flex-shrink-0 grid gap-2 px-2 py-1.5 border-b border-white/10 text-[10px] font-medium text-white/80 grid-cols-[auto_1fr_1fr_1fr_auto]">
             <span className="w-14" />
             <span>명칭</span>
             <span>프롬프트</span>
             <span>네거티브 프롬프트</span>
-            <span className="w-7" />
+            <span className="w-20" />
           </div>
           <div className="flex-1 overflow-auto p-2 space-y-1.5">
-            {Array.from({ length: 10 }, (_, position) => {
+            {sortedIndices.map((position, i) => {
               const slotPrompt = prompts[position] ?? {
                 position,
                 prompt: null,
@@ -272,12 +372,19 @@ export default function HeroAutoPromptsPage({
               const isGenerating = generatingSlot === position || generatingAll;
               const slot = servants[position];
               const attrColor = getAttributeColor(slot?.attribute);
+              const heroLabel = characterName ?? '영웅';
+              const genderLabel = normalizeGender(slot?.gender);
               const slotLabel =
                 slot?.attribute && slot?.type
-                  ? `${slot.attribute}의 ${slot.type}`
+                  ? `${heroLabel}(${genderLabel}) : ${slot.attribute}의 ${slot.type}`
                   : '-';
               const showGenerate =
                 (!hasPrompt || !hasNegative) && slot?.attribute && slot?.type;
+
+              const hasBoth = hasPrompt && hasNegative;
+              const hasImage = !!slotPrompt.imageUrl?.trim();
+              const canUpload = hasBoth && !hasImage && slotPrompt.cardId != null;
+              const isUploading = uploadingPosition === position;
 
               return (
                 <div
@@ -286,7 +393,7 @@ export default function HeroAutoPromptsPage({
                 >
                   <div className="flex items-center gap-1 w-14 flex-shrink-0">
                     <span className="text-[10px] text-white/60 tabular-nums w-3">
-                      {position + 1}
+                      {i + 1}
                     </span>
                     <div className="flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4 [&>div]:w-4 [&>div]:h-4">
                       {getClassIcon(slot?.type, attrColor)}
@@ -309,7 +416,7 @@ export default function HeroAutoPromptsPage({
                   <div className="min-w-0 text-[11px] text-white/80 truncate bg-black/20 rounded px-1.5 py-0.5">
                     {hasNegative ? slotPrompt.negativePrompt : <span className="text-white/40 italic">없음</span>}
                   </div>
-                  <div className="w-7 flex-shrink-0 flex justify-end">
+                  <div className="w-20 flex-shrink-0 flex items-center justify-end gap-0.5">
                     {showGenerate ? (
                       <button
                         type="button"
@@ -322,6 +429,37 @@ export default function HeroAutoPromptsPage({
                         <IoSparkles className="w-4 h-4" />
                       </button>
                     ) : null}
+                    {hasBoth && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPrompt(position)}
+                        className="p-0.5 rounded text-white/70 hover:text-white hover:bg-white/10"
+                        title="프롬프트·네거티브 클립보드 복사"
+                        aria-label="클립보드 복사"
+                      >
+                        {copiedPosition === position ? (
+                          <span className="text-[10px] text-emerald-400">복사됨</span>
+                        ) : (
+                          <IoCopyOutline className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
+                    {canUpload && (
+                      <button
+                        type="button"
+                        onClick={() => handleUploadClick(position)}
+                        disabled={isUploading}
+                        className="p-0.5 rounded text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-50"
+                        title="이미지 업로드"
+                        aria-label="이미지 업로드"
+                      >
+                        {isUploading ? (
+                          <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <IoImageOutline className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
