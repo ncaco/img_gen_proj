@@ -44,6 +44,25 @@ export interface HeroAutoConfirmResponse {
   pool: HeroAutoPool;
 }
 
+export interface HeroAutoPoolListItem {
+  id: number;
+  characterId: number;
+  characterName: string | null;
+  isConfirmed: boolean;
+}
+
+/** 영웅 풀오토 풀 목록 조회 (사이드바용) */
+export async function listHeroAutoPools(): Promise<HeroAutoPoolListItem[]> {
+  const res = await fetch(`${API_BASE}/api/v1/hero-auto`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '풀 목록을 불러오지 못했습니다.');
+  }
+  return res.json();
+}
+
 /** 영웅 풀오토 풀 생성 */
 export async function createHeroAutoPool(
   body: HeroAutoPoolCreateRequest,
@@ -83,8 +102,8 @@ export async function distributeHeroAutoPool(
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({
-      attributeStartGender: body?.attributeStartGender ?? '남',
-      classStartGender: body?.classStartGender ?? '여',
+      attributeStartGender: body?.attributeStartGender ?? '남성',
+      classStartGender: body?.classStartGender ?? '여성',
     }),
   });
   if (!res.ok) {
@@ -121,4 +140,5 @@ export async function regenerateHeroAutoPool(
   }
   return res.json();
 }
+
 

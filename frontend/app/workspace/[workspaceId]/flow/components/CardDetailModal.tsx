@@ -98,17 +98,27 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
     };
   }, [isOpen, onClose, isImageFullscreen, canGoPrevious, canGoNext, goToPreviousCard, goToNextCard]);
 
-  // FlowCard 데이터 로드
+  // FlowCard 데이터 로드: 목록(flowCards)에 있으면 즉시 표시, 단건 API로 최신 데이터 보강
   useEffect(() => {
     if (!isOpen || !flowCardId) {
       setFlowCard(null);
       setCharacter(null);
       return;
     }
+    // 목록에 해당 카드가 있으면 즉시 표시 (도감에서 클릭 시 프롬프트가 비지 않도록)
+    const fromList = flowCards.find((c) => c.id === flowCardId);
+    if (fromList) {
+      setFlowCard(fromList);
+    }
     setLoading(true);
     getFlowCard(flowCardId)
       .then((card) => {
-        setFlowCard(card);
+        setFlowCard((prev) => ({
+          ...card,
+          // 단건 API가 prompt/negativePrompt를 비워서 오는 경우 기존(목록) 값 유지
+          prompt: card.prompt ?? prev?.prompt ?? null,
+          negativePrompt: card.negativePrompt ?? prev?.negativePrompt ?? null,
+        }));
         // 캐릭터 정보도 로드
         return Promise.all([Promise.resolve(card), getFlowCharacter(card.characterId)]);
       })

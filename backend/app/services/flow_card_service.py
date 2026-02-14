@@ -235,3 +235,40 @@ class FlowCardService:
             )
             .first()
         )
+
+    @staticmethod
+    def get_or_create_card(
+        db: Session,
+        character_id: int,
+        gender: str,
+        attribute: str,
+        type_val: str,
+    ) -> FlowCard:
+        """
+        캐릭터 ID와 속성 조합의 FlowCard를 반환하고, 없으면 생성 후 반환.
+        (풀오토 프롬프트 생성 시 카드가 없어도 flow_cards에 저장하기 위함)
+        """
+        card = FlowCardService.find_card_by_character_and_attributes(
+            db=db,
+            character_id=character_id,
+            gender=gender,
+            attribute=attribute,
+            type_val=type_val,
+        )
+        if card:
+            return card
+        character = db.query(FlowCharacter).filter(FlowCharacter.id == character_id).first()
+        if not character:
+            raise ValueError(f"캐릭터 ID {character_id}를 찾을 수 없습니다.")
+        flow_card = FlowCard(
+            character_id=character_id,
+            gender=gender,
+            attribute=attribute,
+            type=type_val,
+            prompt=None,
+            negative_prompt=None,
+        )
+        db.add(flow_card)
+        db.commit()
+        db.refresh(flow_card)
+        return flow_card

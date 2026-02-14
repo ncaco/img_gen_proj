@@ -1,6 +1,7 @@
 """
 유틸리티 모듈
 """
+from app.utils.gender import normalize_gender
 from app.utils.file_utils import (
     ensure_upload_dir,
     get_file_extension,
@@ -12,6 +13,7 @@ from app.utils.file_utils import (
 )
 
 __all__ = [
+    "normalize_gender",
     "ensure_upload_dir",
     "get_file_extension",
     "is_allowed_file",

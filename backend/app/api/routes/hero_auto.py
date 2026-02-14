@@ -19,6 +19,7 @@ from app.database.models import (
 )
 from app.schemas.hero_auto import (
     HeroAutoPoolCreateSchema,
+    HeroAutoPoolListItemSchema,
     HeroAutoPoolResponseSchema,
     HeroAutoDistributeRequestSchema,
     HeroAutoDistributeResponseSchema,
@@ -47,6 +48,41 @@ def _to_response(pool: HeroAutoPool) -> HeroAutoPoolResponseSchema:
         servants=servants,
         isConfirmed=bool(pool.is_confirmed),
     )
+
+
+@router.get("", response_model=list[HeroAutoPoolListItemSchema])
+async def list_hero_auto_pools(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_required),
+):
+    """
+    현재 사용자의 영웅 풀오토 풀 목록 조회. 최신순.
+    """
+    pools = (
+        db.query(HeroAutoPool)
+        .filter(HeroAutoPool.user_id == current_user.id)
+        .order_by(HeroAutoPool.updated_at.desc(), HeroAutoPool.id.desc())
+        .all()
+    )
+    result = []
+    for p in pools:
+        character = (
+            db.query(FlowCharacter)
+            .filter(
+                FlowCharacter.id == p.character_id,
+                FlowCharacter.user_id == current_user.id,
+            )
+            .first()
+        )
+        result.append(
+            HeroAutoPoolListItemSchema(
+                id=p.id,
+                characterId=p.character_id,
+                characterName=character.name if character else None,
+                isConfirmed=bool(p.is_confirmed),
+            )
+        )
+    return result
 
 
 @router.post("", response_model=HeroAutoPoolResponseSchema)
@@ -236,7 +272,7 @@ async def distribute_hero_auto_pool(
     # 10개 슬롯 기본 구조 (0~9, 성별 고정: 짝수=남, 홀수=여)
     slots: list[dict] = []
     for pos in range(10):
-        gender = "남" if pos % 2 == 0 else "여"
+        gender = "남성" if pos % 2 == 0 else "여성"
         slots.append(
             {
                 "position": pos,

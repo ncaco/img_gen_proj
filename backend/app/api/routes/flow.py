@@ -10,6 +10,7 @@ from app.api.routes.auth import get_current_user_required
 from app.database.database import get_db
 from app.database.models import User, FlowCharacter
 from app.utils.file_utils import save_uploaded_file
+from app.utils.gender import normalize_gender
 from app.schemas.lore import (
     LoreMappingRequest,
     LoreMappingResult,
@@ -378,22 +379,23 @@ async def generate_image_prompt(
     if not character:
         raise HTTPException(status_code=404, detail="해당 캐릭터를 찾을 수 없습니다.")
     
-    # 해당 조합의 FlowCard 찾기 및 상태를 'requested'로 설정
-    card = FlowCardService.find_card_by_character_and_attributes(
+    # 성별 입력 정규화: 남 -> 남성, 여 -> 여성
+    gender = normalize_gender(request.gender)
+    
+    # 해당 조합의 FlowCard 찾기 또는 없으면 생성 (풀오토에서 바로 생성해도 flow_cards에 반영되도록)
+    card = FlowCardService.get_or_create_card(
         db=db,
         character_id=request.characterId,
-        gender=request.gender,
+        gender=gender,
         attribute=request.attribute,
         type_val=request.type,
     )
-    
-    if card:
-        # 프롬프트 생성 요청 상태로 설정
-        FlowCardService.update_card(
-            db=db,
-            card_id=card.id,
-            prompt_generation_status='requested',
-        )
+    # 프롬프트 생성 요청 상태로 설정
+    FlowCardService.update_card(
+        db=db,
+        card_id=card.id,
+        prompt_generation_status='requested',
+    )
     
     # 캐릭터 정보를 LoreMappingResult로 변환
     # FlowCharacter의 정보를 사용하여 LoreMappingResult 생성
@@ -414,7 +416,7 @@ async def generate_image_prompt(
         # Image Prompt 생성
         image_prompt, character_settings, usage = await run_image_prompt_generator(
             lore=lore,
-            gender=request.gender,
+            gender=gender,
             attribute=request.attribute,
             type=request.type,
         )
@@ -434,6 +436,15 @@ async def generate_image_prompt(
         # 후처리
         final_prompt, final_character_settings = run_prompt_postprocess(image_prompt, character_settings)
 
+        # flow_cards 테이블에 prompt, negative_prompt, prompt_generation_status 저장
+        FlowCardService.update_card(
+            db=db,
+            card_id=card.id,
+            prompt=final_prompt.landscape_image_prompt_en,
+            negative_prompt=final_prompt.negative_prompt_en,
+            prompt_generation_status='completed',
+        )
+
         return ImagePromptResponse(
             success=True,
             prompt=final_prompt.landscape_image_prompt_en,
@@ -442,21 +453,19 @@ async def generate_image_prompt(
         )
     except ValueError as e:
         # 에러 발생 시 상태를 null로 리셋
-        if card:
-            FlowCardService.update_card(
-                db=db,
-                card_id=card.id,
-                prompt_generation_status=None,
-            )
+        FlowCardService.update_card(
+            db=db,
+            card_id=card.id,
+            prompt_generation_status=None,
+        )
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         # 에러 발생 시 상태를 null로 리셋
-        if card:
-            FlowCardService.update_card(
-                db=db,
-                card_id=card.id,
-                prompt_generation_status=None,
-            )
+        FlowCardService.update_card(
+            db=db,
+            card_id=card.id,
+            prompt_generation_status=None,
+        )
         raise HTTPException(
             status_code=500,
             detail=f"이미지 프롬프트 생성 중 오류가 발생했습니다: {str(e)}",

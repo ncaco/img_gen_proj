@@ -28,6 +28,15 @@ class HeroAutoPoolCreateSchema(HeroAutoPoolBaseSchema):
     pass
 
 
+class HeroAutoPoolListItemSchema(BaseModel):
+    """풀 목록 한 건 (사이드바 등용)."""
+
+    id: int = Field(..., description="풀 ID")
+    characterId: int = Field(..., description="캐릭터 ID")
+    characterName: Optional[str] = Field(None, description="캐릭터명")
+    isConfirmed: bool = Field(..., description="확정 여부")
+
+
 class HeroAutoPoolResponseSchema(HeroAutoPoolBaseSchema):
     """영웅 풀오토 응답 스키마"""
 
@@ -52,13 +61,13 @@ class HeroAutoPoolUpdateSchema(BaseModel):
 class HeroAutoDistributeRequestSchema(BaseModel):
     """속성/클래스 자동 배분 요청 스키마"""
 
-    # 속성 배분 시작 성별 (남/여). 현재 기획상 남→여→남→여 고정이지만 확장 대비.
+    # 속성 배분 시작 성별 (남성/여성). 현재 기획상 남성→여성→남성→여성 고정이지만 확장 대비.
     attributeStartGender: str = Field(
-        "남", description="속성 배분 시작 성별 (예: 남 또는 여)"
+        "남성", description="속성 배분 시작 성별 (예: 남성 또는 여성)"
     )
-    # 클래스 배분 시작 성별 (여/남). 현재 기획상 여→남→여→남 고정.
+    # 클래스 배분 시작 성별 (여성/남성). 현재 기획상 여성→남성→여성→남성 고정.
     classStartGender: str = Field(
-        "여", description="클래스 배분 시작 성별 (예: 남 또는 여)"
+        "여성", description="클래스 배분 시작 성별 (예: 남성 또는 여성)"
     )
 
 
@@ -74,4 +83,6 @@ class HeroAutoConfirmResponseSchema(BaseModel):
 
     success: bool = Field(..., description="성공 여부")
     pool: HeroAutoPoolResponseSchema = Field(..., description="변경된 풀오토 정보")
+
+
 

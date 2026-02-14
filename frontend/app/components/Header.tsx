@@ -82,6 +82,12 @@ export default function Header() {
           >
             영웅 풀오토
           </Link>
+          <Link
+            href="/encyclopedia"
+            className="text-sm font-medium text-white/70 hover:text-white transition-colors"
+          >
+            도감
+          </Link>
         </div>
 
         <nav className="flex items-center gap-3">

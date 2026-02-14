@@ -16,7 +16,7 @@ interface DistributionModalProps {
   onConfirm: (options: DistributionModalConfirmOptions) => void;
 }
 
-const genderOptions: string[] = ['남', '여'];
+const genderOptions: string[] = ['남성', '여성'];
 
 const directionOptions: { value: RouletteDirection; label: string }[] = [
   { value: 'cw', label: '시계 방향' },
@@ -28,8 +28,8 @@ export default function DistributionModal({
   onClose,
   onConfirm,
 }: DistributionModalProps) {
-  const [attributeGender, setAttributeGender] = useState<string>('남');
-  const [classGender, setClassGender] = useState<string>('여');
+  const [attributeGender, setAttributeGender] = useState<string>('남성');
+  const [classGender, setClassGender] = useState<string>('여성');
   const [rouletteDirection, setRouletteDirection] = useState<RouletteDirection>('cw');
 
   const handleExecute = () => {

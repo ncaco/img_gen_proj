@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import DecagonLayout from './components/DecagonLayout';
 import HeroSelectModal from './components/HeroSelectModal';
 import DistributionModal, { type RouletteDirection } from './components/DistributionModal';
@@ -10,10 +12,13 @@ import {
   distributeHeroAutoPool,
   confirmHeroAutoPool,
   regenerateHeroAutoPool,
+  listHeroAutoPools,
   type HeroAutoPool,
+  type HeroAutoPoolListItem,
 } from '@/app/lib/heroAuto';
 
 export default function HeroAutoPage() {
+  const router = useRouter();
   const [selectedHero, setSelectedHero] = useState<FlowCharacter | null>(null);
   const [pool, setPool] = useState<HeroAutoPool | null>(null);
   const [creatingPool, setCreatingPool] = useState(false);
@@ -31,6 +36,10 @@ export default function HeroAutoPage() {
   const [progressStep, setProgressStep] = useState<number>(0);
 
   const [error, setError] = useState<string | null>(null);
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [poolList, setPoolList] = useState<HeroAutoPoolListItem[]>([]);
+  const [poolListLoading, setPoolListLoading] = useState(false);
 
   const ensurePoolForHero = useCallback(
     async (character: FlowCharacter): Promise<HeroAutoPool> => {
@@ -171,6 +180,7 @@ export default function HeroAutoPage() {
       setError(null);
       const res = await confirmHeroAutoPool(pool.id);
       setPool(res.pool);
+      router.push(`/hero-auto/${res.pool.id}/prompts`);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : '확정 처리 중 오류가 발생했습니다.',
@@ -184,8 +194,8 @@ export default function HeroAutoPage() {
       setError(null);
       await regenerateHeroAutoPool(pool.id);
       const res = await distributeHeroAutoPool(pool.id, {
-        attributeStartGender: '남',
-        classStartGender: '여',
+        attributeStartGender: '남성',
+        classStartGender: '여성',
       });
       setPool(res.pool);
       void runAnimationSequence('cw');
@@ -201,11 +211,97 @@ export default function HeroAutoPage() {
 
   const lockScreen = isAnimating || creatingPool;
 
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    setPoolListLoading(true);
+    listHeroAutoPools()
+      .then(setPoolList)
+      .catch(() => setPoolList([]))
+      .finally(() => setPoolListLoading(false));
+  }, [sidebarOpen]);
+
+  const handleSelectPool = useCallback(
+    (item: HeroAutoPoolListItem) => {
+      router.push(`/hero-auto/${item.id}/prompts`);
+    },
+    [router],
+  );
+
   return (
-    <div className="h-screen w-full overflow-hidden flex flex-col bg-gradient-to-b from-[#050510] via-[#050712] to-black text-white">
+    <div className="min-h-screen w-full overflow-hidden flex flex-col bg-gradient-to-b from-[#050510] via-[#050712] to-black text-white pt-14">
+      {/* 사이드바: 풀 목록 (열기/닫기) - 헤더 아래부터 */}
       <div
-        className="relative flex-1 flex flex-col min-h-0 w-full max-w-[1920px] mx-auto px-3 sm:px-4 py-3 origin-top"
-        style={{ transform: 'scale(0.88)' }}
+        className={`fixed left-0 top-14 z-10 flex h-[calc(100vh-3.5rem)] flex-col border-r border-white/20 bg-black/90 backdrop-blur-sm transition-[width] duration-200 ${
+          sidebarOpen ? 'w-56' : 'w-0 overflow-hidden'
+        }`}
+      >
+        <div className="flex-shrink-0 flex items-center justify-between border-b border-white/10 px-2 py-2">
+          <span className="text-xs font-medium text-white/80 truncate">
+            풀 목록
+          </span>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="rounded p-1 text-white/70 hover:bg-white/10 hover:text-white"
+            aria-label="사이드바 닫기"
+          >
+            <IoChevronBack className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {poolListLoading ? (
+            <div className="px-3 py-4 text-center text-[10px] text-white/50">
+              불러오는 중...
+            </div>
+          ) : poolList.length === 0 ? (
+            <div className="px-3 py-4 text-center text-[10px] text-white/50">
+              생성된 풀이 없습니다.
+            </div>
+          ) : (
+            <ul className="py-1">
+              {poolList.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectPool(item)}
+                    className={`w-full px-3 py-2 text-left text-xs transition-colors flex flex-col gap-0.5 ${
+                      pool?.id === item.id
+                        ? 'bg-indigo-500/30 text-white'
+                        : 'text-white/80 hover:bg-white/10'
+                    }`}
+                  >
+                    <span className="font-medium truncate">
+                      {item.characterName ?? `캐릭터 #${item.characterId}`}
+                    </span>
+                    <span className="text-[10px] text-white/60">
+                      풀 #{item.id}
+                      {item.isConfirmed ? ' · 확정' : ''}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* 사이드바 열기 버튼 (사이드바가 닫혀 있을 때만) - 헤더 아래 중앙 */}
+      {!sidebarOpen && (
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(true)}
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-10 rounded-r border border-white/20 border-l-0 bg-black/80 px-1.5 py-3 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+          aria-label="풀 목록 열기"
+        >
+          <IoChevronForward className="w-4 h-4" />
+        </button>
+      )}
+
+      <div
+        className={`relative flex-1 flex flex-col min-h-0 px-3 sm:px-4 py-3 origin-top transition-[width,margin] duration-200 ${
+          sidebarOpen ? 'ml-56 w-[calc(100%-14rem)] max-w-[calc(1920px-14rem)]' : 'ml-0 w-full max-w-[1920px]'
+        } mx-auto`}
+        style={{ transform: 'scale(0.88)', minHeight: 'calc(100vh - 3.5rem)' }}
       >
         {/* 상단: 제목 + 영웅 + 상태 뱃지 (한 줄) */}
         <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-2 mb-2">

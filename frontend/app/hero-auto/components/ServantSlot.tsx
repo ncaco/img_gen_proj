@@ -44,7 +44,7 @@ export interface ServantSlotProps {
   revealedStep?: number;
 }
 
-function getAttributeColor(attribute?: string | null): string {
+export function getAttributeColor(attribute?: string | null): string {
   if (!attribute) return 'rgba(148, 163, 184, 0.7)'; // slate
 
   const name = attribute.toLowerCase();
@@ -108,7 +108,7 @@ function normalizeClassNameForIcon(type?: string | null): string {
 const CLASS_ICON = 'w-5 h-5 flex-shrink-0';
 
 /** 클래스 아이콘. attributeColor가 있으면 선택된 속성과 같은 색으로 표시 */
-function getClassIcon(type?: string | null, attributeColor?: string): React.ReactNode {
+export function getClassIcon(type?: string | null, attributeColor?: string): React.ReactNode {
   const raw = normalizeClassNameForIcon(type);
   const style = attributeColor ? { color: attributeColor } : undefined;
 
@@ -147,7 +147,7 @@ export default function ServantSlotView({
   const femaleGlow = 'rgba(239, 68, 68, 0.9)';  // 붉은색
   const glowColor =
     isActiveAttribute && activePhase === 'gender'
-      ? (slot.gender === '여' ? femaleGlow : slot.gender === '남' ? maleGlow : attrColor)
+      ? (slot.gender === '여성' ? femaleGlow : slot.gender === '남성' ? maleGlow : attrColor)
       : attrColor;
   const glowSize =
     isActiveAttribute || isActiveClass ? 18 : isConfirmed ? 10 : 4;
@@ -168,7 +168,7 @@ export default function ServantSlotView({
         : 'shadow-[0_0_6px_rgba(15,23,42,0.8)]';
 
   const genderLabel = showGender
-    ? (slot.gender === '여' ? 'F' : slot.gender === '남' ? 'M' : '?')
+    ? (slot.gender === '여성' ? 'F' : slot.gender === '남성' ? 'M' : '?')
     : '?';
   const attributeLabel = showAttribute ? (slot.attribute || '-') : '-';
   const classLabel = showClass ? (slot.type || '-') : '-';
@@ -176,9 +176,9 @@ export default function ServantSlotView({
   const slotNumber = slot.position + 1;
 
   const GenderIcon = showGender
-    ? slot.gender === '여'
+    ? slot.gender === '여성'
       ? IoFemale
-      : slot.gender === '남'
+      : slot.gender === '남성'
         ? IoMale
         : IoHelpCircle
     : IoHelpCircle;
@@ -221,9 +221,9 @@ export default function ServantSlotView({
                   <span
                     className={`inline-flex items-center justify-center rounded-full border border-white/40 flex-shrink-0 text-[10px] font-bold w-6 h-6 ${
                       showGender
-                        ? slot.gender === '여'
+                        ? slot.gender === '여성'
                           ? 'bg-pink-500/40 text-pink-50'
-                          : slot.gender === '남'
+                          : slot.gender === '남성'
                             ? 'bg-sky-500/40 text-sky-50'
                             : 'bg-white/20 text-white/50'
                         : 'bg-white/20 text-white/50'
