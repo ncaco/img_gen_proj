@@ -148,6 +148,32 @@ async def get_hero_auto_pool(
     return _to_response(pool)
 
 
+@router.delete("/{pool_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_hero_auto_pool(
+    pool_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_required),
+):
+    """
+    영웅 풀오토 풀 삭제. 본인 소유 풀만 삭제 가능.
+    """
+    pool = (
+        db.query(HeroAutoPool)
+        .filter(
+            HeroAutoPool.id == pool_id,
+            HeroAutoPool.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not pool:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="해당 풀오토 정보를 찾을 수 없습니다.",
+        )
+    db.delete(pool)
+    db.commit()
+
+
 def _get_category_names(db: Session, type_key: str, limit: int = 10) -> list[str]:
     """category_types / categories에서 type_key 기준 2뎁스 name 리스트를 최대 limit개 가져온다."""
     ctype = (
@@ -282,29 +308,14 @@ async def distribute_hero_auto_pool(
             }
         )
 
-    # 인덱스 그룹
-    male_indices = [0, 2, 4, 6, 8]
-    female_indices = [1, 3, 5, 7, 9]
-
-    # --- 속성 배분: 남>여 순서 유지, 속성만 슬롯에 랜덤 할당 ---
-    male_attrs = attributes_10[0:5].copy()
-    female_attrs = attributes_10[5:10].copy()
-    rng.shuffle(male_attrs)
-    rng.shuffle(female_attrs)
-    for idx, slot_index in enumerate(male_indices):
-        slots[slot_index]["attribute"] = male_attrs[idx]
-    for idx, slot_index in enumerate(female_indices):
-        slots[slot_index]["attribute"] = female_attrs[idx]
-
-    # --- 클래스 배분: 여>남 순서 유지, 클래스만 슬롯에 랜덤 할당 ---
-    female_classes = classes_10[0:5].copy()
-    male_classes = classes_10[5:10].copy()
-    rng.shuffle(female_classes)
-    rng.shuffle(male_classes)
-    for idx, slot_index in enumerate(female_indices):
-        slots[slot_index]["type"] = female_classes[idx]
-    for idx, slot_index in enumerate(male_indices):
-        slots[slot_index]["type"] = male_classes[idx]
+    # --- 속성/클래스: 전체 10개를 한 번에 셔플해 슬롯 0~9에 랜덤 배정 (더 다양한 조합) ---
+    shuffled_attrs = attributes_10.copy()
+    rng.shuffle(shuffled_attrs)
+    shuffled_classes = classes_10.copy()
+    rng.shuffle(shuffled_classes)
+    for pos in range(10):
+        slots[pos]["attribute"] = shuffled_attrs[pos]
+        slots[pos]["type"] = shuffled_classes[pos]
 
     pool.servants = slots
     pool.is_confirmed = 0

@@ -141,4 +141,16 @@ export async function regenerateHeroAutoPool(
   return res.json();
 }
 
+/** 풀오토 풀 삭제 (목록에서만 제거) */
+export async function deleteHeroAutoPool(poolId: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/hero-auto/${poolId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '풀오토 삭제에 실패했습니다.');
+  }
+}
+
 

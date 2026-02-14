@@ -13,6 +13,7 @@ import {
   confirmHeroAutoPool,
   regenerateHeroAutoPool,
   listHeroAutoPools,
+  deleteHeroAutoPool,
   type HeroAutoPool,
   type HeroAutoPoolListItem,
 } from '@/app/lib/heroAuto';
@@ -84,6 +85,7 @@ export default function HeroAutoPage() {
       setRevealedSteps(Array(10).fill(0));
 
       const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+      const stepDelayMs = 100; // 회전당 한 칸 대기 (작을수록 빠름, 기존 500)
 
       // 시계방향 = 0→1→…→9, 반시계 = 9→…→0
       const clockwiseOrder = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -103,7 +105,7 @@ export default function HeroAutoPage() {
         });
         setProgressStep(step);
         step += 1;
-        await delay(500);
+        await delay(stepDelayMs);
       }
       setActiveAttrPos(null);
 
@@ -121,7 +123,7 @@ export default function HeroAutoPage() {
         });
         setProgressStep(step);
         step += 1;
-        await delay(500);
+        await delay(stepDelayMs);
       }
       setActiveAttrPos(null);
 
@@ -139,7 +141,7 @@ export default function HeroAutoPage() {
         });
         setProgressStep(step);
         step += 1;
-        await delay(500);
+        await delay(stepDelayMs);
       }
       setActiveClassPos(null);
 
@@ -227,6 +229,21 @@ export default function HeroAutoPage() {
     [router],
   );
 
+  const handleDeletePool = useCallback(
+    async (e: React.MouseEvent, item: HeroAutoPoolListItem) => {
+      e.stopPropagation();
+      if (!window.confirm(`"${item.characterName ?? `풀 #${item.id}`}" 풀을 삭제할까요?`)) return;
+      try {
+        await deleteHeroAutoPool(item.id);
+        const next = await listHeroAutoPools();
+        setPoolList(next);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '풀 삭제에 실패했습니다.');
+      }
+    },
+    [],
+  );
+
   return (
     <div className="min-h-screen w-full overflow-hidden flex flex-col bg-gradient-to-b from-[#050510] via-[#050712] to-black text-white pt-14">
       {/* 사이드바: 풀 목록 (열기/닫기) - 헤더 아래부터 */}
@@ -260,11 +277,11 @@ export default function HeroAutoPage() {
           ) : (
             <ul className="py-1">
               {poolList.map((item) => (
-                <li key={item.id}>
+                <li key={item.id} className="group flex items-stretch">
                   <button
                     type="button"
                     onClick={() => handleSelectPool(item)}
-                    className={`w-full px-3 py-2 text-left text-xs transition-colors flex flex-col gap-0.5 ${
+                    className={`flex-1 min-w-0 px-3 py-2 text-left text-xs transition-colors flex flex-col gap-0.5 ${
                       pool?.id === item.id
                         ? 'bg-indigo-500/30 text-white'
                         : 'text-white/80 hover:bg-white/10'
@@ -277,6 +294,17 @@ export default function HeroAutoPage() {
                       풀 #{item.id}
                       {item.isConfirmed ? ' · 확정' : ''}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeletePool(e, item)}
+                    className="flex-shrink-0 px-2 py-1.5 text-white/50 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors"
+                    title="풀 삭제"
+                    aria-label="풀 삭제"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
                   </button>
                 </li>
               ))}
