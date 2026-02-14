@@ -1,0 +1,384 @@
+[  149756ms] [ERROR] ./app/hero-auto/components/ServantSlot.tsx:18:1
+Export GiDagger doesn't exist in target module
+  16 | import { FiWind } from 'react-icons/fi';
+  17 | import { MdTerrain, MdAcUnit } from 'react-icons/md';
+> 18 | import {
+     | ^^^^^^^^
+> 19 |   GiCrossedSwords,
+     | ^^^^^^^^^^^^^^^^^^
+> 20 |   GiBowArrow,
+     | ^^^^^^^^^^^^^^^^^^
+> 21 |   GiSpearHook,
+     | ^^^^^^^^^^^^^^^^^^
+> 22 |   GiHorseHead,
+     | ^^^^^^^^^^^^^^^^^^
+> 23 |   GiWizardStaff,
+     | ^^^^^^^^^^^^^^^^^^
+> 24 |   GiDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 25 |   GiBroadDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 26 |   GiCrown,
+     | ^^^^^^^^^^^^^^^^^^
+> 27 |   GiAngryEyes,
+     | ^^^^^^^^^^^^^^^^^^
+> 28 |   GiSplitCross,
+     | ^^^^^^^^^^^^^^^^^^
+> 29 | } from 'react-icons/gi';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
+  30 | import type { ServantSlot } from '@/app/lib/heroAuto';
+  31 |
+  32 | export interface ServantSlotProps {
+
+The export GiDagger was not found in module [project]/node_modules/react-icons/gi/index.mjs [app-client] (ecmascript).
+Did you mean to import GiDaggers?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component Browser]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component SSR]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  149757ms] [ERROR] ./app/hero-auto/components/ServantSlot.tsx:18:1
+Export GiDagger doesn't exist in target module
+  16 | import { FiWind } from 'react-icons/fi';
+  17 | import { MdTerrain, MdAcUnit } from 'react-icons/md';
+> 18 | import {
+     | ^^^^^^^^
+> 19 |   GiCrossedSwords,
+     | ^^^^^^^^^^^^^^^^^^
+> 20 |   GiBowArrow,
+     | ^^^^^^^^^^^^^^^^^^
+> 21 |   GiSpearHook,
+     | ^^^^^^^^^^^^^^^^^^
+> 22 |   GiHorseHead,
+     | ^^^^^^^^^^^^^^^^^^
+> 23 |   GiWizardStaff,
+     | ^^^^^^^^^^^^^^^^^^
+> 24 |   GiDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 25 |   GiBroadDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 26 |   GiCrown,
+     | ^^^^^^^^^^^^^^^^^^
+> 27 |   GiAngryEyes,
+     | ^^^^^^^^^^^^^^^^^^
+> 28 |   GiSplitCross,
+     | ^^^^^^^^^^^^^^^^^^
+> 29 | } from 'react-icons/gi';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  30 | import type { ServantSlot } from '@/app/lib/heroAuto';
+  31 |
+  32 | export interface ServantSlotProps {
+
+The export GiDagger was not found in module [project]/node_modules/react-icons/gi/index.mjs [app-ssr] (ecmascript).
+Did you mean to import GiDaggers?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component Browser]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component SSR]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  168689ms] [ERROR] ./app/hero-auto/components/ServantSlot.tsx:18:1
+Export GiDagger doesn't exist in target module
+  16 | import { FiWind } from 'react-icons/fi';
+  17 | import { MdTerrain, MdAcUnit } from 'react-icons/md';
+> 18 | import {
+     | ^^^^^^^^
+> 19 |   GiCrossedSwords,
+     | ^^^^^^^^^^^^^^^^^^
+> 20 |   GiBowArrow,
+     | ^^^^^^^^^^^^^^^^^^
+> 21 |   GiSpearHook,
+     | ^^^^^^^^^^^^^^^^^^
+> 22 |   GiHorseHead,
+     | ^^^^^^^^^^^^^^^^^^
+> 23 |   GiWizardStaff,
+     | ^^^^^^^^^^^^^^^^^^
+> 24 |   GiDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 25 |   GiBroadDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 26 |   GiCrown,
+     | ^^^^^^^^^^^^^^^^^^
+> 27 |   GiAngryEyes,
+     | ^^^^^^^^^^^^^^^^^^
+> 28 |   GiSplitCross,
+     | ^^^^^^^^^^^^^^^^^^
+> 29 | } from 'react-icons/gi';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
+  30 | import type { ServantSlot } from '@/app/lib/heroAuto';
+  31 |
+  32 | export interface ServantSlotProps {
+
+The export GiDagger was not found in module [project]/node_modules/react-icons/gi/index.mjs [app-client] (ecmascript).
+Did you mean to import GiDaggers?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component Browser]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component SSR]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  168690ms] [ERROR] ./app/hero-auto/components/ServantSlot.tsx:18:1
+Export GiDagger doesn't exist in target module
+  16 | import { FiWind } from 'react-icons/fi';
+  17 | import { MdTerrain, MdAcUnit } from 'react-icons/md';
+> 18 | import {
+     | ^^^^^^^^
+> 19 |   GiCrossedSwords,
+     | ^^^^^^^^^^^^^^^^^^
+> 20 |   GiBowArrow,
+     | ^^^^^^^^^^^^^^^^^^
+> 21 |   GiSpearHook,
+     | ^^^^^^^^^^^^^^^^^^
+> 22 |   GiHorseHead,
+     | ^^^^^^^^^^^^^^^^^^
+> 23 |   GiWizardStaff,
+     | ^^^^^^^^^^^^^^^^^^
+> 24 |   GiDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 25 |   GiBroadDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 26 |   GiCrown,
+     | ^^^^^^^^^^^^^^^^^^
+> 27 |   GiAngryEyes,
+     | ^^^^^^^^^^^^^^^^^^
+> 28 |   GiSplitCross,
+     | ^^^^^^^^^^^^^^^^^^
+> 29 | } from 'react-icons/gi';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  30 | import type { ServantSlot } from '@/app/lib/heroAuto';
+  31 |
+  32 | export interface ServantSlotProps {
+
+The export GiDagger was not found in module [project]/node_modules/react-icons/gi/index.mjs [app-ssr] (ecmascript).
+Did you mean to import GiDaggers?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component Browser]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component SSR]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  179723ms] [ERROR] ./app/hero-auto/components/ServantSlot.tsx:18:1
+Export GiDagger doesn't exist in target module
+  16 | import { FiWind } from 'react-icons/fi';
+  17 | import { MdTerrain, MdAcUnit } from 'react-icons/md';
+> 18 | import {
+     | ^^^^^^^^
+> 19 |   GiCrossedSwords,
+     | ^^^^^^^^^^^^^^^^^^
+> 20 |   GiBowArrow,
+     | ^^^^^^^^^^^^^^^^^^
+> 21 |   GiSpearHook,
+     | ^^^^^^^^^^^^^^^^^^
+> 22 |   GiHorseHead,
+     | ^^^^^^^^^^^^^^^^^^
+> 23 |   GiWizardStaff,
+     | ^^^^^^^^^^^^^^^^^^
+> 24 |   GiDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 25 |   GiBroadDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 26 |   GiCrown,
+     | ^^^^^^^^^^^^^^^^^^
+> 27 |   GiAngryEyes,
+     | ^^^^^^^^^^^^^^^^^^
+> 28 |   GiSplitCross,
+     | ^^^^^^^^^^^^^^^^^^
+> 29 | } from 'react-icons/gi';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
+  30 | import type { ServantSlot } from '@/app/lib/heroAuto';
+  31 |
+  32 | export interface ServantSlotProps {
+
+The export GiDagger was not found in module [project]/node_modules/react-icons/gi/index.mjs [app-client] (ecmascript).
+Did you mean to import GiDaggers?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component Browser]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component SSR]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  179723ms] [ERROR] ./app/hero-auto/components/ServantSlot.tsx:18:1
+Export GiDagger doesn't exist in target module
+  16 | import { FiWind } from 'react-icons/fi';
+  17 | import { MdTerrain, MdAcUnit } from 'react-icons/md';
+> 18 | import {
+     | ^^^^^^^^
+> 19 |   GiCrossedSwords,
+     | ^^^^^^^^^^^^^^^^^^
+> 20 |   GiBowArrow,
+     | ^^^^^^^^^^^^^^^^^^
+> 21 |   GiSpearHook,
+     | ^^^^^^^^^^^^^^^^^^
+> 22 |   GiHorseHead,
+     | ^^^^^^^^^^^^^^^^^^
+> 23 |   GiWizardStaff,
+     | ^^^^^^^^^^^^^^^^^^
+> 24 |   GiDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 25 |   GiBroadDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 26 |   GiCrown,
+     | ^^^^^^^^^^^^^^^^^^
+> 27 |   GiAngryEyes,
+     | ^^^^^^^^^^^^^^^^^^
+> 28 |   GiSplitCross,
+     | ^^^^^^^^^^^^^^^^^^
+> 29 | } from 'react-icons/gi';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  30 | import type { ServantSlot } from '@/app/lib/heroAuto';
+  31 |
+  32 | export interface ServantSlotProps {
+
+The export GiDagger was not found in module [project]/node_modules/react-icons/gi/index.mjs [app-ssr] (ecmascript).
+Did you mean to import GiDaggers?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component Browser]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component SSR]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  185440ms] [ERROR] ./app/hero-auto/components/ServantSlot.tsx:18:1
+Export GiDagger doesn't exist in target module
+  16 | import { FiWind } from 'react-icons/fi';
+  17 | import { MdTerrain, MdAcUnit } from 'react-icons/md';
+> 18 | import {
+     | ^^^^^^^^
+> 19 |   GiCrossedSwords,
+     | ^^^^^^^^^^^^^^^^^^
+> 20 |   GiBowArrow,
+     | ^^^^^^^^^^^^^^^^^^
+> 21 |   GiSpearHook,
+     | ^^^^^^^^^^^^^^^^^^
+> 22 |   GiHorseHead,
+     | ^^^^^^^^^^^^^^^^^^
+> 23 |   GiWizardStaff,
+     | ^^^^^^^^^^^^^^^^^^
+> 24 |   GiDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 25 |   GiBroadDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 26 |   GiCrown,
+     | ^^^^^^^^^^^^^^^^^^
+> 27 |   GiAngryEyes,
+     | ^^^^^^^^^^^^^^^^^^
+> 28 |   GiSplitCross,
+     | ^^^^^^^^^^^^^^^^^^
+> 29 | } from 'react-icons/gi';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
+  30 | import type { ServantSlot } from '@/app/lib/heroAuto';
+  31 |
+  32 | export interface ServantSlotProps {
+
+The export GiDagger was not found in module [project]/node_modules/react-icons/gi/index.mjs [app-client] (ecmascript).
+Did you mean to import GiDaggers?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component Browser]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component SSR]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[  185440ms] [ERROR] ./app/hero-auto/components/ServantSlot.tsx:18:1
+Export GiDagger doesn't exist in target module
+  16 | import { FiWind } from 'react-icons/fi';
+  17 | import { MdTerrain, MdAcUnit } from 'react-icons/md';
+> 18 | import {
+     | ^^^^^^^^
+> 19 |   GiCrossedSwords,
+     | ^^^^^^^^^^^^^^^^^^
+> 20 |   GiBowArrow,
+     | ^^^^^^^^^^^^^^^^^^
+> 21 |   GiSpearHook,
+     | ^^^^^^^^^^^^^^^^^^
+> 22 |   GiHorseHead,
+     | ^^^^^^^^^^^^^^^^^^
+> 23 |   GiWizardStaff,
+     | ^^^^^^^^^^^^^^^^^^
+> 24 |   GiDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 25 |   GiBroadDagger,
+     | ^^^^^^^^^^^^^^^^^^
+> 26 |   GiCrown,
+     | ^^^^^^^^^^^^^^^^^^
+> 27 |   GiAngryEyes,
+     | ^^^^^^^^^^^^^^^^^^
+> 28 |   GiSplitCross,
+     | ^^^^^^^^^^^^^^^^^^
+> 29 | } from 'react-icons/gi';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  30 | import type { ServantSlot } from '@/app/lib/heroAuto';
+  31 |
+  32 | export interface ServantSlotProps {
+
+The export GiDagger was not found in module [project]/node_modules/react-icons/gi/index.mjs [app-ssr] (ecmascript).
+Did you mean to import GiDaggers?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component Browser]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Client Component Browser]
+    ./app/hero-auto/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/hero-auto/components/ServantSlot.tsx [Client Component SSR]
+    ./app/hero-auto/components/DecagonLayout.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Client Component SSR]
+    ./app/hero-auto/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127

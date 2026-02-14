@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+
+# Python
+backend/__pycache__
+backend/**/__pycache__
+backend/.venv
+backend/*.pyc
+backend/.env
+
+# Node
+frontend/node_modules
+frontend/.next
+frontend/.env*
+frontend/npm-debug.log*
+
+# IDE / OS
+.cursor
+.vscode
+*.swp
+.DS_Store
+Thumbs.db
+
+# 문서/기타
+*.md
+!backend/README.md
+!frontend/README.md

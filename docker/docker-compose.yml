@@ -1,0 +1,48 @@
+# 프로젝트 루트에서 실행: docker compose -f docker/docker-compose.yml up
+# 개발 모드: 소스 마운트로 파일 수정 시 바로 반영 (백엔드 --reload, 프론트 hot reload)
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: img-gen-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend:/app
+      - backend-venv:/app/.venv
+      - backend-data:/app/data
+    command: sh -c "uv sync && uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=${BACKEND_DEBUG:-false}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      - DATABASE_DIR=data/database
+      - UPLOAD_DIR=data/upload
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production-use-env}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    container_name: img-gen-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - frontend-node-modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- -H 0.0.0.0"
+    environment:
+      - NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE:-http://localhost:8000}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-data:
+  backend-venv:
+  frontend-node-modules:

@@ -4,12 +4,13 @@
 - `backend/`: FastAPI service (`main.py`, `app/` for API, services, schemas, database).
 - `backend/data/`: SQLite database and uploads (`data/database`, `data/upload`).
 - `frontend/`: Next.js app (App Router) with UI in `frontend/app/`, static assets in `frontend/public/`.
-- Root scripts: `run-backend.ps1`, `run-frontend.ps1`, `run-all.ps1` for local startup.
+- Root scripts: `run-backend.ps1`, `run-frontend.ps1`, `run-all.ps1`, `run-docker.ps1` for local/Docker startup.
 
 ## Build, Test, and Development Commands
 - `pwsh run-backend.ps1`: start the FastAPI server via `uv run uvicorn`.
 - `pwsh run-frontend.ps1`: start the Next.js dev server.
 - `pwsh run-all.ps1`: run backend (background) + frontend (foreground) together.
+- `pwsh run-docker.ps1`: run frontend + backend via Docker Compose (`docker/docker-compose.yml`). Use `-Detached` for background.
 - `cd backend; uv sync`: install Python deps from `backend/pyproject.toml`.
 - `cd frontend; npm install`: install frontend deps.
 - `cd frontend; npm run dev`: Next.js dev server (same as script).

@@ -1,0 +1,10 @@
+# 환경 설정 (시크릿 포함 가능)
+docker/.env
+backend/.env
+backend/.env.local
+frontend/.env*
+.env
+.env.local
+
+# 로그
+.playwright-mcp/

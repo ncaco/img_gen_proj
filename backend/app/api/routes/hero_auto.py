@@ -124,6 +124,7 @@ def _get_category_names(db: Session, type_key: str, limit: int = 10) -> list[str
     if not ctype:
         return []
 
+    # 2뎁스 (parent_id NULL)
     q = (
         db.query(Category)
         .filter(
@@ -134,7 +135,31 @@ def _get_category_names(db: Session, type_key: str, limit: int = 10) -> list[str
         )
         .order_by(Category.sort_order.asc(), Category.id.asc())
     )
-    items = q.limit(limit).all()
+    level2 = q.all()
+
+    # 클래스만: 3뎁스(실제 클래스명)만 사용. 2뎁스는 그룹(일반/엑스트라 등)이므로 제외.
+    if type_key == "class":
+        if not level2:
+            return []
+        level3 = (
+            db.query(Category)
+            .filter(
+                Category.parent_id.in_([c.id for c in level2]),
+                Category.deleted_at.is_(None),
+                Category.is_used == 1,
+            )
+            .order_by(Category.sort_order.asc(), Category.id.asc())
+            .all()
+        )
+        # 2뎁스 순서 → 3뎁스 sort_order 순으로 이름 수집
+        order_by_parent = {c.id: i for i, c in enumerate(level2)}
+        names_3 = sorted(
+            [(order_by_parent.get(c.parent_id, 999), c.sort_order, c.name) for c in level3]
+        )
+        names = [n for _, __, n in names_3]
+        return names[:limit] if limit else names
+
+    items = level2[:limit] if limit else level2
     return [c.name for c in items]
 
 

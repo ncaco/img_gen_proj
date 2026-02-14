@@ -2,13 +2,26 @@
 
 import React, { useState } from 'react';
 
+export type RouletteDirection = 'cw' | 'ccw';
+
+export interface DistributionModalConfirmOptions {
+  attributeStartGender: string;
+  classStartGender: string;
+  rouletteDirection: RouletteDirection;
+}
+
 interface DistributionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (options: { attributeStartGender: string; classStartGender: string }) => void;
+  onConfirm: (options: DistributionModalConfirmOptions) => void;
 }
 
 const genderOptions: string[] = ['남', '여'];
+
+const directionOptions: { value: RouletteDirection; label: string }[] = [
+  { value: 'cw', label: '시계 방향' },
+  { value: 'ccw', label: '반시계 방향' },
+];
 
 export default function DistributionModal({
   isOpen,
@@ -17,11 +30,13 @@ export default function DistributionModal({
 }: DistributionModalProps) {
   const [attributeGender, setAttributeGender] = useState<string>('남');
   const [classGender, setClassGender] = useState<string>('여');
+  const [rouletteDirection, setRouletteDirection] = useState<RouletteDirection>('cw');
 
   const handleExecute = () => {
     onConfirm({
       attributeStartGender: attributeGender,
       classStartGender: classGender,
+      rouletteDirection,
     });
   };
 
@@ -52,6 +67,33 @@ export default function DistributionModal({
           </div>
 
           <div className="px-5 py-4 space-y-4">
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-white/70">진행방향</div>
+              <div className="text-[11px] text-white/40 mb-1">
+                시계 방향으로 도는데, 1회전은 성별, 2회전은 속성, 3회전은 클래스로 부여됩니다.
+              </div>
+              <div className="flex gap-4">
+                {directionOptions.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex items-center gap-2 text-xs text-white/80 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="roulette-direction"
+                      value={opt.value}
+                      checked={rouletteDirection === opt.value}
+                      onChange={() => setRouletteDirection(opt.value)}
+                      className="rounded-full border-white/40 text-indigo-400 focus:ring-white/30"
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+
             <div className="space-y-2">
               <div className="text-xs font-medium text-white/70">속성 배분 기준</div>
               <div className="text-[11px] text-white/40 mb-1">
