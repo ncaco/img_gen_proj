@@ -9,6 +9,7 @@ import { PROMPT_NODE_ID, type PromptTextareaNodeData } from './PromptTextareaNod
 import { LORE_NODE_ID } from './LoreResultNode';
 import { CHARACTER_CONFIG_NODE_ID, type CharacterConfigNodeData } from './CharacterConfigNode';
 import type { Node } from '@xyflow/react';
+import { FiCopy } from 'react-icons/fi';
 
 interface CardDetailModalProps {
   flowCardId: number | null;
@@ -33,6 +34,8 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
   const [copied, setCopied] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [copiedNegative, setCopiedNegative] = useState(false);
+  const [copiedSdPrompt, setCopiedSdPrompt] = useState(false);
+  const [copiedSymbolPrompt, setCopiedSymbolPrompt] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingSdImage, setUploadingSdImage] = useState(false);
   const [uploadingSymbolImage, setUploadingSymbolImage] = useState(false);
@@ -604,14 +607,36 @@ ${negativePrompt}`;
                         />
                       ) : null}
                       <input ref={sdImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleSdImageUpload} />
-                      <button
-                        type="button"
-                        disabled={uploadingSdImage || !flowCardId}
-                        onClick={() => sdImageInputRef.current?.click()}
-                        className="w-full px-3 py-1.5 rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 text-xs disabled:opacity-50"
-                      >
-                        {uploadingSdImage ? '업로드 중...' : flowCard.sdCharacterImageUrl ? 'SD 캐릭터 이미지 변경' : 'SD 캐릭터 이미지 업로드'}
-                      </button>
+                      <div className="flex gap-2 items-center">
+                        <button
+                          type="button"
+                          disabled={uploadingSdImage || !flowCardId}
+                          onClick={() => sdImageInputRef.current?.click()}
+                          className="flex-1 min-w-0 px-3 py-1.5 rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 text-xs disabled:opacity-50"
+                        >
+                          {uploadingSdImage ? '업로드 중...' : flowCard.sdCharacterImageUrl ? 'SD 캐릭터 이미지 변경' : 'SD 캐릭터 이미지 업로드'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText('1대1비율 이미지, SD캐릭터로 변환');
+                              setCopiedSdPrompt(true);
+                              setTimeout(() => setCopiedSdPrompt(false), 2000);
+                            } catch {}
+                          }}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
+                          title="SD 프롬프트 클립보드 복사 (1대1비율 이미지, SD캐릭터로 변환)"
+                        >
+                          {copiedSdPrompt ? (
+                            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <FiCopy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="text-white/60 text-xs font-medium">심볼 이미지</div>
@@ -623,14 +648,36 @@ ${negativePrompt}`;
                         />
                       ) : null}
                       <input ref={symbolImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleSymbolImageUpload} />
-                      <button
-                        type="button"
-                        disabled={uploadingSymbolImage || !flowCardId}
-                        onClick={() => symbolImageInputRef.current?.click()}
-                        className="w-full px-3 py-1.5 rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 text-xs disabled:opacity-50"
-                      >
-                        {uploadingSymbolImage ? '업로드 중...' : flowCard.symbolImageUrl ? '심볼 이미지 변경' : '심볼 이미지 업로드'}
-                      </button>
+                      <div className="flex gap-2 items-center">
+                        <button
+                          type="button"
+                          disabled={uploadingSymbolImage || !flowCardId}
+                          onClick={() => symbolImageInputRef.current?.click()}
+                          className="flex-1 min-w-0 px-3 py-1.5 rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 text-xs disabled:opacity-50"
+                        >
+                          {uploadingSymbolImage ? '업로드 중...' : flowCard.symbolImageUrl ? '심볼 이미지 변경' : '심볼 이미지 업로드'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText('흰색 배경의 상징적인 심볼 벡터 일러스트 아이콘 제작');
+                              setCopiedSymbolPrompt(true);
+                              setTimeout(() => setCopiedSymbolPrompt(false), 2000);
+                            } catch {}
+                          }}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
+                          title="심볼 프롬프트 클립보드 복사 (흰색 배경의 심볼 벡터 일러스트 아이콘 제작)"
+                        >
+                          {copiedSymbolPrompt ? (
+                            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <FiCopy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
