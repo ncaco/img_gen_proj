@@ -107,7 +107,6 @@ async def generate_instagram_caption_single(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        temperature=0.7,
     )
     content = (response.choices[0].message.content or "").strip()
     if field == "hashtags":
@@ -214,7 +213,6 @@ async def generate_instagram_caption(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        temperature=0.7,
     )
     content = (response.choices[0].message.content or "").strip()
     usage = None
