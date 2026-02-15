@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { API_BASE, getStoredToken } from '@/app/lib/auth';
+import { getFlowCard } from '@/app/lib/flow';
 import { FiSave, FiTrash2, FiEdit2, FiZap } from 'react-icons/fi';
 
 const INSTAGRAM_CAPTION_MAX = 2200;
@@ -78,6 +79,7 @@ interface Card {
   generatedImageUrl?: string;
   characterImageUrl?: string;
   draftImageUrl?: string;
+  flowCardId?: number;
 }
 
 interface CardListResponse {
@@ -132,6 +134,10 @@ export default function AdminPostPage() {
   const [editUrl, setEditUrl] = useState('');
 
   const [generatingCaption, setGeneratingCaption] = useState(false);
+  /** FlowCard 이미지 URL (flowCardId로 조회, 도감 캐릭터/SD/심볼 4:5 다운로드용) */
+  const [flowCardImageUrl, setFlowCardImageUrl] = useState<string | null>(null);
+  const [flowCardSdImageUrl, setFlowCardSdImageUrl] = useState<string | null>(null);
+  const [flowCardSymbolImageUrl, setFlowCardSymbolImageUrl] = useState<string | null>(null);
 
   const token = getStoredToken();
   const headers: HeadersInit = token
@@ -177,8 +183,45 @@ export default function AdminPostPage() {
       fetchPosts(selectedCard.cardSn);
     } else {
       setPosts([]);
+      setFlowCardImageUrl(null);
+      setFlowCardSdImageUrl(null);
+      setFlowCardSymbolImageUrl(null);
     }
   }, [selectedCard, fetchPosts]);
+
+  /** 선택 카드에 연결된 FlowCard 이미지 URL 로드 (도감 캐릭터/SD/심볼 4:5용, 카드.flowCardId 우선) */
+  useEffect(() => {
+    if (!selectedCard || !token) {
+      if (!selectedCard) {
+        setFlowCardImageUrl(null);
+        setFlowCardSdImageUrl(null);
+        setFlowCardSymbolImageUrl(null);
+      }
+      return;
+    }
+    const flowCardIdToUse =
+      selectedCard.flowCardId ??
+      [...posts]
+        .filter((p) => p.flowCardId != null)
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]?.flowCardId;
+    if (!flowCardIdToUse) {
+      setFlowCardImageUrl(null);
+      setFlowCardSdImageUrl(null);
+      setFlowCardSymbolImageUrl(null);
+      return;
+    }
+    getFlowCard(flowCardIdToUse)
+      .then((fc) => {
+        setFlowCardImageUrl(fc.imageUrl ?? null);
+        setFlowCardSdImageUrl(fc.sdCharacterImageUrl ?? null);
+        setFlowCardSymbolImageUrl(fc.symbolImageUrl ?? null);
+      })
+      .catch(() => {
+        setFlowCardImageUrl(null);
+        setFlowCardSdImageUrl(null);
+        setFlowCardSymbolImageUrl(null);
+      });
+  }, [selectedCard, token, posts]);
 
   const handleSelectCard = (card: Card) => {
     setSelectedCard(card);
@@ -232,191 +275,194 @@ export default function AdminPostPage() {
     }
   };
 
-  const handleDownloadInstagramImage = async () => {
+  /** 이미지 URL로 4:5 비율 PNG를 그려서 다운로드 (도감/SD/심볼 공통) */
+  const downloadCardImage4x5 = async (imageSrc: string, card: Card, filenameSuffix: string) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = imageSrc;
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('이미지를 불러오지 못했습니다.'));
+    });
+
+    const sampleSize = 64;
+    const offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = sampleSize;
+    offscreenCanvas.height = sampleSize;
+    const offscreenCtx = offscreenCanvas.getContext('2d');
+    if (!offscreenCtx) throw new Error('색상을 분석할 수 없습니다.');
+
+    offscreenCtx.drawImage(img, 0, 0, sampleSize, sampleSize);
+    const imageData = offscreenCtx.getImageData(0, 0, sampleSize, sampleSize);
+    const data = imageData.data;
+    let rSum = 0, gSum = 0, bSum = 0, count = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 32) continue;
+      rSum += data[i]; gSum += data[i + 1]; bSum += data[i + 2]; count += 1;
+    }
+    const avgR = count ? rSum / count : 20;
+    const avgG = count ? gSum / count : 20;
+    const avgB = count ? bSum / count : 30;
+
+    const [h, s, l] = rgbToHsl(avgR, avgG, avgB);
+    const [baseR, baseG, baseB] = hslToRgb(h, s * 0.8, Math.min(0.4, l * 0.7 + 0.1));
+    const [compR, compG, compB] = hslToRgb((h + 0.5) % 1, s * 0.8, Math.min(0.4, l * 0.7 + 0.1));
+
+    const targetWidth = 2048;
+    const targetHeight = Math.round((targetWidth * INSTAGRAM_FEED_ASPECT.h) / INSTAGRAM_FEED_ASPECT.w);
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas를 초기화할 수 없습니다.');
+
+    const gradient = ctx.createLinearGradient(0, 0, targetWidth, targetHeight);
+    gradient.addColorStop(0, `rgb(${baseR}, ${baseG}, ${baseB})`);
+    gradient.addColorStop(0.5, `rgb(${Math.round(baseR * 0.6 + compR * 0.4)}, ${Math.round(baseG * 0.6 + compG * 0.4)}, ${Math.round(baseB * 0.6 + compB * 0.4)})`);
+    gradient.addColorStop(1, `rgb(${compR}, ${compG}, ${compB})`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+    const bgScale = Math.min(targetWidth / img.width, targetHeight / img.height) * 1.5;
+    const bgW = img.width * bgScale;
+    const bgH = img.height * bgScale;
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.filter = 'blur(2px)';
+    ctx.drawImage(img, (targetWidth - bgW) / 2, (targetHeight - bgH) / 2, bgW, bgH);
+    ctx.restore();
+
+    const vignette = ctx.createRadialGradient(
+      targetWidth / 2, targetHeight / 2, Math.min(targetWidth, targetHeight) / 4,
+      targetWidth / 2, targetHeight / 2, Math.max(targetWidth, targetHeight) / 1.1,
+    );
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+    const scale = Math.min(targetWidth / img.width, targetHeight / img.height) * 0.95;
+    const drawWidth = img.width * scale;
+    const drawHeight = img.height * scale;
+    const dx = (targetWidth - drawWidth) / 2;
+    const dy = (targetHeight - drawHeight) / 2;
+    const radius = 70;
+    const cardX = dx, cardY = dy, cardW = drawWidth, cardH = drawHeight;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cardX + radius, cardY);
+    ctx.lineTo(cardX + cardW - radius, cardY);
+    ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + radius);
+    ctx.lineTo(cardX + cardW, cardY + cardH - radius);
+    ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - radius, cardY + cardH);
+    ctx.lineTo(cardX + radius, cardY + cardH);
+    ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - radius);
+    ctx.lineTo(cardX, cardY + radius);
+    ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(img, cardX, cardY, cardW, cardH);
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 6;
+    ctx.shadowColor = 'rgba(168,85,247,0.6)';
+    ctx.shadowBlur = 30;
+    ctx.beginPath();
+    ctx.moveTo(cardX + radius, cardY);
+    ctx.lineTo(cardX + cardW - radius, cardY);
+    ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + radius);
+    ctx.lineTo(cardX + cardW, cardY + cardH - radius);
+    ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - radius, cardY + cardH);
+    ctx.lineTo(cardX + radius, cardY + cardH);
+    ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - radius);
+    ctx.lineTo(cardX, cardY + radius);
+    ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+
+    return new Promise<void>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('이미지 다운로드에 실패했습니다.'));
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const safeName = (card.cardName || 'card').replace(/[\\\/:*?"<>|]/g, '_');
+          link.download = `4x5_${card.cardSn}_${safeName}_${filenameSuffix}.png`;
+          link.href = url;
+          link.click();
+          URL.revokeObjectURL(url);
+          resolve();
+        },
+        'image/png',
+        1,
+      );
+    });
+  };
+
+  const handleDownloadDoam4x5 = async () => {
     if (!selectedCard) return;
     const src = getImageUrl(
       selectedCard.generatedImageUrl || selectedCard.characterImageUrl || selectedCard.draftImageUrl
     );
     if (!src) {
-      setError('다운로드할 카드 이미지를 찾을 수 없습니다.');
+      setError('도감 카드 이미지를 찾을 수 없습니다.');
       return;
     }
     try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = src;
-
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('이미지를 불러오지 못했습니다.'));
-      });
-
-      // 지배색(대략적인 평균색) 추출을 위한 다운샘플링
-      const sampleSize = 64;
-      const offscreenCanvas = document.createElement('canvas');
-      offscreenCanvas.width = sampleSize;
-      offscreenCanvas.height = sampleSize;
-      const offscreenCtx = offscreenCanvas.getContext('2d');
-      if (!offscreenCtx) throw new Error('색상을 분석할 수 없습니다.');
-
-      offscreenCtx.drawImage(img, 0, 0, sampleSize, sampleSize);
-      const imageData = offscreenCtx.getImageData(0, 0, sampleSize, sampleSize);
-      const data = imageData.data;
-      let rSum = 0;
-      let gSum = 0;
-      let bSum = 0;
-      let count = 0;
-
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const alpha = data[i + 3];
-        if (alpha < 32) continue; // 거의 투명한 픽셀은 제외
-        rSum += r;
-        gSum += g;
-        bSum += b;
-        count += 1;
-      }
-
-      const avgR = count ? rSum / count : 20;
-      const avgG = count ? gSum / count : 20;
-      const avgB = count ? bSum / count : 30;
-
-      // 평균색 기준 지배색 + 보색 계산 (HSL에서 180도 회전)
-      const [h, s, l] = rgbToHsl(avgR, avgG, avgB);
-      const baseH = h;
-      const baseS = s * 0.8;
-      const baseL = Math.min(0.4, l * 0.7 + 0.1); // 너무 밝지 않게 조정
-
-      const compH = (h + 0.5) % 1; // 보색 (180도)
-      const compS = baseS;
-      const compL = baseL;
-
-      const [baseR, baseG, baseB] = hslToRgb(baseH, baseS, baseL);
-      const [compR, compG, compB] = hslToRgb(compH, compS, compL);
-
-      // 4:5 비율의 고해상도 캔버스 (인스타 게시용)
-      const targetWidth = 2048;
-      const targetHeight = Math.round((targetWidth * INSTAGRAM_FEED_ASPECT.h) / INSTAGRAM_FEED_ASPECT.w); // 2560
-
-      const canvas = document.createElement('canvas');
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas를 초기화할 수 없습니다.');
-
-      // 배경: 카드 이미지를 1.5배 확대한 후, 아주 낮은 투명도로 전체에 깔기
-      // 먼저 지배색/보색 블렌드로 기본 그라디언트를 깔고
-      const gradient = ctx.createLinearGradient(0, 0, targetWidth, targetHeight);
-      const midR = Math.round(baseR * 0.6 + compR * 0.4);
-      const midG = Math.round(baseG * 0.6 + compG * 0.4);
-      const midB = Math.round(baseB * 0.6 + compB * 0.4);
-      gradient.addColorStop(0, `rgb(${baseR}, ${baseG}, ${baseB})`);
-      gradient.addColorStop(0.5, `rgb(${midR}, ${midG}, ${midB})`);
-      gradient.addColorStop(1, `rgb(${compR}, ${compG}, ${compB})`);
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-      // 그 위에 카드 이미지를 1.5배로 확대해서, 매우 낮은 투명도로 오버레이
-      const bgScale = Math.min(targetWidth / img.width, targetHeight / img.height) * 1.5;
-      const bgW = img.width * bgScale;
-      const bgH = img.height * bgScale;
-      const bgX = (targetWidth - bgW) / 2;
-      const bgY = (targetHeight - bgH) / 2;
-
-      ctx.save();
-      ctx.globalAlpha = 0.12; // 아주 옅게
-      ctx.filter = 'blur(2px)'; // 살짝 블러를 줘서 카드와 겹쳐도 거슬리지 않게
-      ctx.drawImage(img, bgX, bgY, bgW, bgH);
-      ctx.restore();
-
-      // 비네팅
-      const vignette = ctx.createRadialGradient(
-        targetWidth / 2,
-        targetHeight / 2,
-        Math.min(targetWidth, targetHeight) / 4,
-        targetWidth / 2,
-        targetHeight / 2,
-        Math.max(targetWidth, targetHeight) / 1.1,
-      );
-      vignette.addColorStop(0, 'rgba(0,0,0,0)');
-      vignette.addColorStop(1, 'rgba(0,0,0,0.45)');
-      ctx.fillStyle = vignette;
-      ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-      // 원본 비율을 유지하면서 4:5 캔버스 안에 최대한 크게 맞추되, 살짝 여백을 더 주기 위해 스케일을 약간 줄임
-      const scale = Math.min(targetWidth / img.width, targetHeight / img.height) * 0.95;
-      const drawWidth = img.width * scale;
-      const drawHeight = img.height * scale;
-      const dx = (targetWidth - drawWidth) / 2;
-      const dy = (targetHeight - drawHeight) / 2;
-
-      // 이미지 본체를 라운드 카드처럼 그리기 (라운드 정도를 약간 줄임)
-      const radius = 70;
-      const cardX = dx;
-      const cardY = dy;
-      const cardW = drawWidth;
-      const cardH = drawHeight;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(cardX + radius, cardY);
-      ctx.lineTo(cardX + cardW - radius, cardY);
-      ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + radius);
-      ctx.lineTo(cardX + cardW, cardY + cardH - radius);
-      ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - radius, cardY + cardH);
-      ctx.lineTo(cardX + radius, cardY + cardH);
-      ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - radius);
-      ctx.lineTo(cardX, cardY + radius);
-      ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY);
-      ctx.closePath();
-      ctx.clip();
-
-      // 카드 이미지
-      ctx.drawImage(img, cardX, cardY, cardW, cardH);
-
-      ctx.restore();
-
-      // 카드 외곽 글로우/보더 (라운드 값과 동일하게 통일)
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-      ctx.lineWidth = 6;
-      ctx.shadowColor = 'rgba(168,85,247,0.6)';
-      ctx.shadowBlur = 30;
-      ctx.beginPath();
-      ctx.moveTo(cardX + radius, cardY);
-      ctx.lineTo(cardX + cardW - radius, cardY);
-      ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + radius);
-      ctx.lineTo(cardX + cardW, cardY + cardH - radius);
-      ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - radius, cardY + cardH);
-      ctx.lineTo(cardX + radius, cardY + cardH);
-      ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - radius);
-      ctx.lineTo(cardX, cardY + radius);
-      ctx.quadraticCurveTo(cardX, cardY, cardX + radius, cardY);
-      ctx.closePath();
-      ctx.stroke();
-      ctx.restore();
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            setError('이미지 다운로드에 실패했습니다. 다시 시도해 주세요.');
-            return;
-          }
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          const safeName = (selectedCard.cardName || 'card').replace(/[\\\/:*?"<>|]/g, '_');
-          link.download = `instagram_${selectedCard.cardSn}_${safeName}.png`;
-          link.href = url;
-          link.click();
-          URL.revokeObjectURL(url);
-        },
-        'image/png',
-        1,
-      );
+      await downloadCardImage4x5(src, selectedCard, '도감카드');
     } catch (e) {
-      setError(e instanceof Error ? e.message : '이미지 다운로드에 실패했습니다. 다시 시도해 주세요.');
+      setError(e instanceof Error ? e.message : '다운로드에 실패했습니다.');
+    }
+  };
+
+  const handleDownloadSd4x5 = async () => {
+    if (!selectedCard) return;
+    const src = getImageUrl(flowCardSdImageUrl ?? undefined);
+    if (!src) {
+      setError('SD 카드 이미지를 찾을 수 없습니다. (연결된 Flow 카드에 SD 이미지가 없거나, 게시물에 Flow 카드가 연결되어 있지 않습니다.)');
+      return;
+    }
+    try {
+      await downloadCardImage4x5(src, selectedCard, 'SD카드');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '다운로드에 실패했습니다.');
+    }
+  };
+
+  const handleDownloadSymbol4x5 = async () => {
+    if (!selectedCard) return;
+    const src = getImageUrl(flowCardSymbolImageUrl ?? undefined);
+    if (!src) {
+      setError('심볼 카드 이미지를 찾을 수 없습니다. (연결된 Flow 카드에 심볼 이미지가 없거나, 게시물에 Flow 카드가 연결되어 있지 않습니다.)');
+      return;
+    }
+    try {
+      await downloadCardImage4x5(src, selectedCard, '심볼카드');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '다운로드에 실패했습니다.');
+    }
+  };
+
+  /** 도감에 올라가 있는 캐릭터 이미지(FlowCard 메인 이미지) 4:5 다운로드 */
+  const handleDownloadDoamCharacter4x5 = async () => {
+    if (!selectedCard) return;
+    const src = getImageUrl(flowCardImageUrl ?? undefined);
+    if (!src) {
+      setError('도감 캐릭터 이미지를 찾을 수 없습니다. (연결된 Flow 카드에 이미지가 없거나, 카드/게시물에 Flow 카드가 연결되어 있지 않습니다.)');
+      return;
+    }
+    try {
+      await downloadCardImage4x5(src, selectedCard, '도감캐릭터');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '다운로드에 실패했습니다.');
     }
   };
 
@@ -584,13 +630,40 @@ export default function AdminPostPage() {
             <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800 h-full flex flex-col items-center justify-between gap-3">
               <div className="w-full flex items-center justify-between mb-2">
                 <div className="text-xs font-medium text-gray-700 dark:text-gray-300">인스타그램 4:5 미리보기</div>
-                <button
-                  type="button"
-                  onClick={handleDownloadInstagramImage}
-                  className="text-[11px] px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  4:5 이미지 다운로드
-                </button>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleDownloadDoam4x5}
+                    disabled={!getImageUrl(selectedCard.generatedImageUrl || selectedCard.characterImageUrl || selectedCard.draftImageUrl)}
+                    className="text-[11px] px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    카드
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadDoamCharacter4x5}
+                    disabled={!getImageUrl(flowCardImageUrl ?? undefined)}
+                    className="text-[11px] px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    캐릭터
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSd4x5}
+                    disabled={!getImageUrl(flowCardSdImageUrl ?? undefined)}
+                    className="text-[11px] px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    SD
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSymbol4x5}
+                    disabled={!getImageUrl(flowCardSymbolImageUrl ?? undefined)}
+                    className="text-[11px] px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    심볼
+                  </button>
+                </div>
               </div>
               <div
                 className="w-full max-w-[300px] rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-700 shadow-md"

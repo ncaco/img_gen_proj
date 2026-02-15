@@ -644,6 +644,7 @@ function CardConfirmNodeComponent({ data, id }: NodeProps<{ label?: string } & C
           backgroundImageUrl: null,
           generatedPrompt: data.prompt || null, // 플로우의 카드생성프롬프트 박스(PromptBoxNode)의 프롬프트 데이터
           generatedImageUrl: previewImageUrl, // 카드 미리보기 박스에 생성된 템플릿 이미지
+          flowCardId: cardData.flowCardId ?? undefined, // 게시물 관리에서 SD/심볼 다운로드 시 사용
         }),
       });
 

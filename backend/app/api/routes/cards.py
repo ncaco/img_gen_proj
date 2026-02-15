@@ -242,6 +242,7 @@ async def get_cards(
                 generatedPrompt=card.generated_prompt,
                 generatedImageUrl=gen_url,
                 draftImageUrl=draft_url,
+                flowCardId=card.flow_card_id,
                 createdAt=card.created_at.isoformat() if card.created_at else "",
                 updatedAt=card.updated_at.isoformat() if card.updated_at else "",
             ))

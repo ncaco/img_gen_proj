@@ -56,6 +56,7 @@ class CardSaveRequestSchema(BaseModel):
     backgroundImageUrl: Optional[str] = Field(None, description="배경 이미지 URL")
     generatedPrompt: Optional[str] = Field(None, description="생성된 프롬프트")
     generatedImageUrl: Optional[str] = Field(None, description="생성된 이미지 URL")
+    flowCardId: Optional[int] = Field(None, description="연결된 FlowCard ID")
 
 
 class CardUpdateRequestSchema(BaseModel):
@@ -103,6 +104,7 @@ class CardResponseSchema(BaseModel):
     generatedPrompt: Optional[str] = Field(None, description="생성된 프롬프트")
     generatedImageUrl: Optional[str] = Field(None, description="생성된 이미지 URL")
     draftImageUrl: Optional[str] = Field(None, description="초안(최초 생성) 이미지 URL")
+    flowCardId: Optional[int] = Field(None, description="연결된 FlowCard ID")
     createdAt: str = Field(..., description="생성일시")
     updatedAt: str = Field(..., description="수정일시")
 

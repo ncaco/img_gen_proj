@@ -50,7 +50,10 @@ class Card(Base):
     # 생성된 콘텐츠
     generated_prompt = Column(Text, nullable=True, comment="생성된 프롬프트")
     generated_image_url = Column(Text, nullable=True, comment="생성된 이미지 URL")
-    
+
+    # 플로우 카드 연동 (도감/SD/심볼 이미지 조회용)
+    flow_card_id = Column(Integer, ForeignKey("flow_cards.id"), nullable=True, index=True, comment="연결된 FlowCard ID")
+
     # 메타데이터
     created_at = Column(
         DateTime(timezone=True),

@@ -93,6 +93,11 @@ def init_db(force_recreate: bool = False):
                 conn.execute(text("ALTER TABLE cards ADD COLUMN gender VARCHAR(50)"))
                 conn.commit()
             print("✅ cards 테이블에 gender 컬럼을 추가했습니다.")
+        if "flow_card_id" not in card_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE cards ADD COLUMN flow_card_id INTEGER"))
+                conn.commit()
+            print("✅ cards 테이블에 flow_card_id 컬럼을 추가했습니다.")
 
     # workspaces 테이블에 deleted_at 컬럼이 없으면 추가 (소프트 삭제용 마이그레이션)
     if "workspaces" in inspector.get_table_names():

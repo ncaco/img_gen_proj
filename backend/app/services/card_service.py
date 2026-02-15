@@ -210,6 +210,7 @@ class CardService:
             background_image_url=request.backgroundImageUrl or None,
             generated_prompt=request.generatedPrompt or None,
             generated_image_url=request.generatedImageUrl or None,
+            flow_card_id=request.flowCardId or None,
         )
         
         # 데이터베이스에 저장 (card_sn를 얻기 위해)
