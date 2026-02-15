@@ -148,6 +148,8 @@ export interface FlowCard {
   prompt?: string | null;
   negativePrompt?: string | null;
   imageUrl?: string | null;
+  sdCharacterImageUrl?: string | null;
+  symbolImageUrl?: string | null;
   promptGenerationStatus?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -282,7 +284,7 @@ export async function uploadFlowCardImage(
 ): Promise<FlowCardUpdateResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  
+
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
   const res = await fetch(`${API_BASE}/api/v1/flow/cards/${cardId}/image`, {
     method: 'POST',
@@ -292,6 +294,40 @@ export async function uploadFlowCardImage(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail ?? '이미지 업로드에 실패했습니다.');
+  }
+  return res.json();
+}
+
+/** FlowCard SD 캐릭터 이미지 업로드. 로그인 필요. */
+export async function uploadFlowCardSdImage(cardId: number, file: File): Promise<FlowCardUpdateResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  const res = await fetch(`${API_BASE}/api/v1/flow/cards/${cardId}/image/sd-character`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? 'SD 캐릭터 이미지 업로드에 실패했습니다.');
+  }
+  return res.json();
+}
+
+/** FlowCard 심볼 이미지 업로드. 로그인 필요. */
+export async function uploadFlowCardSymbolImage(cardId: number, file: File): Promise<FlowCardUpdateResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  const res = await fetch(`${API_BASE}/api/v1/flow/cards/${cardId}/image/symbol`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? '심볼 이미지 업로드에 실패했습니다.');
   }
   return res.json();
 }

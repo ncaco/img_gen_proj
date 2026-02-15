@@ -175,6 +175,20 @@ def init_db(force_recreate: bool = False):
                 conn.commit()
             print("✅ flow_characters 테이블에 noble_phantasms 컬럼을 추가했습니다.")
 
+    # flow_cards 테이블: sd_character_image_url, symbol_image_url 컬럼 추가
+    if "flow_cards" in inspector.get_table_names():
+        flow_card_columns = [c["name"] for c in inspector.get_columns("flow_cards")]
+        if "sd_character_image_url" not in flow_card_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE flow_cards ADD COLUMN sd_character_image_url TEXT"))
+                conn.commit()
+            print("✅ flow_cards 테이블에 sd_character_image_url 컬럼을 추가했습니다.")
+        if "symbol_image_url" not in flow_card_columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE flow_cards ADD COLUMN symbol_image_url TEXT"))
+                conn.commit()
+            print("✅ flow_cards 테이블에 symbol_image_url 컬럼을 추가했습니다.")
+
     # flows 테이블 마이그레이션 (deleted_at, last_accessed_at 컬럼 추가)
     if "flows" in inspector.get_table_names():
         flow_columns = [c["name"] for c in inspector.get_columns("flows")]

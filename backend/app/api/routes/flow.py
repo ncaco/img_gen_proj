@@ -302,6 +302,8 @@ async def get_flow_cards(
                 prompt=card.prompt,
                 negativePrompt=card.negative_prompt,
                 imageUrl=card.image_url,
+                sdCharacterImageUrl=card.sd_character_image_url,
+                symbolImageUrl=card.symbol_image_url,
                 promptGenerationStatus=card.prompt_generation_status,
                 createdAt=card.created_at.isoformat() if card.created_at else "",
                 updatedAt=card.updated_at.isoformat() if card.updated_at else "",
@@ -348,6 +350,8 @@ async def get_flow_card(
         prompt=card.prompt,
         negativePrompt=card.negative_prompt,
         imageUrl=card.image_url,
+        sdCharacterImageUrl=card.sd_character_image_url,
+        symbolImageUrl=card.symbol_image_url,
         promptGenerationStatus=card.prompt_generation_status,
         createdAt=card.created_at.isoformat() if card.created_at else "",
         updatedAt=card.updated_at.isoformat() if card.updated_at else "",
@@ -584,6 +588,88 @@ async def upload_flow_card_image(
             status_code=500,
             detail=f"이미지 업로드 중 오류가 발생했습니다: {str(e)}"
         )
+
+
+@router.post("/cards/{card_id}/image/sd-character", response_model=FlowCardUpdateResponseSchema)
+async def upload_flow_card_sd_image(
+    card_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_required),
+):
+    """
+    FlowCard SD 캐릭터 이미지 업로드.
+    """
+    from app.database.models import FlowCard
+
+    card = db.query(FlowCard).filter(FlowCard.id == card_id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="해당 카드를 찾을 수 없습니다.")
+    character = (
+        db.query(FlowCharacter)
+        .filter(
+            FlowCharacter.id == card.character_id,
+            FlowCharacter.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not character:
+        raise HTTPException(status_code=404, detail="해당 카드를 찾을 수 없습니다.")
+    subdirectory = f"flow_cards/user_{current_user.id}/character_{card.character_id}"
+    file_url, _ = await save_uploaded_file(
+        file,
+        subdirectory=subdirectory,
+        filename_prefix=f"card_{card_id}_sd_",
+    )
+    updated = FlowCardService.update_card(
+        db=db,
+        card_id=card_id,
+        sd_character_image_url=file_url,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="카드 업데이트에 실패했습니다.")
+    return FlowCardUpdateResponseSchema(success=True, message="SD 캐릭터 이미지가 업로드되었습니다.")
+
+
+@router.post("/cards/{card_id}/image/symbol", response_model=FlowCardUpdateResponseSchema)
+async def upload_flow_card_symbol_image(
+    card_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_required),
+):
+    """
+    FlowCard 심볼 이미지 업로드.
+    """
+    from app.database.models import FlowCard
+
+    card = db.query(FlowCard).filter(FlowCard.id == card_id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="해당 카드를 찾을 수 없습니다.")
+    character = (
+        db.query(FlowCharacter)
+        .filter(
+            FlowCharacter.id == card.character_id,
+            FlowCharacter.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not character:
+        raise HTTPException(status_code=404, detail="해당 카드를 찾을 수 없습니다.")
+    subdirectory = f"flow_cards/user_{current_user.id}/character_{card.character_id}"
+    file_url, _ = await save_uploaded_file(
+        file,
+        subdirectory=subdirectory,
+        filename_prefix=f"card_{card_id}_symbol_",
+    )
+    updated = FlowCardService.update_card(
+        db=db,
+        card_id=card_id,
+        symbol_image_url=file_url,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="카드 업데이트에 실패했습니다.")
+    return FlowCardUpdateResponseSchema(success=True, message="심볼 이미지가 업로드되었습니다.")
 
 
 @router.post("/noble-phantasm/generate", response_model=NoblePhantasmGenerateResponse)

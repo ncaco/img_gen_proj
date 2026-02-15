@@ -171,17 +171,21 @@ class FlowCardService:
         prompt: str | None = None,
         negative_prompt: str | None = None,
         image_url: str | None = None,
+        sd_character_image_url: str | None = None,
+        symbol_image_url: str | None = None,
         prompt_generation_status: str | None = None,
     ) -> FlowCard | None:
         """
-        FlowCard의 프롬프트, 네거티브 프롬프트, 이미지 URL, 프롬프트 생성 상태 업데이트
+        FlowCard의 프롬프트, 네거티브 프롬프트, 이미지 URL들, 프롬프트 생성 상태 업데이트
         
         Args:
             db: 데이터베이스 세션
             card_id: 카드 ID
             prompt: 프롬프트 (선택)
             negative_prompt: 네거티브 프롬프트 (선택)
-            image_url: 이미지 URL (선택)
+            image_url: 카드 이미지 URL (선택)
+            sd_character_image_url: SD 캐릭터 이미지 URL (선택)
+            symbol_image_url: 심볼 이미지 URL (선택)
             prompt_generation_status: 프롬프트 생성 상태 (선택, null: 미요청, 'requested': 요청중, 'completed': 완료)
             
         Returns:
@@ -197,6 +201,10 @@ class FlowCardService:
             card.negative_prompt = negative_prompt
         if image_url is not None:
             card.image_url = image_url
+        if sd_character_image_url is not None:
+            card.sd_character_image_url = sd_character_image_url
+        if symbol_image_url is not None:
+            card.symbol_image_url = symbol_image_url
         if prompt_generation_status is not None:
             card.prompt_generation_status = prompt_generation_status
 

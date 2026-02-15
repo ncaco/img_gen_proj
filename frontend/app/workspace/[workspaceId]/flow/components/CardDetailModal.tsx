@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams } from 'next/navigation';
-import { getFlowCard, getFlowCharacter, generateImagePrompt, updateFlowCard, uploadFlowCardImage, fetchLoreMapping, type FlowCard, type FlowCharacterDetail } from '@/app/lib/flow';
+import { getFlowCard, getFlowCharacter, generateImagePrompt, updateFlowCard, uploadFlowCardImage, uploadFlowCardSdImage, uploadFlowCardSymbolImage, fetchLoreMapping, type FlowCard, type FlowCharacterDetail } from '@/app/lib/flow';
 import { CATEGORY_SELECT_NODE_ID, type CategorySelectNodeData } from './CategorySelectNode';
 import { PROMPT_NODE_ID, type PromptTextareaNodeData } from './PromptTextareaNode';
 import { LORE_NODE_ID } from './LoreResultNode';
@@ -34,8 +34,13 @@ export default function CardDetailModal({ flowCardId, isOpen, onClose, onUpdateN
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [copiedNegative, setCopiedNegative] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingSdImage, setUploadingSdImage] = useState(false);
+  const [uploadingSymbolImage, setUploadingSymbolImage] = useState(false);
   const [isImageFullscreen, setIsImageFullscreen] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const sdImageInputRef = useRef<HTMLInputElement>(null);
+  const symbolImageInputRef = useRef<HTMLInputElement>(null);
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
 
   // 현재 카드의 인덱스 찾기
   const currentCardIndex = flowCardId !== null 
@@ -378,6 +383,52 @@ ${negativePrompt}`;
     }
   };
 
+  const handleSdImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!flowCardId || !event.target.files?.length) return;
+    const file = event.target.files[0];
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+    setUploadingSdImage(true);
+    try {
+      await uploadFlowCardSdImage(flowCardId, file);
+      const updated = await getFlowCard(flowCardId);
+      setFlowCard(updated);
+      if (onImageUploaded) onImageUploaded();
+    } catch (err) {
+      console.error('SD 캐릭터 이미지 업로드 실패:', err);
+      alert(err instanceof Error ? err.message : '업로드에 실패했습니다.');
+    } finally {
+      setUploadingSdImage(false);
+      event.target.value = '';
+      sdImageInputRef.current && (sdImageInputRef.current.value = '');
+    }
+  };
+
+  const handleSymbolImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!flowCardId || !event.target.files?.length) return;
+    const file = event.target.files[0];
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+    setUploadingSymbolImage(true);
+    try {
+      await uploadFlowCardSymbolImage(flowCardId, file);
+      const updated = await getFlowCard(flowCardId);
+      setFlowCard(updated);
+      if (onImageUploaded) onImageUploaded();
+    } catch (err) {
+      console.error('심볼 이미지 업로드 실패:', err);
+      alert(err instanceof Error ? err.message : '업로드에 실패했습니다.');
+    } finally {
+      setUploadingSymbolImage(false);
+      event.target.value = '';
+      symbolImageInputRef.current && (symbolImageInputRef.current.value = '');
+    }
+  };
+
   if (!isOpen) return null;
 
   const gender = flowCard?.gender || '전체';
@@ -541,6 +592,47 @@ ${negativePrompt}`;
                       {uploadingImage ? '업로드 중...' : flowCard.imageUrl ? '이미지 변경' : '이미지 등록'}
                     </div>
                   </label>
+                  {/* SD 캐릭터 이미지 / 심볼 이미지 나란히 */}
+                  <div className="flex flex-row gap-4 w-full">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="text-white/60 text-xs font-medium">SD 캐릭터 이미지</div>
+                      {flowCard.sdCharacterImageUrl ? (
+                        <img
+                          src={`${apiBase}${flowCard.sdCharacterImageUrl.startsWith('/') ? '' : '/'}${flowCard.sdCharacterImageUrl}`}
+                          alt="SD 캐릭터"
+                          className="w-full h-auto max-h-24 object-contain rounded border border-white/10"
+                        />
+                      ) : null}
+                      <input ref={sdImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleSdImageUpload} />
+                      <button
+                        type="button"
+                        disabled={uploadingSdImage || !flowCardId}
+                        onClick={() => sdImageInputRef.current?.click()}
+                        className="w-full px-3 py-1.5 rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 text-xs disabled:opacity-50"
+                      >
+                        {uploadingSdImage ? '업로드 중...' : flowCard.sdCharacterImageUrl ? 'SD 캐릭터 이미지 변경' : 'SD 캐릭터 이미지 업로드'}
+                      </button>
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="text-white/60 text-xs font-medium">심볼 이미지</div>
+                      {flowCard.symbolImageUrl ? (
+                        <img
+                          src={`${apiBase}${flowCard.symbolImageUrl.startsWith('/') ? '' : '/'}${flowCard.symbolImageUrl}`}
+                          alt="심볼"
+                          className="w-full h-auto max-h-24 object-contain rounded border border-white/10"
+                        />
+                      ) : null}
+                      <input ref={symbolImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleSymbolImageUpload} />
+                      <button
+                        type="button"
+                        disabled={uploadingSymbolImage || !flowCardId}
+                        onClick={() => symbolImageInputRef.current?.click()}
+                        className="w-full px-3 py-1.5 rounded border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 text-xs disabled:opacity-50"
+                      >
+                        {uploadingSymbolImage ? '업로드 중...' : flowCard.symbolImageUrl ? '심볼 이미지 변경' : '심볼 이미지 업로드'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="w-full aspect-[5/7] flex flex-col items-center justify-center border border-white/20 bg-white/5 rounded overflow-hidden">
