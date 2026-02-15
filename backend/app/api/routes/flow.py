@@ -104,7 +104,7 @@ async def lore_mapping(
         log_api_usage(
             db,
             OPERATION_POST_CREATION,
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
             input_tokens=usage.get("input_tokens"),
             output_tokens=usage.get("output_tokens"),
             user_id=current_user.id,
@@ -425,7 +425,7 @@ async def generate_image_prompt(
             log_api_usage(
                 db,
                 OPERATION_POST_CREATION,
-                model="gpt-4o-mini",
+                model="gpt-5.2",
                 input_tokens=usage.get("input_tokens"),
                 output_tokens=usage.get("output_tokens"),
                 user_id=current_user.id,
@@ -637,7 +637,7 @@ async def generate_noble_phantasm_endpoint(
             log_api_usage(
                 db,
                 OPERATION_POST_CREATION,
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 input_tokens=usage.get("input_tokens"),
                 output_tokens=usage.get("output_tokens"),
                 user_id=current_user.id,
@@ -709,7 +709,7 @@ async def generate_flavor_text_endpoint(
             log_api_usage(
                 db,
                 OPERATION_POST_CREATION,
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 input_tokens=usage.get("input_tokens"),
                 output_tokens=usage.get("output_tokens"),
                 user_id=current_user.id,
@@ -826,7 +826,7 @@ async def generate_card_data_endpoint(
             log_api_usage(
                 db,
                 OPERATION_POST_CREATION,
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 input_tokens=usage.get("input_tokens"),
                 output_tokens=usage.get("output_tokens"),
                 user_id=current_user.id,

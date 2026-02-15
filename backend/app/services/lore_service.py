@@ -50,7 +50,7 @@ Return all display values in "한국어(English)" format as specified.
 """
 
     response = await client.responses.parse(
-        model="gpt-4o-mini",
+        model="gpt-5-mini",
         input=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},

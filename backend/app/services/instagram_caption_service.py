@@ -102,7 +102,7 @@ async def generate_instagram_caption_single(
 """
 
     response = await client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -209,7 +209,7 @@ async def generate_instagram_caption(
 {card_info}"""
 
     response = await client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},

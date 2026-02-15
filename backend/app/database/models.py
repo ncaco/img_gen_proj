@@ -418,7 +418,7 @@ class ApiUsageLog(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="로그 ID (PK)")
     operation_type = Column(String(50), nullable=False, index=True, comment="구분: post_creation(글생성), image_generation(이미지생성)")
-    model = Column(String(100), nullable=True, comment="모델명 (예: gpt-4o-mini, gpt-image-1.5)")
+    model = Column(String(100), nullable=True, comment="모델명 (예: gpt-5-mini, gpt-image-1.5)")
     input_tokens = Column(Integer, nullable=True, comment="입력 토큰 수 (이미지 생성 시 NULL)")
     output_tokens = Column(Integer, nullable=True, comment="출력 토큰 수 (이미지 생성 시 NULL)")
     cost_usd = Column(String(20), nullable=True, comment="비용 (USD 문자열, 예: 0.001234)")

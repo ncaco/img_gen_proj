@@ -118,7 +118,7 @@ export default function AdminLogsPage() {
           <input
             value={modelFilter}
             onChange={(e) => setModelFilter(e.target.value)}
-            placeholder="예: gpt-4o-mini"
+            placeholder="예: gpt-5-mini"
             className="h-8 w-40 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 text-xs text-gray-900 dark:text-white"
           />
         </div>

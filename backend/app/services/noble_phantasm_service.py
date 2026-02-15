@@ -132,7 +132,7 @@ Return values in the specified format:
 """
 
     response = await client.responses.parse(
-        model="gpt-4o-mini",
+        model="gpt-5-mini",
         input=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -225,7 +225,7 @@ Return the result as a single quote or dialogue line.
 """
 
     response = await client.responses.parse(
-        model="gpt-4o-mini",
+        model="gpt-5-mini",
         input=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},

@@ -285,16 +285,26 @@ export default function HeroAutoPromptsPage({
             프롬프트 관리 · 풀 #{poolId}
           </h1>
         </div>
-        {!allPromptsReady && (
-          <button
-            type="button"
-            onClick={handleGenerateAll}
-            disabled={generatingAll || !hasServants}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generatingAll ? '생성 중...' : '한번에 모든 프롬프트 생성'}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {allPromptsReady && (
+            <Link
+              href={`/hero-auto/${poolId}/prompts/gallery`}
+              className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 border border-white/20"
+            >
+              이미지 카드 보기 (5×2)
+            </Link>
+          )}
+          {!allPromptsReady && (
+            <button
+              type="button"
+              onClick={handleGenerateAll}
+              disabled={generatingAll || !hasServants}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generatingAll ? '생성 중...' : '한번에 모든 프롬프트 생성'}
+            </button>
+          )}
+        </div>
       </header>
 
       {error && (

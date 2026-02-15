@@ -103,7 +103,7 @@ async def generate_instagram_caption_for_card(
             log_api_usage(
                 db,
                 OPERATION_POST_CREATION,
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 input_tokens=usage.get("input_tokens"),
                 output_tokens=usage.get("output_tokens"),
                 user_id=current_user.id,
@@ -157,7 +157,7 @@ async def generate_instagram_caption_single_for_card(
             log_api_usage(
                 db,
                 OPERATION_POST_CREATION,
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 input_tokens=usage.get("input_tokens"),
                 output_tokens=usage.get("output_tokens"),
                 user_id=current_user.id,

@@ -162,7 +162,7 @@ The prompt should reflect the character's background, era, archetype, and achiev
 """
 
     response = await client.responses.parse(
-        model="gpt-4o-mini",
+        model="gpt-5-mini",
         input=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
