@@ -473,3 +473,60 @@ class CardSnsPost(Base):
 
     def __repr__(self):
         return f"<CardSnsPost(id={self.id}, card_sn={self.card_sn}, status='{self.status}')>"
+
+
+class Storyboard(Base):
+    """
+    스토리보드: 카드별 1:1. 왼쪽에서 카드 선택 시 해당 카드의 스토리보드(씬 목록)를 오른쪽에서 편집.
+    """
+    __tablename__ = "storyboards"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="스토리보드 ID (PK)")
+    card_sn = Column(Integer, ForeignKey("cards.card_sn"), nullable=False, unique=True, index=True, comment="카드 일련번호 (FK, 1:1)")
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    def __repr__(self):
+        return f"<Storyboard(id={self.id}, card_sn={self.card_sn})>"
+
+
+class StoryboardScene(Base):
+    """
+    스토리보드 씬: 씬1, 씬2, ... 순서대로 내용·진행시간(초) 저장.
+    """
+    __tablename__ = "storyboard_scenes"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="씬 ID (PK)")
+    storyboard_id = Column(Integer, ForeignKey("storyboards.id", ondelete="CASCADE"), nullable=False, index=True, comment="스토리보드 ID (FK)")
+    sort_order = Column(Integer, nullable=False, default=1, comment="표시 순서 (1부터)")
+    content = Column(Text, nullable=True, comment="씬 내용")
+    duration_seconds = Column(Integer, nullable=False, default=0, comment="진행 시간(초)")
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성일시",
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="수정일시",
+    )
+
+    def __repr__(self):
+        return f"<StoryboardScene(id={self.id}, storyboard_id={self.storyboard_id}, sort_order={self.sort_order})>"

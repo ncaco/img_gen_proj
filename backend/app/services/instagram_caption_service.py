@@ -8,6 +8,40 @@ from app.core.config import settings
 
 CaptionField = Literal["firstLine", "body", "hashtags"]
 
+# 하드코딩 해시태그 (AI 생성 없이 캡션 하단에 항상 추가, 한 줄씩 리스트)
+DEFAULT_HASHTAGS = [
+    "#digitalart",
+    "#art",
+    "#artist",
+    "#aiartengagement",
+    "#artwork",
+    "#digitaldrawing",
+    "#aiartgallery",
+    "#gptart",
+    "#chatgptart",
+    "#gptgenerated",
+    "#aiillustration",
+    "#aiartists",
+    "#artoftheday",
+    "#aiartcommunity",
+    "#aiartwork",
+    "#animeart",
+    "#digitalillustration",
+    "#characterdesign",
+    "#graphicdesign",
+    "#fantasyart",
+    "#illustration",
+    "#generativeaiart",
+    "#gptdesign",
+    "#promptart",
+    "#aiworkflow",
+    "#anime",
+    "#tcgart",
+    "#cardillustration",
+    "#fantasycard",
+    "#aicreative",
+]
+
 
 async def generate_instagram_caption_single(
     card_name: str,
@@ -21,9 +55,12 @@ async def generate_instagram_caption_single(
 ) -> str:
     """
     카드 정보를 바탕으로 인스타그램용 한 가지 항목만 AI로 생성합니다.
-    field: "firstLine" | "body" | "hashtags"
+    field: "firstLine" | "body" | "hashtags" (hashtags는 하드코딩으로 반환)
     Returns: 생성된 문자열
     """
+    if field == "hashtags":
+        return " ".join(DEFAULT_HASHTAGS), None
+
     api_key = getattr(settings, "OPENAI_API_KEY", None) or ""
     if not api_key:
         raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
@@ -56,7 +93,7 @@ async def generate_instagram_caption_single(
 한 줄만 출력하세요. 따옴표, JSON 없이.
 """.strip()
 
-    elif field == "body":
+    else:  # body
         system_prompt = """
 당신은 페이트 느낌의 트레이딩 카드 일러스트용 인스타그램 본문 캡션을 쓰는 전문가입니다.
 
@@ -82,20 +119,6 @@ async def generate_instagram_caption_single(
 본문만 출력하세요. JSON이나 라벨 없이.
 """.strip()
 
-    else:  # hashtags
-        system_prompt = """
-당신은 게임 캐릭터 전문 마케팅 카피라이터입니다.
-인스타그램 홍보 게시물에 사용할 해시태그를 제작합니다.
-
-지침:
-- 인스타그램에서 잘 사용하는 인기 해시태그를 **25~30개** 만드세요.
-- 공백으로 구분하고, 각 태그는 반드시 #으로 시작하세요.
-- 생성형 AI 관련 태그, 아트·캐릭터·카드·일러스트 관련 태그를 적절히 섞으세요.
-- 한국어와 영어를 함께 사용해 글로벌 유저가 검색하기 좋게 만드세요.
-
-해시태그 25~30개를 한 줄로만 출력하세요.
-""".strip()
-
     user_prompt = f"""아래 카드에 대해 요청한 항목만 생성해 주세요.
 
 {card_info}
@@ -109,9 +132,6 @@ async def generate_instagram_caption_single(
         ],
     )
     content = (response.choices[0].message.content or "").strip()
-    if field == "hashtags":
-        parts = [t.strip() for t in content.split() if t.strip()]
-        content = " ".join(p if p.startswith("#") else f"#{p}" for p in parts)
     usage = None
     if getattr(response, "usage", None):
         u = response.usage
@@ -192,9 +212,7 @@ async def generate_instagram_caption(
 
 마스터에게 묻는 문장 (1~2문장)
 
-<빈 줄>
-
-해시태그 25개를 한 줄에 공백으로만 구분하여 작성
+(해시태그는 별도로 추가되므로 출력하지 마세요.)
 
 스타일 가이드:
 - 장엄하고 신화적인 톤.
@@ -222,25 +240,13 @@ async def generate_instagram_caption(
         out = getattr(u, "output_tokens", None) or getattr(u, "completion_tokens", None)
         if inp is not None and out is not None:
             usage = {"input_tokens": inp, "output_tokens": out}
-    # 일반 텍스트 파싱: 첫 블록=한줄소개, 마지막 # 포함 블록=해시태그, 그 사이=본문
+    # 일반 텍스트 파싱: 첫 블록=한줄소개, 나머지=본문 (해시태그는 하드코딩 사용)
     blocks = [b.strip() for b in content.split("\n\n") if b.strip()]
     first_line = blocks[0] if blocks else ""
-    body = ""
-    raw_hashtags = ""
-    if len(blocks) >= 2:
-        # 마지막 블록 중 #이 있는 것을 해시태그로
-        for i in range(len(blocks) - 1, 0, -1):
-            if "#" in blocks[i]:
-                raw_hashtags = blocks[i]
-                body = "\n\n".join(blocks[1:i]).strip()
-                break
-        else:
-            body = "\n\n".join(blocks[1:]).strip()
-    hashtags_parts = [t.strip() for t in raw_hashtags.split() if t.strip()]
-    hashtags = " ".join(p if p.startswith("#") else f"#{p}" for p in hashtags_parts)
+    body = "\n\n".join(blocks[1:]).strip() if len(blocks) >= 2 else ""
 
     return {
         "firstLine": first_line,
         "body": body,
-        "hashtags": hashtags,
+        "hashtags": " ".join(DEFAULT_HASHTAGS),
     }, usage
