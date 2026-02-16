@@ -8,6 +8,9 @@ from app.core.config import settings
 from app.schemas.lore import LoreMappingResult
 from app.schemas.image_prompt import ImagePromptResult
 
+# 이미지 프롬프트 최대 글자수 (생성·저장 시 적용)
+MAX_IMAGE_PROMPT_LENGTH = 1500
+
 
 def normalize_image_prompt(prompt: str) -> str:
     """이미지 프롬프트 정규화"""
@@ -92,6 +95,7 @@ async def run_image_prompt_generator(
     "prompt": "이미지 생성용 메인 프롬프트 (영문)",
     "negative_prompt": "금지 요소 네거티브 프롬프트 (영문)"
     }
+    - prompt(메인 프롬프트)는 반드시 1500자 이내로 작성합니다. 1500자를 초과할 수 없습니다.
 
     [핵심 필수 요소 - 반드시 명시적으로 포함]
     0. 설정 (Settings)
@@ -161,6 +165,7 @@ async def run_image_prompt_generator(
     [출력 규칙]
     - 반드시 JSON만 출력합니다.
     - JSON 이외의 텍스트는 절대 출력하지 않습니다.
+    - 메인 프롬프트(prompt)는 1500자(문자 수)를 초과할 수 없습니다. 핵심만 간결하게 작성합니다.
     """
 
     user_prompt = f"""
@@ -244,7 +249,7 @@ async def run_image_prompt_generator(
 
 
 def run_prompt_postprocess(step3: ImagePromptResult, character_settings: dict) -> tuple[ImagePromptResult, dict]:
-    """프롬프트 후처리"""
+    """프롬프트 후처리 (정규화만, 글자수는 생성 요청 시 요구사항으로 전달)"""
     cleaned_prompt = normalize_image_prompt(step3.landscape_image_prompt_en)
     cleaned_negative = normalize_negative_prompt(step3.negative_prompt_en)
 

@@ -46,6 +46,7 @@ from app.services.flow_card_service import FlowCardService
 from app.services.image_prompt_service import (
     run_image_prompt_generator,
     run_prompt_postprocess,
+    MAX_IMAGE_PROMPT_LENGTH,
 )
 from app.services.noble_phantasm_service import (
     generate_noble_phantasm,
@@ -504,12 +505,19 @@ async def update_flow_card(
     
     if not character:
         raise HTTPException(status_code=404, detail="해당 카드를 찾을 수 없습니다.")
-    
+
+    # 이미지 프롬프트 글자수 제한 (1500자 초과 불가)
+    if request.prompt is not None and len(request.prompt) > MAX_IMAGE_PROMPT_LENGTH:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="프롬프트는 1500자를 초과할 수 없습니다.",
+        )
+
     # 프롬프트가 저장되는 경우 상태를 'completed'로 설정
     prompt_generation_status = None
     if request.prompt is not None:
         prompt_generation_status = 'completed'
-    
+
     updated_card = FlowCardService.update_card(
         db=db,
         card_id=card_id,
