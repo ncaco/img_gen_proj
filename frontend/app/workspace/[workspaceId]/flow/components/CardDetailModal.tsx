@@ -661,7 +661,7 @@ ${negativePrompt}`;
                           type="button"
                           onClick={async () => {
                             try {
-                              await navigator.clipboard.writeText('흰색 배경의 상징적인 심볼 벡터 일러스트 아이콘 제작');
+                              await navigator.clipboard.writeText('흰색 배경의 캐릭터가 아닌 상징적인 심볼 벡터 일러스트 아이콘 제작');
                               setCopiedSymbolPrompt(true);
                               setTimeout(() => setCopiedSymbolPrompt(false), 2000);
                             } catch {}
